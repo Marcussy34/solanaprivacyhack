@@ -13,7 +13,8 @@
 | Circuit | `circuits/src/main.nr` |
 | Constraints | **812** (target: <50k) |
 | Native proof | **0.44s** (target: <5s) |
-| NoirJS proof | **0.61s** (Node.js) |
+| NoirJS (Node) | **0.61s** |
+| **Browser proof** | **0.64s** (target: <15s) |
 | Verification | ✅ Passed |
 
 ---
