@@ -1,0 +1,7 @@
+# Private inputs
+seed = "12345"
+shuffled_deck = [5, 2, 11, 0, 8, 3, 12, 6, 1, 9, 4, 10, 7]
+
+# Public inputs
+deck_commitment = "0x04b91d7cc07a8e73f8ea50ec08d0457c785953dae3c2624a3a0a4ead6c02ed7e"
+original_deck = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
