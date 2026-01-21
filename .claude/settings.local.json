@@ -17,7 +17,13 @@
       "WebFetch(domain:noir-lang.org)",
       "WebFetch(domain:github.com)",
       "Bash(git add:*)",
-      "Bash(git commit:*)"
+      "Bash(git commit:*)",
+      "Bash(powershell -Command:*)",
+      "Bash(wsl --status:*)",
+      "Bash(wsl -d docker-desktop -e sh -c \"curl -L https://raw.githubusercontent.com/noir-lang/noirup/main/install | bash\")",
+      "Bash(wsl -d Ubuntu -e bash -c \"curl -L https://raw.githubusercontent.com/noir-lang/noirup/main/install | bash\")",
+      "Bash(wsl -d Ubuntu -e bash -c \"source ~/.bashrc && noirup\")",
+      "Bash(wsl -d Ubuntu -e bash -c:*)"
     ]
   }
 }
