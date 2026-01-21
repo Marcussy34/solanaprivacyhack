@@ -1,40 +1,57 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/pages/api-reference/create-next-app).
+# ZK Card Arena
 
-## Getting Started
+**Provably fair Blackjack on Solana using Zero-Knowledge Proofs**
 
-First, run the development server:
+## The Problem
+
+Online card games require trust: players must believe the house shuffled fairly and isn't cheating. Traditional solutions rely on third-party audits or reputation—neither is trustless.
+
+## Our Solution
+
+ZK Card Arena uses **zero-knowledge proofs** to cryptographically guarantee fairness:
+
+- **Shuffle Proof** — Proves the deck is a valid shuffle without revealing the order
+- **Card Commitments** — Cards are hidden until revealed, but locked in from the start
+- **On-chain Verification** — Anyone can verify proofs on Solana—no trust required
+
+The result: a Blackjack game where **even the house can't cheat**, and players can independently verify every game.
+
+## Tech Stack
+
+| Layer | Technology |
+|-------|------------|
+| ZK Circuits | [Noir](https://noir-lang.org/) |
+| Blockchain | [Solana](https://solana.com/) |
+| Smart Contracts | [Anchor](https://www.anchor-lang.com/) |
+| ZK Verification | [Light Protocol](https://lightprotocol.com/) (Groth16) |
+| Frontend | Next.js + React |
+
+## Quick Start
 
 ```bash
+# Install dependencies
+npm install
+
+# Run development server
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+See [docs/QUICK_START.md](./docs/QUICK_START.md) for full setup instructions.
 
-You can start editing the page by modifying `pages/index.js`. The page auto-updates as you edit the file.
+## Documentation
 
-[API routes](https://nextjs.org/docs/pages/building-your-application/routing/api-routes) can be accessed on [http://localhost:3000/api/hello](http://localhost:3000/api/hello). This endpoint can be edited in `pages/api/hello.js`.
+Detailed documentation is available in the [`/docs`](./docs) folder:
 
-The `pages/api` directory is mapped to `/api/*`. Files in this directory are treated as [API routes](https://nextjs.org/docs/pages/building-your-application/routing/api-routes) instead of React pages.
+- [Project Overview](./docs/PROJECT_OVERVIEW.md) — Vision and scope
+- [Architecture](./docs/ARCHITECTURE.md) — System design and data flows
+- [ZK Circuits](./docs/ZK_CIRCUITS.md) — Noir circuit specifications
+- [Smart Contracts](./docs/SMART_CONTRACTS.md) — Anchor program details
+- [Timeline](./docs/TIMELINE.md) — Development schedule
 
-This project uses [`next/font`](https://nextjs.org/docs/pages/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Project Status
 
-## Learn More
+🚧 **In Development** — Building for Solana Privacy Hackathon (Feb 1, 2026)
 
-To learn more about Next.js, take a look at the following resources:
+## License
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn-pages-router) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/pages/building-your-application/deploying) for more details.
+MIT
