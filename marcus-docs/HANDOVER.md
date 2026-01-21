@@ -19,11 +19,14 @@ The ZK shuffle proof circuit is **written, compiled, and tested**. The main bloc
 | Task | Status | Notes |
 |------|--------|-------|
 | Nargo installed | DONE | v1.0.0-beta.18 via WSL Ubuntu |
+| Nargo on macOS | DONE | v1.0.0-beta.18 via noirup |
+| BB on macOS | DONE | v3.0.0-nightly.20260102 via bbup |
 | Circuit written | DONE | `circuits/src/main.nr` |
 | Circuit compiles | DONE | 812 constraints, 8 ACIR opcodes |
 | Tests pass | DONE | 1/1 test passed |
 | Witness execution | DONE | 0.166s |
-| Proof generation | BLOCKED | `bb` missing `libc++.so.1` |
+| Proof generation | DONE | **0.44s on macOS** |
+| Proof verification | DONE | Verified successfully |
 
 ### What's Blocked
 
@@ -98,7 +101,7 @@ wsl -d Ubuntu -e bash -c "export PATH=~/.nargo/bin:\$PATH && cd /mnt/c/Users/mar
 | Metric | Target | Actual | Status |
 |--------|--------|--------|--------|
 | Constraints | < 50,000 | 812 | EXCELLENT |
-| Native proof time | < 5s | TBD | Blocked |
+| Native proof time | < 5s | **0.44s** | EXCELLENT |
 | Compilation | Pass | Pass | DONE |
 
 ---
