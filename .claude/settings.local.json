@@ -1,7 +1,22 @@
 {
   "permissions": {
     "allow": [
-      "Bash(test:*)"
+      "Bash(test:*)",
+      "Bash(nargo:*)",
+      "Bash(npm install:*)",
+      "Bash(curl:*)",
+      "Bash(bash)",
+      "Bash(source:*)",
+      "Bash(noirup)",
+      "Bash(wsl --list --verbose:*)",
+      "Bash(wsl -d Ubuntu -- bash -c \"curl -L https://raw.githubusercontent.com/noir-lang/noirup/main/install | bash\")",
+      "Bash(wsl -d Ubuntu -- bash -c \"source ~/.bashrc && ~/.nargo/bin/noirup\")",
+      "Bash(wsl -d Ubuntu -- bash -c \"source ~/.bashrc && nargo --version\":*)",
+      "Bash(wsl -d Ubuntu -- bash -c:*)",
+      "WebSearch",
+      "WebFetch(domain:noir-lang.org)",
+      "WebFetch(domain:github.com)",
+      "Bash(git add:*)"
     ]
   }
 }
