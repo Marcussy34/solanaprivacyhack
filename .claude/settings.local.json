@@ -16,7 +16,8 @@
       "WebSearch",
       "WebFetch(domain:noir-lang.org)",
       "WebFetch(domain:github.com)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(git commit:*)"
     ]
   }
 }
