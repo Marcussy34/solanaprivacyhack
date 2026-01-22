@@ -42,8 +42,85 @@ const GAME_STATES = {
 // Suits for display
 const SUITS = ["hearts", "diamonds", "clubs", "spades"];
 
+// Animated Value Counter Component with color coding
+function AnimatedValue({ value, isPlayer = false }) {
+  const [displayValue, setDisplayValue] = useState(value);
+  const [isAnimating, setIsAnimating] = useState(false);
+
+  useEffect(() => {
+    if (value !== displayValue) {
+      setIsAnimating(true);
+      // Animate counting up
+      const steps = 5;
+      const diff = value - displayValue;
+      const increment = diff / steps;
+      let current = displayValue;
+      let step = 0;
+
+      const interval = setInterval(() => {
+        step++;
+        current += increment;
+        if (step >= steps) {
+          setDisplayValue(value);
+          setIsAnimating(false);
+          clearInterval(interval);
+        } else {
+          setDisplayValue(Math.round(current));
+        }
+      }, 50);
+
+      return () => clearInterval(interval);
+    }
+  }, [value, displayValue]);
+
+  // Color based on value
+  let colorClass = "text-gray-300";
+  let glowClass = "";
+
+  if (value === 21) {
+    colorClass = "text-yellow-400";
+    glowClass = "drop-shadow-[0_0_10px_rgba(234,179,8,0.5)]";
+  } else if (value > 21) {
+    colorClass = "text-red-500";
+    glowClass = "drop-shadow-[0_0_10px_rgba(239,68,68,0.5)]";
+  } else if (value >= 17 && value <= 20) {
+    colorClass = isPlayer ? "text-green-400" : "text-gray-300";
+    glowClass = isPlayer ? "drop-shadow-[0_0_8px_rgba(34,197,94,0.3)]" : "";
+  } else if (value >= 12 && value < 17 && isPlayer) {
+    colorClass = "text-yellow-300";
+  }
+
+  return (
+    <motion.span
+      animate={isAnimating ? { scale: [1, 1.2, 1] } : {}}
+      transition={{ duration: 0.3, ease: "easeInOut" }}
+      className={cn("text-lg font-bold", colorClass, glowClass)}
+    >
+      Total: {displayValue}
+      {value === 21 && (
+        <motion.span
+          initial={{ opacity: 0, x: -10 }}
+          animate={{ opacity: 1, x: 0 }}
+          className="ml-2 text-yellow-400"
+        >
+          {isPlayer ? "- BLACKJACK!" : "- 21!"}
+        </motion.span>
+      )}
+      {value > 21 && (
+        <motion.span
+          initial={{ opacity: 0, scale: 0 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="ml-2 text-red-500"
+        >
+          BUST!
+        </motion.span>
+      )}
+    </motion.span>
+  );
+}
+
 // Turn Indicator Component
-function TurnIndicator({ gameState, isDealer, cardsDealt, playerJoined, pendingHit }) {
+function TurnIndicator({ gameState, isDealer, cardsDealt, playerJoined }) {
   let message = "";
   let subMessage = "";
   let icon = null;
@@ -85,40 +162,26 @@ function TurnIndicator({ gameState, isDealer, cardsDealt, playerJoined, pendingH
       }
     } else {
       if (isDealer) {
-        if (pendingHit) {
-          message = "Player Wants a Card!";
-          subMessage = "Click 'Deal Card to Player' now";
-          icon = <Zap className="w-6 h-6 animate-bounce" />;
-          color = "text-red-400";
-        } else {
-          message = "Player's Turn";
-          subMessage = "Waiting for player to Hit or Stand...";
-          icon = <Hand className="w-6 h-6" />;
-          color = "text-blue-400";
-        }
+        message = "Player's Turn";
+        subMessage = "Waiting for player to Hit or Stand...";
+        icon = <Hand className="w-6 h-6" />;
+        color = "text-blue-400";
       } else {
-        if (pendingHit) {
-          message = "Hit Requested";
-          subMessage = "Waiting for dealer to deal card...";
-          icon = <Clock className="w-6 h-6 animate-pulse" />;
-          color = "text-yellow-400";
-        } else {
-          message = "Your Turn!";
-          subMessage = "Choose: Hit, Stand, or Double";
-          icon = <Zap className="w-6 h-6" />;
-          color = "text-green-400";
-        }
+        message = "Your Turn!";
+        subMessage = "Choose: Hit, Stand, or Double";
+        icon = <Zap className="w-6 h-6" />;
+        color = "text-green-400";
       }
     }
   } else if (gameState === GAME_STATES.DEALER_TURN) {
     if (isDealer) {
-      message = "Reveal Cards";
-      subMessage = "Show all cards and determine winner";
+      message = "Play Your Turn";
+      subMessage = "Reveal hole card, hit until 17+";
       icon = <Zap className="w-6 h-6" />;
       color = "text-green-400";
     } else {
       message = "Dealer's Turn";
-      subMessage = "Waiting for dealer to reveal cards...";
+      subMessage = "Dealer is playing their hand...";
       icon = <Clock className="w-6 h-6 animate-pulse" />;
     }
   }
@@ -145,14 +208,17 @@ function TurnIndicator({ gameState, isDealer, cardsDealt, playerJoined, pendingH
 }
 
 export default function GamePage() {
-  const { publicKey, connected } = useWallet();
+  const { publicKey, connected, connecting, wallet } = useWallet();
   const {
     createGame,
     verifyShuffle,
     joinGame,
+    dealInitialHand,
     dealCard,
     playerAction,
     revealCard,
+    revealAllCards,
+    dealerPlayTurn,
     fetchGame,
     subscribeToGame,
     connected: programConnected,
@@ -164,6 +230,7 @@ export default function GamePage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [txSignature, setTxSignature] = useState(null);
+  const [walletError, setWalletError] = useState(null);
 
   // Game data
   const [gameId, setGameId] = useState(null);
@@ -182,7 +249,6 @@ export default function GamePage() {
   const dealerRevealed = gameData?.dealerRevealed || [];
   const cardsDealt = playerCards.length >= 2 && dealerCards.length >= 2;
   const playerJoined = gameData?.player !== null;
-  const pendingHit = gameData?.pendingHit || false;
 
   // Subscribe to game updates
   useEffect(() => {
@@ -213,6 +279,29 @@ export default function GamePage() {
 
     return unsubscribe;
   }, [gameId, dealerPubkey, programConnected, subscribeToGame, fetchGame, publicKey]);
+
+  // Listen for wallet errors
+  useEffect(() => {
+    if (wallet?.adapter) {
+      const handleError = (error) => {
+        console.error("Wallet adapter error:", error);
+        setWalletError(error.message || "Wallet connection failed. Please try again.");
+      };
+
+      wallet.adapter.on("error", handleError);
+
+      return () => {
+        wallet.adapter.off("error", handleError);
+      };
+    }
+  }, [wallet]);
+
+  // Clear wallet error when connected
+  useEffect(() => {
+    if (connected) {
+      setWalletError(null);
+    }
+  }, [connected]);
 
   // Calculate hand value
   const calculateHandValue = (cards) => {
@@ -342,11 +431,9 @@ export default function GamePage() {
     setError(null);
 
     try {
-      // Deal 2 cards to player, 2 to dealer
-      await dealCard(gameId, true, dealerPubkey);
-      await dealCard(gameId, true, dealerPubkey);
-      await dealCard(gameId, false, dealerPubkey);
-      await dealCard(gameId, false, dealerPubkey);
+      // Deal initial hand (commits 10 cards, deals first 4)
+      // One transaction instead of 4!
+      await dealInitialHand(gameId, dealerPubkey);
     } catch (err) {
       console.error("Deal cards error:", err);
       setError(err.message || "Failed to deal cards");
@@ -406,28 +493,88 @@ export default function GamePage() {
   const handleRevealCards = async () => {
     if (!gameId || !dealerPubkey || !gameData) return;
 
+    // Prevent double-click: check if already revealing or all cards revealed
+    const playerAlreadyRevealed = gameData.playerRevealed?.length || 0;
+    const dealerAlreadyRevealed = gameData.dealerRevealed?.length || 0;
+    const allPlayerRevealed = playerAlreadyRevealed >= gameData.playerCards.length;
+    const allDealerRevealed = dealerAlreadyRevealed >= gameData.dealerCards.length;
+
+    if (allPlayerRevealed && allDealerRevealed) {
+      console.log("All cards already revealed");
+      // Refetch to get final state
+      const data = await fetchGame(gameId, dealerPubkey);
+      if (data) {
+        setGameData(data);
+        setGameState(data.state);
+      }
+      return;
+    }
+
     setLoading(true);
     setError(null);
 
     try {
-      // Reveal player cards
-      for (let i = 0; i < gameData.playerCards.length; i++) {
-        if (gameData.playerRevealed[i] === undefined) {
-          const cardValue = Math.floor(Math.random() * 13);
-          await revealCard(gameId, i, cardValue, true, dealerPubkey);
-        }
+      // Only reveal cards that haven't been revealed yet
+      // Player cards after initial 2, dealer's hole card (index 1)
+      const playerUnrevealedCount = gameData.playerCards.length - playerAlreadyRevealed;
+      const dealerUnrevealedCount = gameData.dealerCards.length - dealerAlreadyRevealed;
+
+      // Generate random values for unrevealed cards only
+      const playerCardValues = [];
+      for (let i = 0; i < playerUnrevealedCount; i++) {
+        playerCardValues.push(Math.floor(Math.random() * 13));
       }
 
-      // Reveal dealer cards
-      for (let i = 0; i < gameData.dealerCards.length; i++) {
-        if (gameData.dealerRevealed[i] === undefined) {
-          const cardValue = Math.floor(Math.random() * 13);
-          await revealCard(gameId, i, cardValue, false, dealerPubkey);
-        }
+      const dealerCardValues = [];
+      for (let i = 0; i < dealerUnrevealedCount; i++) {
+        dealerCardValues.push(Math.floor(Math.random() * 13));
+      }
+
+      // Reveal unrevealed cards in one batched transaction
+      if (playerCardValues.length > 0 || dealerCardValues.length > 0) {
+        await revealAllCards(
+          gameId,
+          playerCardValues,
+          dealerCardValues,
+          dealerPubkey,
+          playerAlreadyRevealed,  // Start index for player
+          dealerAlreadyRevealed   // Start index for dealer
+        );
+      }
+
+      // Refetch game state to get updated winner
+      const data = await fetchGame(gameId, dealerPubkey);
+      if (data) {
+        setGameData(data);
+        setGameState(data.state);
       }
     } catch (err) {
       console.error("Reveal cards error:", err);
       setError(err.message || "Failed to reveal cards");
+    }
+
+    setLoading(false);
+  };
+
+  const handleDealerPlayTurn = async () => {
+    if (!gameId || !dealerPubkey) return;
+
+    setLoading(true);
+    setError(null);
+
+    try {
+      // Dealer plays turn: reveals hole card, auto-hits until 17+, determines winner
+      await dealerPlayTurn(gameId, dealerPubkey);
+
+      // Refetch game state to show result
+      const data = await fetchGame(gameId, dealerPubkey);
+      if (data) {
+        setGameData(data);
+        setGameState(data.state);
+      }
+    } catch (err) {
+      console.error("Dealer turn error:", err);
+      setError(err.message || "Failed to play dealer turn");
     }
 
     setLoading(false);
@@ -444,17 +591,70 @@ export default function GamePage() {
     setJoinGameCode("");
   };
 
-  // Render game result
+  // Render game result with celebrations
   const renderGameResult = () => {
     if (gameState === GAME_STATES.PLAYER_WON) {
       return (
         <motion.div
-          initial={{ scale: 0 }}
-          animate={{ scale: 1 }}
-          className="flex flex-col items-center gap-2 text-green-400"
+          initial={{ scale: 0, rotate: -10 }}
+          animate={{
+            scale: [0, 1.2, 1],
+            rotate: [-10, 5, 0],
+          }}
+          transition={{
+            duration: 0.6,
+            times: [0, 0.6, 1],
+            ease: "easeOut",
+          }}
+          className="flex flex-col items-center gap-3"
         >
-          <Trophy className="w-12 h-12" />
-          <span className="text-2xl font-bold">PLAYER WINS!</span>
+          {/* Confetti-like particles */}
+          <div className="relative">
+            {[...Array(12)].map((_, i) => (
+              <motion.div
+                key={i}
+                initial={{ opacity: 1, scale: 0, x: 0, y: 0 }}
+                animate={{
+                  opacity: [1, 1, 0],
+                  scale: [0, 1, 0.5],
+                  x: Math.cos(i * 30 * Math.PI / 180) * 80,
+                  y: Math.sin(i * 30 * Math.PI / 180) * 80 - 20,
+                }}
+                transition={{
+                  duration: 1,
+                  delay: 0.2 + i * 0.05,
+                  ease: "easeOut",
+                }}
+                className="absolute top-1/2 left-1/2 w-3 h-3 rounded-full"
+                style={{
+                  backgroundColor: ['#22c55e', '#eab308', '#3b82f6', '#ec4899'][i % 4],
+                  marginLeft: -6,
+                  marginTop: -6,
+                }}
+              />
+            ))}
+            <motion.div
+              animate={{
+                rotate: [0, -10, 10, -10, 0],
+                scale: [1, 1.1, 1],
+              }}
+              transition={{
+                duration: 0.5,
+                delay: 0.3,
+                ease: "easeInOut",
+              }}
+            >
+              <Trophy className="w-16 h-16 text-green-400 drop-shadow-[0_0_15px_rgba(34,197,94,0.5)]" />
+            </motion.div>
+          </div>
+          <motion.span
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.3 }}
+            className="text-3xl font-bold text-green-400 drop-shadow-[0_0_10px_rgba(34,197,94,0.3)]"
+          >
+            PLAYER WINS!
+          </motion.span>
         </motion.div>
       );
     }
@@ -462,23 +662,54 @@ export default function GamePage() {
       return (
         <motion.div
           initial={{ scale: 0 }}
-          animate={{ scale: 1 }}
-          className="flex flex-col items-center gap-2 text-red-400"
+          animate={{
+            scale: 1,
+            x: [0, -10, 10, -10, 10, -5, 5, 0],
+          }}
+          transition={{
+            scale: { duration: 0.3 },
+            x: { duration: 0.5, delay: 0.2, ease: "easeInOut" },
+          }}
+          className="flex flex-col items-center gap-3"
         >
-          <XCircle className="w-12 h-12" />
-          <span className="text-2xl font-bold">DEALER WINS</span>
+          <motion.div
+            animate={{
+              rotate: [0, -5, 5, -5, 5, 0],
+            }}
+            transition={{
+              duration: 0.4,
+              delay: 0.3,
+              ease: "easeInOut",
+            }}
+          >
+            <XCircle className="w-16 h-16 text-red-400 drop-shadow-[0_0_15px_rgba(239,68,68,0.5)]" />
+          </motion.div>
+          <motion.span
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.3 }}
+            className="text-3xl font-bold text-red-400"
+          >
+            DEALER WINS
+          </motion.span>
         </motion.div>
       );
     }
     if (gameState === GAME_STATES.PUSH) {
       return (
         <motion.div
-          initial={{ scale: 0 }}
-          animate={{ scale: 1 }}
-          className="flex flex-col items-center gap-2 text-yellow-400"
+          initial={{ scale: 0, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          transition={{ type: "spring", stiffness: 200 }}
+          className="flex flex-col items-center gap-3"
         >
-          <RefreshCw className="w-12 h-12" />
-          <span className="text-2xl font-bold">PUSH - TIE!</span>
+          <motion.div
+            animate={{ rotate: 360 }}
+            transition={{ duration: 1, ease: "easeInOut" }}
+          >
+            <RefreshCw className="w-16 h-16 text-yellow-400 drop-shadow-[0_0_15px_rgba(234,179,8,0.5)]" />
+          </motion.div>
+          <span className="text-3xl font-bold text-yellow-400">PUSH - TIE!</span>
         </motion.div>
       );
     }
@@ -518,15 +749,44 @@ export default function GamePage() {
           /* Not Connected State */
           <BlurFade delay={0.1}>
             <div className="flex flex-col items-center justify-center min-h-[60vh] gap-6">
-              <Wallet className="w-16 h-16 text-purple-400" />
-              <h1 className="text-3xl md:text-4xl font-bold text-center">
-                Connect Your Wallet to Play
-              </h1>
-              <p className="text-gray-400 text-center max-w-md">
-                Connect your Phantom or Solflare wallet to start playing
-                provably fair Blackjack on Solana.
-              </p>
-              <WalletMultiButton className="!bg-purple-600 hover:!bg-purple-700 !rounded-lg !py-3 !px-6 !text-lg" />
+              {connecting ? (
+                /* Connecting State */
+                <>
+                  <Loader2 className="w-16 h-16 text-purple-400 animate-spin" />
+                  <h1 className="text-3xl md:text-4xl font-bold text-center">
+                    Connecting to Wallet...
+                  </h1>
+                  <p className="text-gray-400 text-center max-w-md">
+                    Please approve the connection in your wallet.
+                  </p>
+                </>
+              ) : (
+                /* Not Connected State */
+                <>
+                  <Wallet className="w-16 h-16 text-purple-400" />
+                  <h1 className="text-3xl md:text-4xl font-bold text-center">
+                    Connect Your Wallet to Play
+                  </h1>
+                  <p className="text-gray-400 text-center max-w-md">
+                    Connect your Phantom or Solflare wallet to start playing
+                    provably fair Blackjack on Solana.
+                  </p>
+                  <WalletMultiButton className="!bg-purple-600 hover:!bg-purple-700 !rounded-lg !py-3 !px-6 !text-lg" />
+
+                  {/* Wallet Error Display */}
+                  {walletError && (
+                    <div className="p-4 rounded-xl bg-red-500/10 border border-red-500/20 max-w-md">
+                      <p className="text-red-400 text-sm mb-2">{walletError}</p>
+                      <button
+                        onClick={() => setWalletError(null)}
+                        className="text-xs text-gray-400 hover:text-white underline"
+                      >
+                        Dismiss
+                      </button>
+                    </div>
+                  )}
+                </>
+              )}
             </div>
           </BlurFade>
         ) : gameState === GAME_STATES.IDLE ? (
@@ -543,14 +803,16 @@ export default function GamePage() {
 
               <div className="flex flex-col md:flex-row gap-6">
                 {/* Create Game */}
-                <button
+                <motion.button
+                  whileTap={{ scale: 0.95 }}
+                  whileHover={{ scale: 1.02 }}
                   onClick={handleCreateGame}
                   disabled={loading}
                   className={cn(
                     "flex items-center gap-3 px-8 py-4 rounded-xl",
                     "bg-gradient-to-r from-purple-600 to-pink-600",
                     "hover:from-purple-500 hover:to-pink-500",
-                    "transition-all duration-300",
+                    "transition-colors duration-300",
                     "disabled:opacity-50 disabled:cursor-not-allowed"
                   )}
                 >
@@ -560,7 +822,7 @@ export default function GamePage() {
                     <Play className="w-6 h-6" />
                   )}
                   <span className="text-lg font-semibold">Create Game (Dealer)</span>
-                </button>
+                </motion.button>
 
                 {/* Join Game */}
                 <div className="flex flex-col gap-2">
@@ -572,14 +834,16 @@ export default function GamePage() {
                       onChange={(e) => setJoinGameCode(e.target.value)}
                       className="px-4 py-3 rounded-xl bg-white/10 border border-white/20 focus:border-purple-500 focus:outline-none w-64 font-mono text-sm"
                     />
-                    <button
+                    <motion.button
+                      whileTap={{ scale: 0.95 }}
+                      whileHover={{ scale: 1.02 }}
                       onClick={handleJoinGame}
                       disabled={loading || !joinGameCode.trim()}
                       className={cn(
                         "flex items-center gap-2 px-6 py-3 rounded-xl",
                         "bg-white/10 border border-white/20",
                         "hover:bg-white/20",
-                        "transition-all duration-300",
+                        "transition-colors duration-300",
                         "disabled:opacity-50 disabled:cursor-not-allowed"
                       )}
                     >
@@ -589,7 +853,7 @@ export default function GamePage() {
                         <UserPlus className="w-5 h-5" />
                       )}
                       <span>Join</span>
-                    </button>
+                    </motion.button>
                   </div>
                   <p className="text-xs text-gray-500">Format: gameId:dealerAddress</p>
                 </div>
@@ -656,7 +920,6 @@ export default function GamePage() {
                 isDealer={isDealer}
                 cardsDealt={cardsDealt}
                 playerJoined={playerJoined}
-                pendingHit={pendingHit}
               />
             )}
 
@@ -721,9 +984,7 @@ export default function GamePage() {
                 )}
               </div>
               {dealerRevealed.length > 0 && (
-                <span className="text-lg font-bold text-gray-300">
-                  Total: {calculateHandValue(dealerRevealed)}
-                </span>
+                <AnimatedValue value={calculateHandValue(dealerRevealed)} isPlayer={false} />
               )}
             </div>
 
@@ -768,12 +1029,7 @@ export default function GamePage() {
                 )}
               </div>
               {playerRevealed.length > 0 && (
-                <span className="text-lg font-bold text-green-400">
-                  Total: {calculateHandValue(playerRevealed)}
-                  {calculateHandValue(playerRevealed) === 21 &&
-                    playerRevealed.length === 2 &&
-                    " - BLACKJACK!"}
-                </span>
+                <AnimatedValue value={calculateHandValue(playerRevealed)} isPlayer={true} />
               )}
             </div>
 
@@ -781,95 +1037,74 @@ export default function GamePage() {
             <div className="flex flex-wrap justify-center gap-4 mt-4">
               {/* Dealer: Verify Shuffle */}
               {isDealer && gameState === GAME_STATES.CREATED && (
-                <button
+                <motion.button
+                  whileTap={{ scale: 0.95 }}
+                  whileHover={{ scale: 1.02 }}
                   onClick={handleVerifyShuffle}
                   disabled={loading}
                   className={cn(
                     "flex items-center gap-2 px-6 py-3 rounded-xl",
                     "bg-purple-600 hover:bg-purple-500",
-                    "transition-all duration-300",
+                    "transition-colors duration-300",
                     "disabled:opacity-50"
                   )}
                 >
                   {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Shield className="w-5 h-5" />}
                   Verify Shuffle
-                </button>
+                </motion.button>
               )}
 
               {/* Dealer: Deal Cards (only after player joins) */}
               {isDealer && gameState === GAME_STATES.PLAYING && !cardsDealt && (
-                <button
+                <motion.button
+                  whileTap={{ scale: 0.95 }}
+                  whileHover={{ scale: 1.02 }}
                   onClick={handleDealCards}
                   disabled={loading}
                   className={cn(
                     "flex items-center gap-2 px-6 py-3 rounded-xl",
                     "bg-green-600 hover:bg-green-500",
-                    "transition-all duration-300",
+                    "transition-colors duration-300",
                     "disabled:opacity-50"
                   )}
                 >
                   {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Play className="w-5 h-5" />}
                   Deal Cards
-                </button>
-              )}
-
-              {/* Dealer: Deal more cards when cards already dealt */}
-              {isDealer && gameState === GAME_STATES.PLAYING && cardsDealt && (
-                <button
-                  onClick={async () => {
-                    setLoading(true);
-                    try {
-                      await dealCard(gameId, true, dealerPubkey);
-                    } catch (err) {
-                      console.error("Deal card error:", err);
-                      setError(err.message || "Failed to deal card");
-                    }
-                    setLoading(false);
-                  }}
-                  disabled={loading}
-                  className={cn(
-                    "flex items-center gap-2 px-6 py-3 rounded-xl",
-                    "transition-all duration-300",
-                    "disabled:opacity-50",
-                    pendingHit
-                      ? "bg-red-600 hover:bg-red-500 animate-pulse ring-2 ring-red-400"
-                      : "bg-green-600 hover:bg-green-500"
-                  )}
-                >
-                  {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Hand className="w-5 h-5" />}
-                  {pendingHit ? "Deal Card Now!" : "Deal Card to Player"}
-                </button>
+                </motion.button>
               )}
 
               {/* Player: Hit/Stand/Double (only after cards dealt) */}
+              {/* Note: Hit now auto-deals from pre-committed cards - no dealer action needed */}
               {!isDealer && gameState === GAME_STATES.PLAYING && cardsDealt && (
                 <>
-                  <button
+                  <motion.button
+                    whileTap={{ scale: 0.95 }}
+                    whileHover={{ scale: 1.02 }}
                     onClick={handleHit}
-                    disabled={loading || pendingHit}
+                    disabled={loading}
                     className={cn(
                       "flex items-center gap-2 px-6 py-3 rounded-xl",
                       "bg-green-600 hover:bg-green-500",
-                      "transition-all duration-300",
+                      "transition-colors duration-300",
                       "disabled:opacity-50"
                     )}
                   >
                     {loading ? (
                       <Loader2 className="w-5 h-5 animate-spin" />
-                    ) : pendingHit ? (
-                      <Clock className="w-5 h-5 animate-pulse" />
                     ) : (
                       <Hand className="w-5 h-5" />
                     )}
-                    {pendingHit ? "Waiting..." : "Hit"}
-                  </button>
-                  <button
+                    Hit
+                  </motion.button>
+                  <motion.button
+                    whileTap={{ scale: 0.95 }}
+                    whileHover={{ scale: 1.02 }}
                     onClick={handleStand}
-                    disabled={loading || pendingHit}
+                    disabled={loading}
                     className={cn(
                       "flex items-center gap-2 px-6 py-3 rounded-xl",
                       "bg-yellow-600 hover:bg-yellow-500",
-                      "transition-all duration-300",
+                      "transition-colors duration-300",
                       "disabled:opacity-50"
                     )}
                   >
@@ -879,14 +1114,16 @@ export default function GamePage() {
                       <Square className="w-5 h-5" />
                     )}
                     Stand
-                  </button>
-                  <button
+                  </motion.button>
+                  <motion.button
+                    whileTap={{ scale: 0.95 }}
+                    whileHover={{ scale: 1.02 }}
                     onClick={handleDouble}
-                    disabled={loading || playerCards.length > 2 || pendingHit}
+                    disabled={loading || playerCards.length > 2}
                     className={cn(
                       "flex items-center gap-2 px-6 py-3 rounded-xl",
                       "bg-purple-600 hover:bg-purple-500",
-                      "transition-all duration-300",
+                      "transition-colors duration-300",
                       "disabled:opacity-50"
                     )}
                   >
@@ -896,40 +1133,47 @@ export default function GamePage() {
                       <CopyPlus className="w-5 h-5" />
                     )}
                     Double
-                  </button>
+                  </motion.button>
                 </>
               )}
 
-              {/* Dealer: Reveal cards */}
+              {/* Dealer: Play turn (reveal hole card, auto-hit until 17+) */}
               {isDealer && gameState === GAME_STATES.DEALER_TURN && (
-                <button
-                  onClick={handleRevealCards}
+                <motion.button
+                  whileTap={{ scale: 0.95 }}
+                  whileHover={{ scale: 1.02 }}
+                  onClick={handleDealerPlayTurn}
                   disabled={loading}
                   className={cn(
                     "flex items-center gap-2 px-6 py-3 rounded-xl",
                     "bg-purple-600 hover:bg-purple-500",
-                    "transition-all duration-300",
+                    "transition-colors duration-300",
                     "disabled:opacity-50"
                   )}
                 >
                   {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Zap className="w-5 h-5" />}
-                  Reveal All Cards
-                </button>
+                  Play Dealer Turn
+                </motion.button>
               )}
 
               {/* Game over - new game */}
               {isGameOver && (
-                <button
+                <motion.button
+                  whileTap={{ scale: 0.95 }}
+                  whileHover={{ scale: 1.02 }}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.5 }}
                   onClick={handleNewGame}
                   className={cn(
                     "flex items-center gap-2 px-6 py-3 rounded-xl",
                     "bg-white/10 border border-white/20 hover:bg-white/20",
-                    "transition-all duration-300"
+                    "transition-colors duration-300"
                   )}
                 >
                   <RefreshCw className="w-5 h-5" />
                   New Game
-                </button>
+                </motion.button>
               )}
             </div>
 
