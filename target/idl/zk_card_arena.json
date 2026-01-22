@@ -1,0 +1,312 @@
+{
+  "version": "0.1.0",
+  "name": "zk_card_arena",
+  "instructions": [
+    {
+      "name": "createGame",
+      "accounts": [
+        {
+          "name": "game",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "dealer",
+          "isMut": true,
+          "isSigner": true
+        },
+        {
+          "name": "systemProgram",
+          "isMut": false,
+          "isSigner": false
+        }
+      ],
+      "args": [
+        {
+          "name": "gameId",
+          "type": "u64"
+        },
+        {
+          "name": "deckCommitment",
+          "type": {
+            "array": ["u8", 32]
+          }
+        }
+      ]
+    },
+    {
+      "name": "verifyShuffle",
+      "accounts": [
+        {
+          "name": "game",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "dealer",
+          "isMut": false,
+          "isSigner": true
+        }
+      ],
+      "args": [
+        {
+          "name": "proof",
+          "type": "bytes"
+        },
+        {
+          "name": "publicInputs",
+          "type": {
+            "vec": {
+              "array": ["u8", 32]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "joinGame",
+      "accounts": [
+        {
+          "name": "game",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "player",
+          "isMut": false,
+          "isSigner": true
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "playerAction",
+      "accounts": [
+        {
+          "name": "game",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "player",
+          "isMut": false,
+          "isSigner": true
+        }
+      ],
+      "args": [
+        {
+          "name": "action",
+          "type": {
+            "defined": "PlayerActionType"
+          }
+        }
+      ]
+    },
+    {
+      "name": "dealCard",
+      "accounts": [
+        {
+          "name": "game",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "dealer",
+          "isMut": false,
+          "isSigner": true
+        }
+      ],
+      "args": [
+        {
+          "name": "cardCommitment",
+          "type": {
+            "array": ["u8", 32]
+          }
+        },
+        {
+          "name": "toPlayer",
+          "type": "bool"
+        }
+      ]
+    },
+    {
+      "name": "revealCard",
+      "accounts": [
+        {
+          "name": "game",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "dealer",
+          "isMut": false,
+          "isSigner": true
+        }
+      ],
+      "args": [
+        {
+          "name": "cardIndex",
+          "type": "u8"
+        },
+        {
+          "name": "cardValue",
+          "type": "u8"
+        },
+        {
+          "name": "isPlayerCard",
+          "type": "bool"
+        }
+      ]
+    }
+  ],
+  "accounts": [
+    {
+      "name": "Game",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "dealer",
+            "type": "publicKey"
+          },
+          {
+            "name": "player",
+            "type": {
+              "option": "publicKey"
+            }
+          },
+          {
+            "name": "deckCommitment",
+            "type": {
+              "array": ["u8", 32]
+            }
+          },
+          {
+            "name": "shuffleVerified",
+            "type": "bool"
+          },
+          {
+            "name": "state",
+            "type": {
+              "defined": "GameState"
+            }
+          },
+          {
+            "name": "playerCards",
+            "type": {
+              "vec": {
+                "array": ["u8", 32]
+              }
+            }
+          },
+          {
+            "name": "dealerCards",
+            "type": {
+              "vec": {
+                "array": ["u8", 32]
+              }
+            }
+          },
+          {
+            "name": "playerRevealed",
+            "type": {
+              "vec": "u8"
+            }
+          },
+          {
+            "name": "dealerRevealed",
+            "type": {
+              "vec": "u8"
+            }
+          },
+          {
+            "name": "deckPosition",
+            "type": "u8"
+          },
+          {
+            "name": "gameId",
+            "type": "u64"
+          },
+          {
+            "name": "createdAt",
+            "type": "i64"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          }
+        ]
+      }
+    }
+  ],
+  "types": [
+    {
+      "name": "GameState",
+      "type": {
+        "kind": "enum",
+        "variants": [
+          { "name": "Created" },
+          { "name": "AwaitingPlayer" },
+          { "name": "Playing" },
+          { "name": "DealerTurn" },
+          { "name": "Revealing" },
+          { "name": "PlayerWon" },
+          { "name": "DealerWon" },
+          { "name": "Push" },
+          { "name": "Abandoned" }
+        ]
+      }
+    },
+    {
+      "name": "PlayerActionType",
+      "type": {
+        "kind": "enum",
+        "variants": [
+          { "name": "Hit" },
+          { "name": "Stand" },
+          { "name": "Double" }
+        ]
+      }
+    }
+  ],
+  "errors": [
+    {
+      "code": 6000,
+      "name": "InvalidState",
+      "msg": "Invalid game state for this action"
+    },
+    {
+      "code": 6001,
+      "name": "GameFull",
+      "msg": "Game is already full"
+    },
+    {
+      "code": 6002,
+      "name": "InvalidProof",
+      "msg": "Invalid proof"
+    },
+    {
+      "code": 6003,
+      "name": "Unauthorized",
+      "msg": "Not authorized for this action"
+    },
+    {
+      "code": 6004,
+      "name": "AlreadyRevealed",
+      "msg": "Card already revealed"
+    },
+    {
+      "code": 6005,
+      "name": "InvalidCard",
+      "msg": "Invalid card value"
+    },
+    {
+      "code": 6006,
+      "name": "Timeout",
+      "msg": "Game has timed out"
+    }
+  ],
+  "metadata": {
+    "address": "22BfrTbAzVmwENnyfzk6rFtPaNvCmaATbeWaJKKoqkK4"
+  }
+}
