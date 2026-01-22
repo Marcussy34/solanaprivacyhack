@@ -26,6 +26,7 @@ pub mod zk_card_arena {
         game.game_id = game_id;
         game.created_at = Clock::get()?.unix_timestamp;
         game.bump = *ctx.bumps.get("game").unwrap();
+        game.pending_hit = false;
 
         msg!("Game {} created by {}", game_id, game.dealer);
         Ok(())
@@ -91,7 +92,7 @@ pub mod zk_card_arena {
         match action {
             PlayerActionType::Hit => {
                 msg!("Player requests HIT");
-                // Card will be dealt in separate deal_card instruction
+                game.pending_hit = true;
             }
             PlayerActionType::Stand => {
                 msg!("Player STANDS");
@@ -99,8 +100,8 @@ pub mod zk_card_arena {
             }
             PlayerActionType::Double => {
                 msg!("Player DOUBLES");
-                // Will get one card then stand
-                game.state = GameState::DealerTurn;
+                game.pending_hit = true;
+                // After dealer deals one card, game moves to DealerTurn
             }
         }
 
@@ -126,6 +127,7 @@ pub mod zk_card_arena {
 
         if to_player {
             game.player_cards.push(card_commitment);
+            game.pending_hit = false; // Clear pending hit request
             msg!("Card dealt to player at position {}", game.deck_position);
         } else {
             game.dealer_cards.push(card_commitment);
@@ -355,6 +357,9 @@ pub struct Game {
 
     /// PDA bump
     pub bump: u8,
+
+    /// Player requested a hit (dealer needs to deal card)
+    pub pending_hit: bool,
 }
 
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, PartialEq, Eq, InitSpace)]
