@@ -40,3 +40,15 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 nul
+
+# Rust/Anchor build artifacts (keep IDL for frontend)
+/target/*
+!/target/idl/
+/target/deploy/*.so
+
+# Anchor keypairs (NEVER commit private keys)
+*-keypair.json
+
+# Claude local files
+.claude/agents/
+.claude/settings.local.json
