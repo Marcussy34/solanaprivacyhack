@@ -1,12 +1,12 @@
 import { Geist, Geist_Mono } from "next/font/google";
-import { Spotlight } from "@/components/ui/spotlight";
-import { BlurFade } from "@/components/ui/blur-fade";
-import { Button } from "@/components/ui/button";
-import { Marquee } from "@/components/ui/marquee";
-import { Particles } from "@/components/ui/particles";
-import { AnimatedShinyText } from "@/components/ui/animated-shiny-text";
-import { TextGenerateEffect } from "@/components/ui/text-generate-effect";
-import { BackgroundBeams } from "@/components/ui/background-beams";
+import { Spotlight } from "../components/ui/spotlight";
+import { BlurFade } from "../components/ui/blur-fade";
+import { Button } from "../components/ui/button";
+import { Marquee } from "../components/ui/marquee";
+import { Particles } from "../components/ui/particles";
+import { AnimatedShinyText } from "../components/ui/animated-shiny-text";
+import { TextGenerateEffect } from "../components/ui/text-generate-effect";
+import { BackgroundBeams } from "../components/ui/background-beams";
 import { Shield, Lock, Eye, Zap, Users, Code, ArrowRight } from "lucide-react";
 
 const geistSans = Geist({

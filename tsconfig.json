@@ -1,15 +1,33 @@
 {
   "compilerOptions": {
-    "types": ["mocha", "chai", "node"],
-    "typeRoots": ["./node_modules/@types"],
-    "lib": ["es2015"],
+    "types": [
+      "mocha",
+      "chai",
+      "node"
+    ],
+    "typeRoots": [
+      "./node_modules/@types"
+    ],
+    "lib": [
+      "es2015"
+    ],
     "module": "commonjs",
     "target": "es6",
     "esModuleInterop": true,
     "strict": true,
     "resolveJsonModule": true,
-    "skipLibCheck": true
+    "skipLibCheck": true,
+    "allowJs": true,
+    "noEmit": true,
+    "incremental": true,
+    "moduleResolution": "node",
+    "isolatedModules": true,
+    "jsx": "react-jsx"
   },
-  "include": ["tests/**/*.ts"],
-  "exclude": ["node_modules"]
+  "include": [
+    "tests/**/*.ts"
+  ],
+  "exclude": [
+    "node_modules"
+  ]
 }
