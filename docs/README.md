@@ -1,58 +1,119 @@
-# ZK Card Arena v2.0 Documentation
+# ZK Card Arena Documentation
 
-> **Provably fair Blackjack on Solana using Zero-Knowledge Proofs**
+> **Provably fair Blackjack on Solana using Zero-Knowledge Proofs + Privacy-Preserving Payments**
 
-## 📋 Table of Contents
+---
 
-| Document | Description |
-|----------|-------------|
-| [PROJECT_OVERVIEW.md](./PROJECT_OVERVIEW.md) | High-level project summary, vision, and core thesis |
-| [ARCHITECTURE.md](./ARCHITECTURE.md) | Technical architecture, data flows, and system design |
-| [ZK_CIRCUITS.md](./ZK_CIRCUITS.md) | Noir circuit specifications and ZK proof details |
-| [SMART_CONTRACTS.md](./SMART_CONTRACTS.md) | Anchor program specifications and on-chain logic |
-| [FRONTEND.md](./FRONTEND.md) | Frontend implementation guide and UI components |
-| [TIMELINE.md](./TIMELINE.md) | Development schedule, milestones, and deadlines |
-| [RISKS_AND_MITIGATIONS.md](./RISKS_AND_MITIGATIONS.md) | Risk analysis and fallback strategies |
-| [HACKATHON_TRACKS.md](./HACKATHON_TRACKS.md) | Hackathon track alignment and submission strategy |
-| [GLOSSARY.md](./GLOSSARY.md) | Technical terms and definitions |
-| [QUICK_START.md](./QUICK_START.md) | Getting started guide for developers |
+## Quick Links
 
-## 🎯 Quick Summary
+### Getting Started
+- [Quick Start Guide](./guides/QUICK_START.md) - Setup and run the project
+- [Project Overview](./core/PROJECT_OVERVIEW.md) - Vision, scope, and goals
 
-**What:** A Blackjack game on Solana where deck shuffles are proven fair via ZK proofs (Noir circuits), cards are dealt with cryptographic commitments, and all verification happens on-chain (Groth16 via Light Protocol).
+### Core Technical Docs
+- [Architecture](./core/ARCHITECTURE.md) - System design and data flows
+- [Smart Contracts](./core/SMART_CONTRACTS.md) - Anchor program specifications
+- [ZK Circuits](./core/ZK_CIRCUITS.md) - Noir circuit specifications
+- [Frontend](./core/FRONTEND.md) - UI implementation guide
 
-**Why:** First ZK mental poker implementation on Solana = strong hackathon differentiation + bounty alignment.
+### Guides & Tutorials
+- [Anchor Setup Journey](./guides/ANCHOR_SETUP_JOURNEY.md) - Anchor development setup
+- [Smart Contract Guide](./guides/SMART_CONTRACT_GUIDE.md) - Contract development guide
+- [Test Walkthrough](./guides/TEST_WALKTHROUGH.md) - Testing instructions
 
-**When:** Solana Privacy Hackathon - Submit by Feb 1, 2026 (~10 days remaining as of Jan 21)
+### Privacy Integrations (NEW)
+- [Plan A: ShadowPay Integration](./integration/PLAN_A_SHADOWPAY.md) - Private bets & payouts ($15k bounty)
+- [Plan B: ShadowPay + Privacy Cash](./integration/PLAN_B_SHADOWPAY_PLUS_PRIVACY_CASH.md) - Full privacy ($30k+ bounties)
 
-**Target Hackathon Tracks:**
-- Open Track (Solana Foundation)
-- Aztec/Noir (ZK Innovation)
-- Inco (Confidential Computing)
-- Helius (Infrastructure)
+### Hackathon
+- [Hackathon Tracks](./hackathon/HACKATHON_TRACKS.md) - Bounty alignment strategy
+- [Timeline](./hackathon/TIMELINE.md) - Development schedule
+- [Risks & Mitigations](./hackathon/RISKS_AND_MITIGATIONS.md) - Risk management
 
-## 🚨 Critical Decision Points
+### Reference
+- [Glossary](./reference/GLOSSARY.md) - Technical terms
+- [Future Features](./planning/FUTURE_FEATURES.md) - Roadmap ideas
 
-1. **Day 1-2 (Jan 21-22):** Benchmark Noir shuffle circuit - MUST generate proof in <15 seconds
-2. **Day 5 (Jan 25):** Go/No-Go decision on full ZK vs. commit-reveal fallback
-3. **Day 10 (Jan 30):** Feature freeze, focus on polish and video
+---
 
-## 📁 Project Structure
+## Project Summary
+
+| Aspect | Details |
+|--------|---------|
+| **What** | Blackjack on Solana with ZK-proven fair shuffles and private betting |
+| **Tech** | Noir (ZK), Anchor (contracts), ShadowPay + Privacy Cash (privacy) |
+| **Hackathon** | Solana Privacy Hack - Deadline Feb 1, 2026 |
+| **Target Bounties** | Open ($18k), Noir ($10k), ShadowPay ($15k), Privacy Cash ($15k) |
+
+---
+
+## Documentation Structure
 
 ```
-solanaprivacyhack/
-├── docs/                  # Documentation (you are here)
-├── circuits/              # Noir ZK circuits (to be created)
-├── programs/              # Anchor smart contracts (to be created)
-├── components/            # React/Next.js UI components
-├── pages/                 # Next.js pages
-├── lib/                   # Utility functions
-└── public/                # Static assets
+docs/
+├── README.md                 # This file
+│
+├── core/                     # Core technical documentation
+│   ├── ARCHITECTURE.md
+│   ├── PROJECT_OVERVIEW.md
+│   ├── SMART_CONTRACTS.md
+│   ├── ZK_CIRCUITS.md
+│   └── FRONTEND.md
+│
+├── guides/                   # Tutorials and how-tos
+│   ├── QUICK_START.md
+│   ├── ANCHOR_SETUP_JOURNEY.md
+│   ├── SMART_CONTRACT_GUIDE.md
+│   └── TEST_WALKTHROUGH.md
+│
+├── hackathon/                # Hackathon-specific docs
+│   ├── HACKATHON_TRACKS.md
+│   ├── TIMELINE.md
+│   └── RISKS_AND_MITIGATIONS.md
+│
+├── integration/              # Privacy SDK integrations
+│   ├── PLAN_A_SHADOWPAY.md
+│   └── PLAN_B_SHADOWPAY_PLUS_PRIVACY_CASH.md
+│
+├── planning/                 # Future planning
+│   └── FUTURE_FEATURES.md
+│
+└── reference/                # Reference materials
+    └── GLOSSARY.md
 ```
 
-## 🔗 External Resources
+---
+
+## Target Bounties
+
+| Bounty | Prize | Status |
+|--------|-------|--------|
+| Open Track (Solana Foundation) | $18,000 | Targeting |
+| Aztec/Noir (ZK circuits) | $10,000 | Targeting |
+| Radr Labs (ShadowPay) | $15,000 | Plan A/B |
+| Privacy Cash | $15,000 | Plan B only |
+| Inco (Gaming) | $2,000 | Targeting |
+| **Total Potential** | **$60,000** | |
+
+---
+
+## Key Milestones
+
+| Day | Date | Milestone |
+|-----|------|-----------|
+| 3 | Jan 23 | Anchor program core |
+| 5 | Jan 25 | **GO/NO-GO on ZK** |
+| 8 | Jan 28 | Full E2E integration |
+| 10 | Jan 30 | Feature freeze + video |
+| 12 | Feb 1 | **SUBMISSION** |
+
+---
+
+## External Resources
 
 - [Noir Documentation](https://noir-lang.org/docs)
 - [Anchor Framework](https://www.anchor-lang.com/)
 - [Light Protocol](https://lightprotocol.com/)
-- [Solana Privacy Hackathon](https://www.colosseum.org/)
+- [ShadowPay SDK](https://github.com/Radrdotfun/shadowpay-sdk)
+- [Privacy Cash](https://github.com/Privacy-Cash/privacy-cash)
+- [Solana Privacy Hack](https://solana.com/privacyhack)
