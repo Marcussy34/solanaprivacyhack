@@ -48,7 +48,21 @@ const IDL = {
         { name: "game", isMut: true, isSigner: false },
         { name: "player", isMut: false, isSigner: true },
       ],
-      args: [{ name: "action", type: { defined: "PlayerActionType" } }],
+      args: [
+        { name: "action", type: { defined: "PlayerActionType" } },
+        { name: "cardValue", type: { option: "u8" } },
+      ],
+    },
+    {
+      name: "dealInitialHand",
+      accounts: [
+        { name: "game", isMut: true, isSigner: false },
+        { name: "dealer", isMut: false, isSigner: true },
+      ],
+      args: [
+        { name: "cardCommitments", type: { vec: { array: ["u8", 32] } } },
+        { name: "initialCardValues", type: { vec: "u8" } },
+      ],
     },
     {
       name: "dealCard",
@@ -73,6 +87,16 @@ const IDL = {
         { name: "isPlayerCard", type: "bool" },
       ],
     },
+    {
+      name: "dealerPlayTurn",
+      accounts: [
+        { name: "game", isMut: true, isSigner: false },
+        { name: "dealer", isMut: false, isSigner: true },
+      ],
+      args: [
+        { name: "dealerCardValues", type: { vec: "u8" } },
+      ],
+    },
   ],
   accounts: [
     {
@@ -94,6 +118,7 @@ const IDL = {
           { name: "createdAt", type: "i64" },
           { name: "bump", type: "u8" },
           { name: "pendingHit", type: "bool" },
+          { name: "committedCards", type: { vec: { array: ["u8", 32] } } },
         ],
       },
     },
@@ -132,6 +157,7 @@ const IDL = {
     { code: 6004, name: "AlreadyRevealed", msg: "Card already revealed" },
     { code: 6005, name: "InvalidCard", msg: "Invalid card value" },
     { code: 6006, name: "Timeout", msg: "Game has timed out" },
+    { code: 6007, name: "NoMoreCards", msg: "No more cards available in committed deck" },
   ],
 };
 
@@ -274,7 +300,47 @@ export function useGameProgram() {
     [program, wallet.publicKey, getGamePda]
   );
 
-  // Deal a card (dealer action)
+  // Deal initial hand + commit cards for future hits (dealer action)
+  // Commits 10 cards, deals first 4 (2 player, 2 dealer)
+  // Auto-reveals player's 2 cards + dealer's upcard for standard Blackjack UX
+  const dealInitialHand = useCallback(
+    async (gameId, dealerPubkey = null) => {
+      if (!program || !wallet.publicKey) {
+        throw new Error("Wallet not connected");
+      }
+
+      const dealer = dealerPubkey ? new PublicKey(dealerPubkey) : wallet.publicKey;
+      const gamePda = getGamePda(gameId, dealer);
+
+      // Generate 10 card commitments (4 initial + 6 for hits)
+      const cardCommitments = [];
+      for (let i = 0; i < 10; i++) {
+        cardCommitments.push(generateRandomCommitment());
+      }
+
+      // Generate initial card values for auto-reveal:
+      // [player card 1, player card 2, dealer upcard]
+      // Card values are 0-12 (Ace=0, 2-10, J=10, Q=11, K=12)
+      const initialCardValues = [
+        Math.floor(Math.random() * 13),  // Player card 1
+        Math.floor(Math.random() * 13),  // Player card 2
+        Math.floor(Math.random() * 13),  // Dealer upcard (hole card stays hidden)
+      ];
+
+      const tx = await program.methods
+        .dealInitialHand(cardCommitments, initialCardValues)
+        .accounts({
+          game: gamePda,
+          dealer: wallet.publicKey,
+        })
+        .rpc();
+
+      return { tx, initialCardValues };
+    },
+    [program, wallet.publicKey, getGamePda]
+  );
+
+  // Deal a card (dealer action) - legacy, kept for compatibility
   const dealCard = useCallback(
     async (gameId, toPlayer, dealerPubkey = null) => {
       if (!program || !wallet.publicKey) {
@@ -300,6 +366,7 @@ export function useGameProgram() {
 
   // Player action (hit, stand, double)
   // Requires dealer's pubkey to derive PDA
+  // For Hit/Double, generates a card value to auto-reveal the new card
   const playerAction = useCallback(
     async (gameId, action, dealerPubkey) => {
       if (!program || !wallet.publicKey) {
@@ -315,29 +382,35 @@ export function useGameProgram() {
 
       // Convert action string to enum
       let actionEnum;
+      let cardValue = null;  // Only used for hit/double
+
       switch (action.toLowerCase()) {
         case "hit":
           actionEnum = { hit: {} };
+          // Generate random card value to auto-reveal (0-12)
+          cardValue = Math.floor(Math.random() * 13);
           break;
         case "stand":
           actionEnum = { stand: {} };
           break;
         case "double":
           actionEnum = { double: {} };
+          // Generate random card value to auto-reveal (0-12)
+          cardValue = Math.floor(Math.random() * 13);
           break;
         default:
           throw new Error("Invalid action");
       }
 
       const tx = await program.methods
-        .playerAction(actionEnum)
+        .playerAction(actionEnum, cardValue)
         .accounts({
           game: gamePda,
           player: wallet.publicKey,
         })
         .rpc();
 
-      return { tx };
+      return { tx, cardValue };
     },
     [program, wallet.publicKey, getGamePda]
   );
@@ -354,6 +427,86 @@ export function useGameProgram() {
 
       const tx = await program.methods
         .revealCard(cardIndex, cardValue, isPlayerCard)
+        .accounts({
+          game: gamePda,
+          dealer: wallet.publicKey,
+        })
+        .rpc();
+
+      return { tx };
+    },
+    [program, wallet.publicKey, getGamePda]
+  );
+
+  // Reveal all unrevealed cards in one batched transaction (dealer action)
+  // playerStartIndex/dealerStartIndex: start revealing from these indices
+  const revealAllCards = useCallback(
+    async (gameId, playerCardValues, dealerCardValues, dealerPubkey = null, playerStartIndex = 0, dealerStartIndex = 0) => {
+      if (!program || !wallet.publicKey) {
+        throw new Error("Wallet not connected");
+      }
+
+      const dealer = dealerPubkey ? new PublicKey(dealerPubkey) : wallet.publicKey;
+      const gamePda = getGamePda(gameId, dealer);
+
+      // Build all reveal instructions
+      const instructions = [];
+
+      // Reveal player cards starting from playerStartIndex
+      for (let i = 0; i < playerCardValues.length; i++) {
+        const cardIndex = playerStartIndex + i;
+        const ix = await program.methods
+          .revealCard(cardIndex, playerCardValues[i], true)
+          .accounts({
+            game: gamePda,
+            dealer: wallet.publicKey,
+          })
+          .instruction();
+        instructions.push(ix);
+      }
+
+      // Reveal dealer cards starting from dealerStartIndex
+      for (let i = 0; i < dealerCardValues.length; i++) {
+        const cardIndex = dealerStartIndex + i;
+        const ix = await program.methods
+          .revealCard(cardIndex, dealerCardValues[i], false)
+          .accounts({
+            game: gamePda,
+            dealer: wallet.publicKey,
+          })
+          .instruction();
+        instructions.push(ix);
+      }
+
+      // Send all in one transaction
+      const { Transaction } = await import("@solana/web3.js");
+      const transaction = new Transaction().add(...instructions);
+      const tx = await provider.sendAndConfirm(transaction);
+
+      return { tx };
+    },
+    [program, wallet.publicKey, getGamePda, provider]
+  );
+
+  // Dealer plays their turn: reveals hole card, auto-hits until 17+, determines winner
+  const dealerPlayTurn = useCallback(
+    async (gameId, dealerPubkey = null) => {
+      if (!program || !wallet.publicKey) {
+        throw new Error("Wallet not connected");
+      }
+
+      const dealer = dealerPubkey ? new PublicKey(dealerPubkey) : wallet.publicKey;
+      const gamePda = getGamePda(gameId, dealer);
+
+      // Generate enough card values for dealer (hole card + up to 5 hits max)
+      // Values are 0-12 (Ace to King)
+      const dealerCardValues = [];
+      for (let i = 0; i < 6; i++) {
+        dealerCardValues.push(Math.floor(Math.random() * 13));
+      }
+
+      const tx = await program.methods
+        .dealerPlayTurn(dealerCardValues)
         .accounts({
           game: gamePda,
           dealer: wallet.publicKey,
@@ -398,6 +551,7 @@ export function useGameProgram() {
           createdAt: gameAccount.createdAt.toNumber(),
           bump: gameAccount.bump,
           pendingHit: gameAccount.pendingHit,
+          committedCards: gameAccount.committedCards?.map((c) => Array.from(c)) || [],
           pda: gamePda.toBase58(),
         };
       } catch (err) {
@@ -442,6 +596,7 @@ export function useGameProgram() {
               createdAt: decoded.createdAt.toNumber(),
               bump: decoded.bump,
               pendingHit: decoded.pendingHit,
+              committedCards: decoded.committedCards?.map((c) => Array.from(c)) || [],
               pda: gamePda.toBase58(),
             });
           } catch (err) {
@@ -468,9 +623,12 @@ export function useGameProgram() {
     createGame,
     verifyShuffle,
     joinGame,
+    dealInitialHand,
     dealCard,
     playerAction,
     revealCard,
+    revealAllCards,
+    dealerPlayTurn,
 
     // Queries
     fetchGame,
