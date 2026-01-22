@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useCallback } from "react";
 import {
   ConnectionProvider,
   WalletProvider as SolanaWalletProvider,
@@ -27,9 +27,19 @@ export default function WalletProvider({ children }) {
     []
   );
 
+  // Handle wallet errors
+  const onError = useCallback((error) => {
+    console.error("Wallet error:", error);
+    // Error will be handled by wallet adapter UI or caught in game.js
+  }, []);
+
   return (
     <ConnectionProvider endpoint={endpoint}>
-      <SolanaWalletProvider wallets={wallets} autoConnect>
+      <SolanaWalletProvider
+        wallets={wallets}
+        autoConnect={false}
+        onError={onError}
+      >
         <WalletModalProvider>{children}</WalletModalProvider>
       </SolanaWalletProvider>
     </ConnectionProvider>
