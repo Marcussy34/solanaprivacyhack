@@ -27,6 +27,7 @@ pub mod zk_card_arena {
         game.created_at = Clock::get()?.unix_timestamp;
         game.bump = *ctx.bumps.get("game").unwrap();
         game.pending_hit = false;
+        game.committed_cards = Vec::new();
 
         msg!("Game {} created by {}", game_id, game.dealer);
         Ok(())
@@ -77,7 +78,8 @@ pub mod zk_card_arena {
     }
 
     /// Player action: hit, stand, or double
-    pub fn player_action(ctx: Context<PlayerAction>, action: PlayerActionType) -> Result<()> {
+    /// card_value is used for Hit/Double to auto-reveal the new card (0-12)
+    pub fn player_action(ctx: Context<PlayerAction>, action: PlayerActionType, card_value: Option<u8>) -> Result<()> {
         let game = &mut ctx.accounts.game;
 
         require!(
@@ -91,24 +93,112 @@ pub mod zk_card_arena {
 
         match action {
             PlayerActionType::Hit => {
-                msg!("Player requests HIT");
-                game.pending_hit = true;
+                // Auto-deal from pre-committed cards
+                require!(
+                    (game.deck_position as usize) < game.committed_cards.len(),
+                    GameError::NoMoreCards
+                );
+                let card = game.committed_cards[game.deck_position as usize];
+                game.player_cards.push(card);
+                game.deck_position += 1;
+
+                // Auto-reveal the new card so player can see it
+                if let Some(value) = card_value {
+                    require!(value < 13, GameError::InvalidCard);
+                    game.player_revealed.push(value);
+                    msg!("Player HIT - card {} auto-revealed", value);
+                }
             }
             PlayerActionType::Stand => {
                 msg!("Player STANDS");
                 game.state = GameState::DealerTurn;
             }
             PlayerActionType::Double => {
-                msg!("Player DOUBLES");
-                game.pending_hit = true;
-                // After dealer deals one card, game moves to DealerTurn
+                // Auto-deal one card then move to dealer turn
+                require!(
+                    (game.deck_position as usize) < game.committed_cards.len(),
+                    GameError::NoMoreCards
+                );
+                let card = game.committed_cards[game.deck_position as usize];
+                game.player_cards.push(card);
+                game.deck_position += 1;
+
+                // Auto-reveal the new card so player can see it
+                if let Some(value) = card_value {
+                    require!(value < 13, GameError::InvalidCard);
+                    game.player_revealed.push(value);
+                    msg!("Player DOUBLE - card {} auto-revealed", value);
+                }
+
+                game.state = GameState::DealerTurn;
             }
         }
 
         Ok(())
     }
 
-    /// Dealer deals a card with commitment
+    /// Dealer deals initial hand + commits cards for future hits
+    /// Takes 10 card commitments, deals first 4 (2 player, 2 dealer)
+    /// Also auto-reveals player's 2 cards + dealer's upcard for standard Blackjack UX
+    pub fn deal_initial_hand(
+        ctx: Context<DealCard>,
+        card_commitments: Vec<[u8; 32]>,
+        initial_card_values: Vec<u8>,  // [player1, player2, dealer_upcard]
+    ) -> Result<()> {
+        let game = &mut ctx.accounts.game;
+
+        require!(
+            game.state == GameState::Playing,
+            GameError::InvalidState
+        );
+        require!(
+            game.dealer == ctx.accounts.dealer.key(),
+            GameError::Unauthorized
+        );
+        require!(
+            game.player_cards.is_empty() && game.dealer_cards.is_empty(),
+            GameError::InvalidState
+        );
+        require!(
+            card_commitments.len() >= 4,
+            GameError::InvalidCard
+        );
+
+        // Validate initial card values (need 3: player1, player2, dealer_upcard)
+        require!(
+            initial_card_values.len() >= 3,
+            GameError::InvalidCard
+        );
+        require!(
+            initial_card_values[0] < 13 && initial_card_values[1] < 13 && initial_card_values[2] < 13,
+            GameError::InvalidCard
+        );
+
+        // Store all committed cards for future hits
+        game.committed_cards = card_commitments.clone();
+
+        // Deal first 4 cards: 2 to player, 2 to dealer
+        game.player_cards.push(card_commitments[0]);
+        game.player_cards.push(card_commitments[1]);
+        game.dealer_cards.push(card_commitments[2]);
+        game.dealer_cards.push(card_commitments[3]);
+
+        // Auto-reveal player's 2 cards (both visible in Blackjack)
+        game.player_revealed.push(initial_card_values[0]);
+        game.player_revealed.push(initial_card_values[1]);
+
+        // Auto-reveal dealer's upcard only (hole card stays hidden)
+        game.dealer_revealed.push(initial_card_values[2]);
+
+        // Next card position is 4 (for hits)
+        game.deck_position = 4;
+
+        msg!("Initial hand dealt with auto-reveal: player [{}, {}], dealer upcard [{}]",
+            initial_card_values[0], initial_card_values[1], initial_card_values[2]);
+        Ok(())
+    }
+
+    /// Dealer deals a card with commitment (legacy - kept for compatibility)
     pub fn deal_card(
         ctx: Context<DealCard>,
         card_commitment: [u8; 32],
@@ -175,6 +265,76 @@ pub mod zk_card_arena {
         {
             determine_winner(game)?;
         }
+
+        Ok(())
+    }
+
+    /// Dealer plays their turn: reveals hole card, hits until 17+, determines winner
+    /// dealer_card_values: [hole_card, hit1, hit2, ...] - values for cards dealer might need
+    pub fn dealer_play_turn(
+        ctx: Context<DealCard>,
+        dealer_card_values: Vec<u8>,
+    ) -> Result<()> {
+        let game = &mut ctx.accounts.game;
+
+        require!(
+            game.state == GameState::DealerTurn,
+            GameError::InvalidState
+        );
+        require!(
+            game.dealer == ctx.accounts.dealer.key(),
+            GameError::Unauthorized
+        );
+        require!(
+            dealer_card_values.len() >= 1,
+            GameError::InvalidCard
+        );
+
+        let mut value_index: usize = 0;
+
+        // 1. Reveal dealer's hole card (the second card that was hidden)
+        require!(dealer_card_values[value_index] < 13, GameError::InvalidCard);
+        game.dealer_revealed.push(dealer_card_values[value_index]);
+        value_index += 1;
+
+        msg!("Dealer reveals hole card: {}", dealer_card_values[0]);
+
+        // 2. Calculate dealer's current hand and hit until 17+
+        loop {
+            let dealer_total = calculate_hand_value(&game.dealer_revealed);
+            msg!("Dealer total: {}", dealer_total);
+
+            if dealer_total >= 17 {
+                // Dealer stands on 17+
+                msg!("Dealer stands on {}", dealer_total);
+                break;
+            }
+
+            // Dealer must hit - get next card from committed_cards
+            require!(
+                (game.deck_position as usize) < game.committed_cards.len(),
+                GameError::NoMoreCards
+            );
+            require!(
+                value_index < dealer_card_values.len(),
+                GameError::InvalidCard
+            );
+            require!(
+                dealer_card_values[value_index] < 13,
+                GameError::InvalidCard
+            );
+
+            let card = game.committed_cards[game.deck_position as usize];
+            game.dealer_cards.push(card);
+            game.dealer_revealed.push(dealer_card_values[value_index]);
+            game.deck_position += 1;
+
+            msg!("Dealer hits: card value {}", dealer_card_values[value_index]);
+            value_index += 1;
+        }
+
+        // 3. Determine winner
+        determine_winner(game)?;
 
         Ok(())
     }
@@ -360,6 +520,10 @@ pub struct Game {
 
     /// Player requested a hit (dealer needs to deal card)
     pub pending_hit: bool,
+
+    /// Pre-committed cards for auto-deal (max 10 cards for hits)
+    #[max_len(10)]
+    pub committed_cards: Vec<[u8; 32]>,
 }
 
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, PartialEq, Eq, InitSpace)]
@@ -423,4 +587,7 @@ pub enum GameError {
 
     #[msg("Game has timed out")]
     Timeout,
+
+    #[msg("No more cards available in committed deck")]
+    NoMoreCards,
 }
