@@ -1,0 +1,22 @@
+[package]
+name = "zk-card-arena"
+version = "0.1.0"
+description = "Provably fair Blackjack on Solana using Zero-Knowledge Proofs"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib", "lib"]
+name = "zk_card_arena"
+
+[features]
+default = []
+cpi = ["no-entrypoint"]
+no-entrypoint = []
+no-idl = []
+no-log-ix-name = []
+idl-build = []
+
+[dependencies]
+anchor-lang = "0.28.0"
+# Force older blake3 that has implicit digest feature and uses constant_time_eq 0.3.x
+blake3 = { version = "=1.5.5", features = ["digest"] }
