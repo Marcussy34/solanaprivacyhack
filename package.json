@@ -6,7 +6,8 @@
     "dev": "next dev -p 3001",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "test": "ts-mocha -p ./tsconfig.json -t 60000 tests/**/*.ts"
   },
   "dependencies": {
     "@radix-ui/react-slot": "^1.2.4",
@@ -21,10 +22,19 @@
     "tailwind-merge": "^3.4.0"
   },
   "devDependencies": {
+    "@coral-xyz/anchor": "0.28.0",
+    "@solana/web3.js": "^1.98.4",
     "@tailwindcss/postcss": "^4",
+    "@types/chai": "^5.2.3",
+    "@types/mocha": "^10.0.10",
+    "chai": "^6.2.2",
     "eslint": "^9",
     "eslint-config-next": "16.1.4",
+    "mocha": "^11.7.5",
     "tailwindcss": "^4",
-    "tw-animate-css": "^1.4.0"
+    "ts-mocha": "^11.1.0",
+    "ts-node": "^10.9.2",
+    "tw-animate-css": "^1.4.0",
+    "typescript": "^5.9.3"
   }
 }
