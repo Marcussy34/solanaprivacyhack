@@ -91,24 +91,27 @@ jobs:
           export GNARK_VERIFIER_BIN="$HOME/sunspot/gnark-solana/crates/verifier-bin"
           echo "GNARK_VERIFIER_BIN=$GNARK_VERIFIER_BIN" >> $GITHUB_ENV
           
-          # Fix Cargo.lock version 4 issue in gnark-solana
-          # cargo build-sbf doesn't support lockfile v4
-          echo "Fixing Cargo.lock version for Solana compatibility..."
+          # Fix Cargo.lock version 4 issue - use an older commit or patch it
+          echo "Applying Cargo.lock v4 workaround..."
           cd $HOME/sunspot/gnark-solana
           
-          # Remove v4 lockfile and build dependencies to generate v3 lockfile
-          rm -f Cargo.lock
-          echo "Removed Cargo.lock v4"
+          # Check current Cargo.lock version
+          echo "Current Cargo.lock first 3 lines:"
+          head -3 Cargo.lock || echo "No Cargo.lock found"
           
-          # Generate new v3 lockfile
-          cargo update --workspace
-          echo "Generated new Cargo.lock"
-          
-          # Verify it was created
-          if [ -f Cargo.lock ]; then
+          # Download a compatible v3 format Cargo.lock or generate from scratch
+          # The issue is that new Cargo creates v4, but cargo-build-sbf expects v3
+          # Workaround: Use sed to change version line
+          if grep -q "version = 4" Cargo.lock 2>/dev/null; then
+            echo "Patching Cargo.lock from v4 to v3..."
+            sed -i 's/version = 4/version = 3/' Cargo.lock
+            echo "Patched! New first 3 lines:"
             head -3 Cargo.lock
           else
-            echo "ERROR: Cargo.lock not created!"
+            echo "Cargo.lock is not v4, attempting regeneration..."
+            rm -f Cargo.lock
+            cargo generate-lockfile
+            head -3 Cargo.lock
           fi
           
           # Verify verifier-bin directory exists
