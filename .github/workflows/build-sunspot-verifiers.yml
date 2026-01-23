@@ -16,7 +16,8 @@ on:
       - '.github/workflows/build-sunspot-verifiers.yml'
 
 env:
-  SOLANA_VERSION: 2.0.21
+  # Solana is now Agave (anza-xyz/agave) - using v3.0.14 for mainnet compatibility
+  SOLANA_VERSION: 3.0.14
   GO_VERSION: '1.24'
   CARGO_NET_GIT_FETCH_WITH_CLI: 'true'
 
@@ -43,13 +44,13 @@ jobs:
         env:
           CARGO_UNSTABLE_SPARSE_REGISTRY: true
 
-      - name: Install Solana CLI
+      - name: Install Solana CLI (Agave)
         run: |
-          # Download from GitHub releases (more reliable than release.solana.com)
-          echo "Downloading Solana v${{ env.SOLANA_VERSION }}..."
+          # Download from Agave releases (Solana has moved to anza-xyz/agave)
+          echo "Downloading Agave (Solana) v${{ env.SOLANA_VERSION }}..."
           curl --retry 3 --retry-delay 2 \
             --proto '=https' --tlsv1.2 -sSfL \
-            https://github.com/solana-labs/solana/releases/download/v${{ env.SOLANA_VERSION }}/solana-release-x86_64-unknown-linux-gnu.tar.bz2 \
+            https://github.com/anza-xyz/agave/releases/download/v${{ env.SOLANA_VERSION }}/solana-release-x86_64-unknown-linux-gnu.tar.bz2 \
             -o solana-release.tar.bz2
           
           echo "Extracting Solana..."
@@ -91,109 +92,17 @@ jobs:
           export GNARK_VERIFIER_BIN="$HOME/sunspot/gnark-solana/crates/verifier-bin"
           echo "GNARK_VERIFIER_BIN=$GNARK_VERIFIER_BIN" >> $GITHUB_ENV
           
-          # Fix Cargo.lock and dependency compatibility issues
-          echo "Applying Cargo.lock v4 workaround and Rust 1.75 compatibility fixes..."
+          # Check cargo-build-sbf Rust version to determine if we need patches
+          echo "Checking cargo-build-sbf Rust version..."
+          SBF_RUST_VER=$(cargo-build-sbf --version 2>&1 | grep -oE 'rustc [0-9]+\.[0-9]+' || echo "unknown")
+          echo "cargo-build-sbf uses: $SBF_RUST_VER"
+          
+          # Comment out litesvm (dev-only, causes conflicts with any Solana version mix)
           cd $HOME/sunspot/gnark-solana
-          
-          # Step 1: Patch Cargo.toml files to force Solana v1.18.x instead of v3.x
-          # cargo-build-sbf uses Rust 1.75.0-dev, but Solana v3 requires Rust 1.81+
-          echo "Patching Cargo.toml files to use Solana v1.18.x..."
-          
-          # Replace solana-* version constraints: ^3.x → ~1.18, 3.x → 1.18.x
-          find . -name "Cargo.toml" -type f -exec sed -i -E 's/(solana-[a-z-]+[[:space:]]*=[[:space:]]*")(\^)?3\.[0-9]+(\.[0-9]+)?"/\1~1.18"/g' {} \;
-          
-          # Also replace solana v2.x packages with v1.18.x for consistency
-          find . -name "Cargo.toml" -type f -exec sed -i -E 's/(solana-[a-z-]+[[:space:]]*=[[:space:]]*")(\^)?2\.[0-9]+(\.[0-9]+)?"/\1~1.18"/g' {} \;
-          
-          # Remove or comment out litesvm dependency (dev/test only, causes conflicts)
-          # litesvm requires both solana v2 and v3 which creates impossible dependency resolution
           find . -name "Cargo.toml" -type f -exec sed -i 's/^litesvm = /# litesvm = /g' {} \;
           
-          echo "Cargo.toml files patched!"
-          echo "Sample of patched dependencies:"
-          grep -r "solana-" . -A 0 --include="Cargo.toml" | grep "1.18" | head -3 || echo "No matches found"
-          
-          # Remove old Cargo.lock to force regeneration with patched Cargo.toml files
-          echo "Removing old Cargo.lock to regenerate with patched dependencies..."
-          rm -f Cargo.lock
-          
-          # Now downgrade dependencies with cargo update (this regenerates Cargo.lock)
-          echo "Downgrading dependencies for Rust 1.75 compatibility..."
-          
-          # First, let Cargo generate the initial lockfile
-          cargo generate-lockfile || cargo update
-          
-          echo "Downgrading specific packages..."
-          
-          # Downgrade proc-macro-crate (requires Rust 1.76+)
-          cargo update proc-macro-crate@3.4.0 --precise 3.1.0
-          
-          # Downgrade winnow (requires Rust 1.76+)
-          cargo update winnow --precise 0.6.20 2>/dev/null || true
-          
-          # Downgrade rayon and rayon-core (requires Rust 1.80+)
-          cargo update rayon-core@1.13.0 --precise 1.12.1 2>/dev/null || true
-          cargo update rayon-core --precise 1.12.1 2>/dev/null || true  
-          cargo update rayon --precise 1.10.0 2>/dev/null || true
-          
-          # Downgrade packages that require edition2024 (not in Rust 1.75 Cargo)
-          # blake3: v1.7.0 is last version with "digest" feature before edition2024
-          # blake3: v1.8.0+ requires edition2024
-          echo "Downgrading edition2024 packages..."
-          cargo update -p blake3 --precise 1.7.0 2>/dev/null || true
-          cargo update -p constant_time_eq --precise 0.3.1 2>/dev/null || true
-          
-          # Verify critical packages
-          echo "Checking downgraded package versions in Cargo.lock:"
-          grep -A 2 "name = \"blake3\"" Cargo.lock | head -5 || echo "blake3 not found"
-          grep -A 2 "name = \"constant_time_eq\"" Cargo.lock | head -5 || echo "constant_time_eq not found"
-          
-          # Update all solana packages to 1.18.x (now that Cargo.toml allows it)
-          echo "Updating Solana packages to v1.18.x..."
-          cargo update -p solana-address --precise 1.18.26 2>/dev/null || true
-          cargo update -p solana-hash --precise 1.18.26 2>/dev/null || true
-          cargo update -p solana-pubkey --precise 1.18.26 2>/dev/null || true
-          cargo update -p solana-program --precise 1.18.26 2>/dev/null || true
-          cargo update -p solana-borsh --precise 1.18.26 2>/dev/null || true
-          cargo update -p solana-sanitize --precise 1.18.26 2>/dev/null || true
-          cargo update -p solana-msg --precise 1.18.26 2>/dev/null || true
-          
-          echo "Dependencies downgraded!"
-          echo "Verifying rayon-core version:"
-          cargo tree -i rayon-core 2>/dev/null | head -3 || echo "rayon-core check skipped"
-          
-          # Step 2: THEN patch Cargo.lock v4 → v3 (cargo update regenerates it as v4)
-          # This MUST come after cargo update, otherwise it gets overwritten
-          echo "Patching Cargo.lock from v4 to v3..."
-          sed -i 's/version = 4/version = 3/' Cargo.lock
-          
-          echo "Final Cargo.lock version:"
-          head -3 Cargo.lock
-          
-          echo "All fixes applied!"
-          
-          # Verify verifier-bin directory exists
+          echo "Setup complete!"
           ls -la $GNARK_VERIFIER_BIN || echo "Verifier bin directory not found!"
-          
-          # CRITICAL: Also apply fixes to ALL crates in gnark-solana workspace
-          # blake3 v1.5.4 doesn't have "digest" feature, but v1.5.5+ does
-          # We need a version that: (1) has "digest" feature, (2) doesn't require edition2024
-          # blake3 v1.7.0 is the last version before edition2024 and has "digest" feature
-          echo "Applying fixes to ALL Cargo.toml files in gnark-solana workspace..."
-          cd $HOME/sunspot/gnark-solana
-          
-          # Find and patch ALL Cargo.toml files in the workspace
-          echo "Patching blake3 and constant_time_eq in ALL workspace crates..."
-          find . -name "Cargo.toml" -type f | while read toml; do
-            echo "Patching $toml"
-            # Replace blake3 lines - use v1.7.0 (has "digest" feature, no edition2024)
-            sed -i -E 's/^blake3[[:space:]]*=.*/blake3 = "=1.7.0"  # Pinned for Rust 1.75 (last before edition2024)/' "$toml"
-            # Replace constant_time_eq lines
-            sed -i -E 's/^constant_time_eq[[:space:]]*=.*/constant_time_eq = "=0.3.1"  # Pinned for Rust 1.75/' "$toml"
-          done
-          
-          echo "Verifying patches - showing blake3 entries in all Cargo.toml files:"
-          find . -name "Cargo.toml" -exec grep -H "blake3" {} \; | head -10 || echo "No blake3 found"
 
       - name: Compile Noir Circuits
         run: |
@@ -225,19 +134,6 @@ jobs:
       - name: Build Solana Verifiers
         run: |
           export PATH="$HOME/sunspot/go:$PATH"
-          
-          # CRITICAL: Patch Cargo.lock v4 → v3 right before building
-          # This must happen immediately before cargo-build-sbf runs
-          echo "Patching Cargo.lock v4 → v3 before building..."
-          cd $HOME/sunspot/gnark-solana
-          if grep -q "version = 4" Cargo.lock 2>/dev/null; then
-            sed -i 's/version = 4/version = 3/' Cargo.lock
-            echo "✅ Cargo.lock patched to v3"
-          else
-            echo "Cargo.lock already v3 or not found"
-          fi
-          head -3 Cargo.lock
-          
           cd $GITHUB_WORKSPACE/circuits
           
           # Build shuffle verifier
