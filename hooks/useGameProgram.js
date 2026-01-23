@@ -33,6 +33,7 @@ const IDL = {
       accounts: [
         { name: "game", isMut: true, isSigner: false },
         { name: "dealer", isMut: false, isSigner: true },
+        { name: "shuffleVerifierProgram", isMut: false, isSigner: false },
       ],
       args: [
         { name: "proof", type: "bytes" },
@@ -262,15 +263,24 @@ export function useGameProgram() {
       const dealer = dealerPubkey ? new PublicKey(dealerPubkey) : wallet.publicKey;
       const gamePda = getGamePda(gameId, dealer);
 
-      // proof and publicInputs should be Uint8Array/Buffer from the backend API
-      const proofBuffer = Buffer.from(proof);
-      const publicInputsBuffer = Buffer.from(publicInputs);
+      // proof and publicInputs should be arrays of numbers or Uint8Array
+      console.log("[Game] Preparing verifyShuffle args...");
+      console.log("[Game] Proof type:", typeof proof, Array.isArray(proof) ? "array" : "object");
+      console.log("[Game] PublicInputs type:", typeof publicInputs, Array.isArray(publicInputs) ? "array" : "object");
+
+      const proofBytes = proof instanceof Uint8Array ? proof : new Uint8Array(proof);
+      const publicInputsBytes = publicInputs instanceof Uint8Array ? publicInputs : new Uint8Array(publicInputs);
+
+      // Anchor requires Buffer for bytes type
+      const proofBuffer = Buffer.from(proofBytes);
+      const publicInputsBuffer = Buffer.from(publicInputsBytes);
 
       const tx = await program.methods
         .verifyShuffle(proofBuffer, publicInputsBuffer)
         .accounts({
           game: gamePda,
           dealer: wallet.publicKey,
+          shuffleVerifierProgram: SHUFFLE_VERIFIER_PROGRAM_ID,
         })
         .rpc();
 
