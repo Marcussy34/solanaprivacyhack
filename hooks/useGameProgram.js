@@ -227,16 +227,18 @@ export function useGameProgram() {
   }, []);
 
   // Create a new game (dealer action)
-  // deckCommitment: [u8; 32] array from ZK proof generation
+  // deckCommitment: [u8; 32] array from ZK proof generation (required)
   const createGame = useCallback(
-    async (gameId, deckCommitment = null) => {
+    async (gameId, deckCommitment) => {
       if (!program || !wallet.publicKey) {
         throw new Error("Wallet not connected");
       }
 
       const gamePda = getGamePda(gameId, wallet.publicKey);
-      // Use provided commitment (from ZK proof) or generate random for demo
-      const commitment = deckCommitment || generateRandomCommitment();
+      if (!deckCommitment) {
+        throw new Error("Deck commitment required - ZK proof generation must complete first");
+      }
+      const commitment = deckCommitment;
 
       const tx = await program.methods
         .createGame(new BN(gameId), commitment)
@@ -326,7 +328,7 @@ export function useGameProgram() {
   // Deal initial hand + commit cards for future hits (dealer action)
   // Commits 10 cards, deals first 4 (2 player, 2 dealer)
   // Auto-reveals player's 2 cards + dealer's upcard for standard Blackjack UX
-  // If cardCommitments/initialCardValues provided, uses real ZK data; otherwise random fallback
+  // cardCommitments and initialCardValues are required (from ZK proof)
   const dealInitialHand = useCallback(
     async (gameId, dealerPubkey = null, cardCommitments = null, initialCardValues = null) => {
       if (!program || !wallet.publicKey) {
@@ -336,20 +338,14 @@ export function useGameProgram() {
       const dealer = dealerPubkey ? new PublicKey(dealerPubkey) : wallet.publicKey;
       const gamePda = getGamePda(gameId, dealer);
 
-      // Use provided commitments (from ZK) or generate random fallback
-      const commitments = cardCommitments || (() => {
-        const arr = [];
-        for (let i = 0; i < 10; i++) arr.push(generateRandomCommitment());
-        return arr;
-      })();
-
-      // Use provided card values (from shuffled deck) or generate random fallback
-      // [player card 1, player card 2, dealer upcard]
-      const cardValues = initialCardValues || [
-        Math.floor(Math.random() * 13),
-        Math.floor(Math.random() * 13),
-        Math.floor(Math.random() * 13),
-      ];
+      if (!cardCommitments) {
+        throw new Error("Card commitments required - ZK initialization failed");
+      }
+      if (!initialCardValues) {
+        throw new Error("Card values required - shuffled deck not available");
+      }
+      const commitments = cardCommitments;
+      const cardValues = initialCardValues;
 
       const tx = await program.methods
         .dealInitialHand(commitments, cardValues)
@@ -390,7 +386,7 @@ export function useGameProgram() {
 
   // Player action (hit, stand, double)
   // Requires dealer's pubkey to derive PDA
-  // If explicitCardValue provided, uses real value from shuffled deck; otherwise random
+  // explicitCardValue required for hit/double (from shuffled deck)
   const playerAction = useCallback(
     async (gameId, action, dealerPubkey, explicitCardValue = null) => {
       if (!program || !wallet.publicKey) {
@@ -411,14 +407,20 @@ export function useGameProgram() {
       switch (action.toLowerCase()) {
         case "hit":
           actionEnum = { hit: {} };
-          cardValue = explicitCardValue !== null ? explicitCardValue : Math.floor(Math.random() * 13);
+          if (explicitCardValue === null || explicitCardValue === undefined) {
+            throw new Error("Card value required for hit - shuffled deck not available");
+          }
+          cardValue = explicitCardValue;
           break;
         case "stand":
           actionEnum = { stand: {} };
           break;
         case "double":
           actionEnum = { double: {} };
-          cardValue = explicitCardValue !== null ? explicitCardValue : Math.floor(Math.random() * 13);
+          if (explicitCardValue === null || explicitCardValue === undefined) {
+            throw new Error("Card value required for double - shuffled deck not available");
+          }
+          cardValue = explicitCardValue;
           break;
         default:
           throw new Error("Invalid action");
@@ -511,7 +513,7 @@ export function useGameProgram() {
   );
 
   // Dealer plays their turn: reveals hole card, auto-hits until 17+, determines winner
-  // If explicitCardValues provided, uses real values from shuffled deck; otherwise random
+  // explicitCardValues required (from shuffled deck)
   const dealerPlayTurn = useCallback(
     async (gameId, dealerPubkey = null, explicitCardValues = null) => {
       if (!program || !wallet.publicKey) {
@@ -521,12 +523,10 @@ export function useGameProgram() {
       const dealer = dealerPubkey ? new PublicKey(dealerPubkey) : wallet.publicKey;
       const gamePda = getGamePda(gameId, dealer);
 
-      // Use provided values (from shuffled deck) or generate random
-      const dealerCardValues = explicitCardValues || (() => {
-        const arr = [];
-        for (let i = 0; i < 6; i++) arr.push(Math.floor(Math.random() * 13));
-        return arr;
-      })();
+      if (!explicitCardValues) {
+        throw new Error("Card values required for dealer turn - shuffled deck not available");
+      }
+      const dealerCardValues = explicitCardValues;
 
       const tx = await program.methods
         .dealerPlayTurn(dealerCardValues)
