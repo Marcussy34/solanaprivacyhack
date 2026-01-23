@@ -172,6 +172,44 @@ None! The fix has been pushed. Re-run the workflow.
 
 ---
 
+## ❌ Error: `toml_edit requires rustc 1.76 or newer, while the currently active rustc version is 1.75`
+
+### Problem
+```
+error: package `toml_edit v0.23.7` cannot be built because it requires rustc 1.76 or newer,
+while the currently active rustc version is 1.75.0-dev
+```
+
+### Cause
+- `cargo-build-sbf` uses Rust 1.75.0-dev (older version bundled with Solana)
+- Some of Sunspot's dependencies (`toml_edit`, `winnow`) require Rust 1.76+
+- Dependency version conflict
+
+### ✅ Solution (FIXED)
+**Downgrade incompatible dependencies:**
+
+```yaml
+# Downgrade to versions compatible with Rust 1.75
+cargo update toml_edit --precise 0.22.22
+cargo update winnow --precise 0.6.20
+```
+
+**What this does:**
+- ❌ `toml_edit v0.23.7` requires Rust 1.76+
+- ✅ `toml_edit v0.22.22` works with Rust 1.75
+- ❌ `winnow v0.6.21+` requires Rust 1.76+
+- ✅ `winnow v0.6.20` works with Rust 1.75
+
+**Why it works:**
+- `cargo update --precise` pins specific versions
+- These older versions have the same functionality
+- They're compatible with Solana's bundled Rust 1.75
+
+### Action Required
+None! The fix has been pushed. Re-run the workflow.
+
+---
+
 ## ❌ Error: `sunspot: command not found`
 
 ### Problem
