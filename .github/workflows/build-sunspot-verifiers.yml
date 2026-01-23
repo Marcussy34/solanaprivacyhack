@@ -139,20 +139,21 @@ jobs:
           # Build shuffle verifier
           echo "Building shuffle_proof verifier..."
           sunspot deploy target/shuffle_proof.vk
-          mv verifier.so shuffle_proof_verifier.so
-          mv verifier-keypair.json shuffle_proof_verifier-keypair.json
+          # Sunspot outputs to target/<circuit_name>.so, rename to *_verifier.so
+          mv target/shuffle_proof.so shuffle_proof_verifier.so
+          mv target/shuffle_proof-keypair.json shuffle_proof_verifier-keypair.json
           
           # Build deal verifier
           echo "Building deal_proof verifier..."
           sunspot deploy target/deal_proof.vk
-          mv verifier.so deal_proof_verifier.so
-          mv verifier-keypair.json deal_proof_verifier-keypair.json
+          mv target/deal_proof.so deal_proof_verifier.so
+          mv target/deal_proof-keypair.json deal_proof_verifier-keypair.json
           
           # Build reveal verifier
           echo "Building reveal_proof verifier..."
           sunspot deploy target/reveal_proof.vk
-          mv verifier.so reveal_proof_verifier.so
-          mv verifier-keypair.json reveal_proof_verifier-keypair.json
+          mv target/reveal_proof.so reveal_proof_verifier.so
+          mv target/reveal_proof-keypair.json reveal_proof_verifier-keypair.json
           
           # List generated verifiers
           echo "Generated verifier files:"
