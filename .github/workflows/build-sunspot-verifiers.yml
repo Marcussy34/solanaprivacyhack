@@ -92,13 +92,23 @@ jobs:
           echo "GNARK_VERIFIER_BIN=$GNARK_VERIFIER_BIN" >> $GITHUB_ENV
           
           # Fix Cargo.lock version 4 issue in gnark-solana
-          # cargo build-sbf doesn't support lockfile v4, so we regenerate as v3
+          # cargo build-sbf doesn't support lockfile v4
           echo "Fixing Cargo.lock version for Solana compatibility..."
           cd $HOME/sunspot/gnark-solana
+          
+          # Remove v4 lockfile and build dependencies to generate v3 lockfile
+          rm -f Cargo.lock
+          echo "Removed Cargo.lock v4"
+          
+          # Generate new v3 lockfile
+          cargo update --workspace
+          echo "Generated new Cargo.lock"
+          
+          # Verify it was created
           if [ -f Cargo.lock ]; then
-            echo "Found Cargo.lock v4, regenerating as v3..."
-            rm -f Cargo.lock
-            cargo generate-lockfile
+            head -3 Cargo.lock
+          else
+            echo "ERROR: Cargo.lock not created!"
           fi
           
           # Verify verifier-bin directory exists
