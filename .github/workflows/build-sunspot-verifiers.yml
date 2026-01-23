@@ -100,8 +100,14 @@ jobs:
           echo "Patching Cargo.toml files to use Solana v1.18.x..."
           
           # Replace solana-* version constraints: ^3.x → ~1.18, 3.x → 1.18.x
-          # We need to match the entire version string to avoid partial replacements
           find . -name "Cargo.toml" -type f -exec sed -i -E 's/(solana-[a-z-]+[[:space:]]*=[[:space:]]*")(\^)?3\.[0-9]+(\.[0-9]+)?"/\1~1.18"/g' {} \;
+          
+          # Also replace solana v2.x packages with v1.18.x for consistency
+          find . -name "Cargo.toml" -type f -exec sed -i -E 's/(solana-[a-z-]+[[:space:]]*=[[:space:]]*")(\^)?2\.[0-9]+(\.[0-9]+)?"/\1~1.18"/g' {} \;
+          
+          # Remove or comment out litesvm dependency (dev/test only, causes conflicts)
+          # litesvm requires both solana v2 and v3 which creates impossible dependency resolution
+          find . -name "Cargo.toml" -type f -exec sed -i 's/^litesvm = /# litesvm = /g' {} \;
           
           echo "Cargo.toml files patched!"
           echo "Sample of patched dependencies:"
