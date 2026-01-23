@@ -6,6 +6,11 @@ import { Program, AnchorProvider, BN } from "@coral-xyz/anchor";
 // Program ID from deployed contract
 const PROGRAM_ID = new PublicKey("22BfrTbAzVmwENnyfzk6rFtPaNvCmaATbeWaJKKoqkK4");
 
+// Sunspot Groth16 verifier program IDs (deployed to devnet)
+const SHUFFLE_VERIFIER_PROGRAM_ID = new PublicKey("6sju9HLJTFfESLn49wAR2hqiC6mnu3MrP2K9WDbkjCL2");
+const DEAL_VERIFIER_PROGRAM_ID = new PublicKey("Epoxbrv1Pc2XeYR2xsKsqm3Gy1j2MbkBx4yHfkg8yuSC");
+const REVEAL_VERIFIER_PROGRAM_ID = new PublicKey("HrETBH5nTa3DTVjBFWMdytLtuX9GsFwiAGkkyQAXnMt9");
+
 // IDL imported directly (smaller than full IDL, just what we need)
 const IDL = {
   version: "0.1.0",
@@ -31,7 +36,7 @@ const IDL = {
       ],
       args: [
         { name: "proof", type: "bytes" },
-        { name: "publicInputs", type: { vec: { array: ["u8", 32] } } },
+        { name: "publicInputs", type: "bytes" },
       ],
     },
     {
@@ -153,11 +158,12 @@ const IDL = {
     { code: 6000, name: "InvalidState", msg: "Invalid game state for this action" },
     { code: 6001, name: "GameFull", msg: "Game is already full" },
     { code: 6002, name: "InvalidProof", msg: "Invalid proof" },
-    { code: 6003, name: "Unauthorized", msg: "Not authorized for this action" },
-    { code: 6004, name: "AlreadyRevealed", msg: "Card already revealed" },
-    { code: 6005, name: "InvalidCard", msg: "Invalid card value" },
-    { code: 6006, name: "Timeout", msg: "Game has timed out" },
-    { code: 6007, name: "NoMoreCards", msg: "No more cards available in committed deck" },
+    { code: 6003, name: "InvalidVerifier", msg: "Invalid verifier program ID" },
+    { code: 6004, name: "Unauthorized", msg: "Not authorized for this action" },
+    { code: 6005, name: "AlreadyRevealed", msg: "Card already revealed" },
+    { code: 6006, name: "InvalidCard", msg: "Invalid card value" },
+    { code: 6007, name: "Timeout", msg: "Game has timed out" },
+    { code: 6008, name: "NoMoreCards", msg: "No more cards available in committed deck" },
   ],
 };
 
@@ -221,17 +227,19 @@ export function useGameProgram() {
   }, []);
 
   // Create a new game (dealer action)
+  // deckCommitment: [u8; 32] array from ZK proof generation
   const createGame = useCallback(
-    async (gameId) => {
+    async (gameId, deckCommitment = null) => {
       if (!program || !wallet.publicKey) {
         throw new Error("Wallet not connected");
       }
 
       const gamePda = getGamePda(gameId, wallet.publicKey);
-      const deckCommitment = generateRandomCommitment();
+      // Use provided commitment (from ZK proof) or generate random for demo
+      const commitment = deckCommitment || generateRandomCommitment();
 
       const tx = await program.methods
-        .createGame(new BN(gameId), deckCommitment)
+        .createGame(new BN(gameId), commitment)
         .accounts({
           game: gamePda,
           dealer: wallet.publicKey,
@@ -244,9 +252,9 @@ export function useGameProgram() {
     [program, wallet.publicKey, getGamePda]
   );
 
-  // Verify shuffle proof (dealer action)
+  // Verify shuffle proof via CPI to deployed Sunspot verifier (dealer action)
   const verifyShuffle = useCallback(
-    async (gameId, dealerPubkey = null) => {
+    async (gameId, proof, publicInputs, dealerPubkey = null) => {
       if (!program || !wallet.publicKey) {
         throw new Error("Wallet not connected");
       }
@@ -254,13 +262,12 @@ export function useGameProgram() {
       const dealer = dealerPubkey ? new PublicKey(dealerPubkey) : wallet.publicKey;
       const gamePda = getGamePda(gameId, dealer);
 
-      // For demo: use empty proof (contract accepts any proof currently)
-      // In production: generate real ZK proof with NoirJS
-      const mockProof = Buffer.from([0]);
-      const mockPublicInputs = [generateRandomCommitment()];
+      // proof and publicInputs should be Uint8Array/Buffer from the backend API
+      const proofBuffer = Buffer.from(proof);
+      const publicInputsBuffer = Buffer.from(publicInputs);
 
       const tx = await program.methods
-        .verifyShuffle(mockProof, mockPublicInputs)
+        .verifyShuffle(proofBuffer, publicInputsBuffer)
         .accounts({
           game: gamePda,
           dealer: wallet.publicKey,
@@ -303,8 +310,9 @@ export function useGameProgram() {
   // Deal initial hand + commit cards for future hits (dealer action)
   // Commits 10 cards, deals first 4 (2 player, 2 dealer)
   // Auto-reveals player's 2 cards + dealer's upcard for standard Blackjack UX
+  // If cardCommitments/initialCardValues provided, uses real ZK data; otherwise random fallback
   const dealInitialHand = useCallback(
-    async (gameId, dealerPubkey = null) => {
+    async (gameId, dealerPubkey = null, cardCommitments = null, initialCardValues = null) => {
       if (!program || !wallet.publicKey) {
         throw new Error("Wallet not connected");
       }
@@ -312,30 +320,30 @@ export function useGameProgram() {
       const dealer = dealerPubkey ? new PublicKey(dealerPubkey) : wallet.publicKey;
       const gamePda = getGamePda(gameId, dealer);
 
-      // Generate 10 card commitments (4 initial + 6 for hits)
-      const cardCommitments = [];
-      for (let i = 0; i < 10; i++) {
-        cardCommitments.push(generateRandomCommitment());
-      }
+      // Use provided commitments (from ZK) or generate random fallback
+      const commitments = cardCommitments || (() => {
+        const arr = [];
+        for (let i = 0; i < 10; i++) arr.push(generateRandomCommitment());
+        return arr;
+      })();
 
-      // Generate initial card values for auto-reveal:
+      // Use provided card values (from shuffled deck) or generate random fallback
       // [player card 1, player card 2, dealer upcard]
-      // Card values are 0-12 (Ace=0, 2-10, J=10, Q=11, K=12)
-      const initialCardValues = [
-        Math.floor(Math.random() * 13),  // Player card 1
-        Math.floor(Math.random() * 13),  // Player card 2
-        Math.floor(Math.random() * 13),  // Dealer upcard (hole card stays hidden)
+      const cardValues = initialCardValues || [
+        Math.floor(Math.random() * 13),
+        Math.floor(Math.random() * 13),
+        Math.floor(Math.random() * 13),
       ];
 
       const tx = await program.methods
-        .dealInitialHand(cardCommitments, initialCardValues)
+        .dealInitialHand(commitments, cardValues)
         .accounts({
           game: gamePda,
           dealer: wallet.publicKey,
         })
         .rpc();
 
-      return { tx, initialCardValues };
+      return { tx, initialCardValues: cardValues };
     },
     [program, wallet.publicKey, getGamePda]
   );
@@ -366,9 +374,9 @@ export function useGameProgram() {
 
   // Player action (hit, stand, double)
   // Requires dealer's pubkey to derive PDA
-  // For Hit/Double, generates a card value to auto-reveal the new card
+  // If explicitCardValue provided, uses real value from shuffled deck; otherwise random
   const playerAction = useCallback(
-    async (gameId, action, dealerPubkey) => {
+    async (gameId, action, dealerPubkey, explicitCardValue = null) => {
       if (!program || !wallet.publicKey) {
         throw new Error("Wallet not connected");
       }
@@ -382,21 +390,19 @@ export function useGameProgram() {
 
       // Convert action string to enum
       let actionEnum;
-      let cardValue = null;  // Only used for hit/double
+      let cardValue = null;
 
       switch (action.toLowerCase()) {
         case "hit":
           actionEnum = { hit: {} };
-          // Generate random card value to auto-reveal (0-12)
-          cardValue = Math.floor(Math.random() * 13);
+          cardValue = explicitCardValue !== null ? explicitCardValue : Math.floor(Math.random() * 13);
           break;
         case "stand":
           actionEnum = { stand: {} };
           break;
         case "double":
           actionEnum = { double: {} };
-          // Generate random card value to auto-reveal (0-12)
-          cardValue = Math.floor(Math.random() * 13);
+          cardValue = explicitCardValue !== null ? explicitCardValue : Math.floor(Math.random() * 13);
           break;
         default:
           throw new Error("Invalid action");
@@ -489,8 +495,9 @@ export function useGameProgram() {
   );
 
   // Dealer plays their turn: reveals hole card, auto-hits until 17+, determines winner
+  // If explicitCardValues provided, uses real values from shuffled deck; otherwise random
   const dealerPlayTurn = useCallback(
-    async (gameId, dealerPubkey = null) => {
+    async (gameId, dealerPubkey = null, explicitCardValues = null) => {
       if (!program || !wallet.publicKey) {
         throw new Error("Wallet not connected");
       }
@@ -498,12 +505,12 @@ export function useGameProgram() {
       const dealer = dealerPubkey ? new PublicKey(dealerPubkey) : wallet.publicKey;
       const gamePda = getGamePda(gameId, dealer);
 
-      // Generate enough card values for dealer (hole card + up to 5 hits max)
-      // Values are 0-12 (Ace to King)
-      const dealerCardValues = [];
-      for (let i = 0; i < 6; i++) {
-        dealerCardValues.push(Math.floor(Math.random() * 13));
-      }
+      // Use provided values (from shuffled deck) or generate random
+      const dealerCardValues = explicitCardValues || (() => {
+        const arr = [];
+        for (let i = 0; i < 6; i++) arr.push(Math.floor(Math.random() * 13));
+        return arr;
+      })();
 
       const tx = await program.methods
         .dealerPlayTurn(dealerCardValues)

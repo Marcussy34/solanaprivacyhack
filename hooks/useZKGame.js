@@ -21,6 +21,7 @@ import { useZK } from './useZK';
 // ============================================================================
 
 const DECK_SIZE = 13;  // Cards 0-12 (simplified deck)
+const PROVE_API_URL = '/api/prove'; // Backend Groth16 proof generation
 
 // ============================================================================
 // HELPER FUNCTIONS
@@ -88,20 +89,48 @@ function fieldTo32Bytes(fieldHex) {
   return Array.from(bytes);
 }
 
+/**
+ * Call backend API to generate a Groth16 proof via Sunspot.
+ * The backend runs nargo execute + sunspot prove.
+ *
+ * @param {string} circuit - 'shuffle_proof' | 'deal_proof' | 'reveal_proof'
+ * @param {object} inputs - Circuit inputs matching Prover.toml format
+ * @returns {{ proof: Uint8Array, publicInputs: Uint8Array }}
+ */
+async function generateGroth16Proof(circuit, inputs) {
+  const response = await fetch(PROVE_API_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ circuit, inputs }),
+  });
+
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({ error: response.statusText }));
+    throw new Error(`Proof generation failed: ${err.error}`);
+  }
+
+  const data = await response.json();
+
+  // Decode base64 proof and public inputs to Uint8Array
+  return {
+    proof: Uint8Array.from(atob(data.proof), c => c.charCodeAt(0)),
+    publicInputs: Uint8Array.from(atob(data.publicInputs), c => c.charCodeAt(0)),
+    proofBytes: data.proofBytes,
+    publicInputsBytes: data.publicInputsBytes,
+  };
+}
+
 // ============================================================================
 // MAIN HOOK
 // ============================================================================
 
 export function useZKGame() {
-  // Get ZK proving functions from useZK hook
+  // Get ZK helper functions from useZK hook (commitment computation only)
   const {
     isInitializing,
     isProving,
     error: zkError,
     logs: zkLogs,
-    generateShuffleProof,
-    generateDealProof,
-    generateRevealProof,
     computeDeckCommitment,
     computeCardCommitment,
   } = useZK();
@@ -168,33 +197,33 @@ export function useZKGame() {
       setDeckCommitment(newDeckCommitment);
       blindingFactors.current.clear();
       
-      // 4. Generate shuffle proof
-      console.log('[ZKGame] Generating shuffle proof...');
-      const proofResult = await generateShuffleProof(
-        newSeed,
-        newShuffledDeck,
-        newDeckCommitment,
-        originalDeck
-      );
-      
+      // 4. Generate Groth16 shuffle proof via backend API
+      console.log('[ZKGame] Requesting Groth16 shuffle proof from backend...');
+      const proofResult = await generateGroth16Proof('shuffle_proof', {
+        seed: newSeed,
+        shuffled_deck: newShuffledDeck,
+        deck_commitment: newDeckCommitment,
+        original_deck: originalDeck,
+      });
+
       // Store proof data
       setShuffleProofData({
         proof: proofResult.proof,
         publicInputs: proofResult.publicInputs,
         commitment: newDeckCommitment,
       });
-      
-      console.log('[ZKGame] Game initialized successfully!');
-      console.log('[ZKGame] Proof size:', proofResult.proof.length, 'bytes');
-      
+
+      console.log('[ZKGame] Groth16 shuffle proof generated!');
+      console.log('[ZKGame] Proof size:', proofResult.proofBytes, 'bytes');
+
       setStatus('idle');
-      
+
       return {
         seed: newSeed,
         shuffledDeck: newShuffledDeck,
         deckCommitment: newDeckCommitment,
         proof: Array.from(proofResult.proof),
-        publicInputs: proofResult.publicInputs,
+        publicInputs: Array.from(proofResult.publicInputs),
       };
       
     } catch (err) {
@@ -202,7 +231,7 @@ export function useZKGame() {
       setStatus('error');
       throw err;
     }
-  }, [isInitializing, computeDeckCommitment, generateShuffleProof]);
+  }, [isInitializing, computeDeckCommitment]);
 
   // =========================================================================
   // DEAL PHASE  
@@ -248,29 +277,29 @@ export function useZKGame() {
       };
       blindingFactors.current.set(position, cardData);
       
-      // Generate deal proof
-      console.log('[ZKGame] Generating deal proof...');
-      const proofResult = await generateDealProof(
+      // Generate Groth16 deal proof via backend API
+      console.log('[ZKGame] Requesting Groth16 deal proof from backend...');
+      const proofResult = await generateGroth16Proof('deal_proof', {
         seed,
-        shuffledDeck,
-        blinding,
-        deckCommitment,
-        cardCommitment,
-        String(position)
-      );
-      
+        shuffled_deck: shuffledDeck,
+        blinding_factor: blinding,
+        deck_commitment: deckCommitment,
+        card_commitment: cardCommitment,
+        card_position: String(position),
+      });
+
       // Store proof
       const proofData = {
         position,
         cardValue,
         cardCommitment,
         proof: Array.from(proofResult.proof),
-        publicInputs: proofResult.publicInputs,
+        publicInputs: Array.from(proofResult.publicInputs),
       };
       setDealProofs(prev => [...prev, proofData]);
-      
-      console.log('[ZKGame] Deal proof generated!');
-      console.log('[ZKGame] Proof size:', proofResult.proof.length, 'bytes');
+
+      console.log('[ZKGame] Groth16 deal proof generated!');
+      console.log('[ZKGame] Proof size:', proofResult.proofBytes, 'bytes');
       
       setStatus('idle');
       
@@ -281,7 +310,38 @@ export function useZKGame() {
       setStatus('error');
       throw err;
     }
-  }, [seed, shuffledDeck, deckCommitment, computeCardCommitment, generateDealProof]);
+  }, [seed, shuffledDeck, deckCommitment, computeCardCommitment]);
+
+  /**
+   * Compute card commitment at position WITHOUT generating a Groth16 proof.
+   * Much faster (~1s vs 30-60s for full deal proof).
+   * Used for on-chain card commitments where the contract doesn't verify deal proofs.
+   *
+   * @param {number} position - Card position in shuffled deck (0-12)
+   * @returns {{ position, cardValue, cardCommitment, blinding }}
+   */
+  const computeCardCommitmentAtPosition = useCallback(async (position) => {
+    if (!seed || !shuffledDeck || !deckCommitment) {
+      throw new Error('Must initialize game first');
+    }
+    if (position < 0 || position >= DECK_SIZE) {
+      throw new Error(`Invalid position ${position}, must be 0-${DECK_SIZE - 1}`);
+    }
+
+    const cardValue = shuffledDeck[position];
+    const blinding = generateRandomField();
+
+    console.log(`[ZKGame] Computing commitment for position ${position}: value=${cardValue}`);
+
+    const cardCommitment = await computeCardCommitment(cardValue, blinding);
+    console.log(`[ZKGame] Card commitment (pos ${position}):`, cardCommitment);
+
+    // Store blinding factor for later reveal
+    const cardData = { position, cardValue, blinding, cardCommitment };
+    blindingFactors.current.set(position, cardData);
+
+    return cardData;
+  }, [seed, shuffledDeck, deckCommitment, computeCardCommitment]);
 
   // =========================================================================
   // REVEAL PHASE
@@ -303,26 +363,26 @@ export function useZKGame() {
     setStatus('revealing');
     
     try {
-      console.log(`[ZKGame] Generating reveal proof for position ${position}...`);
+      console.log(`[ZKGame] Requesting Groth16 reveal proof for position ${position}...`);
       console.log(`[ZKGame] Revealing card value: ${cardData.cardValue}`);
-      
-      const result = await generateRevealProof(
-        cardData.blinding,
-        String(cardData.cardValue),
-        cardData.cardCommitment
-      );
-      
+
+      const result = await generateGroth16Proof('reveal_proof', {
+        blinding_factor: cardData.blinding,
+        card_value: String(cardData.cardValue),
+        card_commitment: cardData.cardCommitment,
+      });
+
       // Store proof
       const proofData = {
         position,
         cardValue: cardData.cardValue,
         cardCommitment: cardData.cardCommitment,
         proof: Array.from(result.proof),
-        publicInputs: result.publicInputs,
+        publicInputs: Array.from(result.publicInputs),
       };
       setRevealProofs(prev => [...prev, proofData]);
-      
-      console.log('[ZKGame] Reveal proof generated!');
+
+      console.log('[ZKGame] Groth16 reveal proof generated!');
       
       setStatus('idle');
       
@@ -333,7 +393,7 @@ export function useZKGame() {
       setStatus('error');
       throw err;
     }
-  }, [generateRevealProof]);
+  }, []);
 
   // =========================================================================
   // DATA FORMATTERS (for on-chain submission)
@@ -444,10 +504,14 @@ export function useZKGame() {
     deckCommitment,
     
     // Actions (main workflow)
-    initializeGame,      // Step 1: Shuffle deck and generate proof
-    dealCardAtPosition,  // Step 2: Deal card with commitment and proof
-    revealCard,          // Step 3: Reveal card with proof
-    resetGame,           // Reset for new game
+    initializeGame,               // Step 1: Shuffle deck and generate proof
+    dealCardAtPosition,           // Step 2: Deal card with commitment and full Groth16 proof
+    computeCardCommitmentAtPosition, // Step 2 (fast): Commitment only, no Groth16 proof (~1s)
+    revealCard,                   // Step 3: Reveal card with proof
+    resetGame,                    // Reset for new game
+
+    // Utilities
+    fieldTo32Bytes,               // Convert field hex to 32-byte array for Solana
     
     // Data formatters (for on-chain submission)
     formatShuffleForChain,
