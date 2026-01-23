@@ -3,8 +3,10 @@ import { useWallet } from "@solana/wallet-adapter-react";
 import { WalletMultiButton } from "@solana/wallet-adapter-react-ui";
 import { motion, AnimatePresence } from "framer-motion";
 import { PlayingCard, HiddenCard, CardSlot } from "../components/game/PlayingCard";
+import { ProofProgress } from "../components/game/ProofProgress";
 import { BlurFade } from "../components/ui/blur-fade";
 import { useGameProgram } from "../hooks/useGameProgram";
+import { useZKGame } from "../hooks/useZKGame";
 import { cn } from "../lib/utils";
 import {
   Loader2,
@@ -224,6 +226,21 @@ export default function GamePage() {
     connected: programConnected,
   } = useGameProgram();
 
+  const {
+    isReady: zkReady,
+    initializeGame: zkInitializeGame,
+    shuffledDeck,
+    deckCommitment: zkDeckCommitment,
+    computeCardCommitmentAtPosition,
+    fieldTo32Bytes,
+    resetGame: zkResetGame,
+    shuffleProofData,
+  } = useZKGame();
+
+  // Proof generation progress
+  const [proofPhase, setProofPhase] = useState(null);
+  const [proofError, setProofError] = useState(null);
+
   // Game state
   const [gameState, setGameState] = useState(GAME_STATES.IDLE);
   const [isDealer, setIsDealer] = useState(false);
@@ -361,33 +378,62 @@ export default function GamePage() {
     setLoading(true);
     setError(null);
     setTxSignature(null);
+    setProofError(null);
 
     try {
+      // Phase 1: Generate ZK shuffle proof (30-60s)
+      setProofPhase("shuffle");
+      const zkResult = await zkInitializeGame();
+      console.log("[Game] ZK shuffle proof generated, commitment:", zkResult.deckCommitment);
+
+      // Convert deck commitment from field hex to 32-byte array
+      const commitmentBytes = fieldTo32Bytes(zkResult.deckCommitment);
+
+      // Phase 2: Create game on-chain with real commitment
+      setProofPhase("create");
       const newGameId = Date.now();
-      const result = await createGame(newGameId);
+      const result = await createGame(newGameId, commitmentBytes);
 
       setGameId(newGameId);
       setDealerPubkey(result.dealer);
       setGamePda(result.gamePda.toBase58());
       setIsDealer(true);
-      setGameState(GAME_STATES.CREATED);
       setTxSignature(result.tx);
+
+      // Phase 3: Verify shuffle proof on-chain
+      setProofPhase("verify");
+      const verifyResult = await verifyShuffle(
+        newGameId,
+        zkResult.proof,
+        zkResult.publicInputs
+      );
+      console.log("[Game] Shuffle verified on-chain:", verifyResult.tx);
+
+      setGameState(GAME_STATES.AWAITING_PLAYER);
+      setTxSignature(verifyResult.tx);
+      setProofPhase(null);
     } catch (err) {
       console.error("Create game error:", err);
+      setProofError(err.message || "Failed to create game");
       setError(err.message || "Failed to create game");
+      setProofPhase(null);
     }
 
     setLoading(false);
   };
 
   const handleVerifyShuffle = async () => {
-    if (!gameId || !dealerPubkey) return;
+    if (!gameId || !dealerPubkey || !shuffleProofData) return;
 
     setLoading(true);
     setError(null);
 
     try {
-      const result = await verifyShuffle(gameId, dealerPubkey);
+      const result = await verifyShuffle(
+        gameId,
+        shuffleProofData.proof,
+        shuffleProofData.publicInputs
+      );
       setTxSignature(result.tx);
     } catch (err) {
       console.error("Verify shuffle error:", err);
@@ -425,15 +471,32 @@ export default function GamePage() {
   };
 
   const handleDealCards = async () => {
-    if (!gameId || !dealerPubkey) return;
+    if (!gameId || !dealerPubkey || !shuffledDeck) return;
 
     setLoading(true);
     setError(null);
 
     try {
-      // Deal initial hand (commits 10 cards, deals first 4)
-      // One transaction instead of 4!
-      await dealInitialHand(gameId, dealerPubkey);
+      // Compute 10 real card commitments via Poseidon hash (~1s each, ~10s total)
+      console.log("[Game] Computing 10 card commitments...");
+      const commitments = [];
+      for (let i = 0; i < 10; i++) {
+        const result = await computeCardCommitmentAtPosition(i);
+        commitments.push(fieldTo32Bytes(result.cardCommitment));
+      }
+      console.log("[Game] All 10 commitments computed");
+
+      // Initial card values from the real shuffled deck:
+      // Position 0 = player card 1, Position 1 = player card 2, Position 2 = dealer upcard
+      // Position 3 = dealer hole card (hidden)
+      const initialCardValues = [
+        shuffledDeck[0],  // Player card 1
+        shuffledDeck[1],  // Player card 2
+        shuffledDeck[2],  // Dealer upcard
+      ];
+      console.log("[Game] Initial card values:", initialCardValues);
+
+      await dealInitialHand(gameId, dealerPubkey, commitments, initialCardValues);
     } catch (err) {
       console.error("Deal cards error:", err);
       setError(err.message || "Failed to deal cards");
@@ -449,7 +512,10 @@ export default function GamePage() {
     setError(null);
 
     try {
-      await playerAction(gameId, "hit", dealerPubkey);
+      // Get real card value from shuffled deck at current deck position
+      const cardValue = shuffledDeck ? shuffledDeck[gameData?.deckPosition || 4] : null;
+      console.log("[Game] Hit - card value:", cardValue, "from position:", gameData?.deckPosition);
+      await playerAction(gameId, "hit", dealerPubkey, cardValue);
     } catch (err) {
       console.error("Hit error:", err);
       setError(err.message || "Failed to hit");
@@ -481,7 +547,9 @@ export default function GamePage() {
     setError(null);
 
     try {
-      await playerAction(gameId, "double", dealerPubkey);
+      const cardValue = shuffledDeck ? shuffledDeck[gameData?.deckPosition || 4] : null;
+      console.log("[Game] Double - card value:", cardValue, "from position:", gameData?.deckPosition);
+      await playerAction(gameId, "double", dealerPubkey, cardValue);
     } catch (err) {
       console.error("Double error:", err);
       setError(err.message || "Failed to double");
@@ -563,8 +631,19 @@ export default function GamePage() {
     setError(null);
 
     try {
-      // Dealer plays turn: reveals hole card, auto-hits until 17+, determines winner
-      await dealerPlayTurn(gameId, dealerPubkey);
+      // Build real dealer card values from shuffled deck:
+      // [0] = hole card (position 3 in deck), [1..5] = potential hit cards
+      let dealerCardValues = null;
+      if (shuffledDeck) {
+        const deckPos = gameData?.deckPosition || 4;
+        dealerCardValues = [
+          shuffledDeck[3],  // Hole card
+          ...shuffledDeck.slice(deckPos, deckPos + 5),  // Up to 5 hit cards
+        ];
+        console.log("[Game] Dealer turn - hole card:", shuffledDeck[3], "hit cards from pos:", deckPos);
+      }
+
+      await dealerPlayTurn(gameId, dealerPubkey, dealerCardValues);
 
       // Refetch game state to show result
       const data = await fetchGame(gameId, dealerPubkey);
@@ -589,6 +668,9 @@ export default function GamePage() {
     setError(null);
     setTxSignature(null);
     setJoinGameCode("");
+    setProofPhase(null);
+    setProofError(null);
+    zkResetGame();
   };
 
   // Render game result with celebrations
@@ -889,6 +971,11 @@ export default function GamePage() {
                 </button>
               </div>
               <div className="flex items-center gap-2">
+                {zkDeckCommitment && (
+                  <span className="px-2 py-1 rounded-full text-xs font-medium bg-green-500/20 text-green-400 border border-green-500/30">
+                    ZK Active
+                  </span>
+                )}
                 <span
                   className={cn(
                     "px-3 py-1 rounded-full text-sm font-medium",
@@ -913,8 +1000,15 @@ export default function GamePage() {
               )}
             </div>
 
+            {/* Proof Progress (during game creation) */}
+            <AnimatePresence>
+              {(proofPhase || proofError) && (
+                <ProofProgress phase={proofPhase} error={proofError} />
+              )}
+            </AnimatePresence>
+
             {/* Turn Indicator */}
-            {!isGameOver && (
+            {!isGameOver && !proofPhase && (
               <TurnIndicator
                 gameState={gameState}
                 isDealer={isDealer}
@@ -1035,8 +1129,8 @@ export default function GamePage() {
 
             {/* Action Buttons */}
             <div className="flex flex-wrap justify-center gap-4 mt-4">
-              {/* Dealer: Verify Shuffle */}
-              {isDealer && gameState === GAME_STATES.CREATED && (
+              {/* Dealer: Verify Shuffle (retry, only if proof data available) */}
+              {isDealer && gameState === GAME_STATES.CREATED && shuffleProofData && (
                 <motion.button
                   whileTap={{ scale: 0.95 }}
                   whileHover={{ scale: 1.02 }}
@@ -1050,7 +1144,7 @@ export default function GamePage() {
                   )}
                 >
                   {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Shield className="w-5 h-5" />}
-                  Verify Shuffle
+                  Retry Verify Shuffle
                 </motion.button>
               )}
 
