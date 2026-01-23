@@ -527,7 +527,10 @@ export default function GamePage() {
 
     try {
       // Get real card value from shuffled deck at current deck position
-      const cardValue = shuffledDeck ? shuffledDeck[gameData?.deckPosition || 4] : null;
+      if (!shuffledDeck) {
+        throw new Error("Card deck not available - dealer must be in same session for demo");
+      }
+      const cardValue = shuffledDeck[gameData?.deckPosition || 4];
       console.log("[Game] Hit - card value:", cardValue, "from position:", gameData?.deckPosition);
       await playerAction(gameId, "hit", dealerPubkey, cardValue);
     } catch (err) {
@@ -561,7 +564,10 @@ export default function GamePage() {
     setError(null);
 
     try {
-      const cardValue = shuffledDeck ? shuffledDeck[gameData?.deckPosition || 4] : null;
+      if (!shuffledDeck) {
+        throw new Error("Card deck not available - dealer must be in same session for demo");
+      }
+      const cardValue = shuffledDeck[gameData?.deckPosition || 4];
       console.log("[Game] Double - card value:", cardValue, "from position:", gameData?.deckPosition);
       await playerAction(gameId, "double", dealerPubkey, cardValue);
     } catch (err) {
@@ -601,15 +607,31 @@ export default function GamePage() {
       const playerUnrevealedCount = gameData.playerCards.length - playerAlreadyRevealed;
       const dealerUnrevealedCount = gameData.dealerCards.length - dealerAlreadyRevealed;
 
-      // Generate random values for unrevealed cards only
+      // Use actual shuffled deck values for unrevealed cards
+      if (!shuffledDeck) {
+        throw new Error("Shuffled deck not available - dealer must be in same session for demo");
+      }
+
+      // Deck layout:
+      // Position 0,1 = player initial cards
+      // Position 2,3 = dealer initial cards (upcard, hole)
+      // Position 4+ = hit cards (player hits first, then dealer hits)
+      const playerHitCount = gameData.playerCards.length - 2;
+
       const playerCardValues = [];
       for (let i = 0; i < playerUnrevealedCount; i++) {
-        playerCardValues.push(Math.floor(Math.random() * 13));
+        const cardIndex = playerAlreadyRevealed + i;
+        // First 2 player cards are deck[0] and deck[1], hits start at deck[4]
+        const deckPos = cardIndex < 2 ? cardIndex : 4 + (cardIndex - 2);
+        playerCardValues.push(shuffledDeck[deckPos]);
       }
 
       const dealerCardValues = [];
       for (let i = 0; i < dealerUnrevealedCount; i++) {
-        dealerCardValues.push(Math.floor(Math.random() * 13));
+        const cardIndex = dealerAlreadyRevealed + i;
+        // First 2 dealer cards are deck[2] and deck[3], hits start after player hits
+        const deckPos = cardIndex < 2 ? 2 + cardIndex : 4 + playerHitCount + (cardIndex - 2);
+        dealerCardValues.push(shuffledDeck[deckPos]);
       }
 
       // Reveal unrevealed cards in one batched transaction
@@ -647,15 +669,15 @@ export default function GamePage() {
     try {
       // Build real dealer card values from shuffled deck:
       // [0] = hole card (position 3 in deck), [1..5] = potential hit cards
-      let dealerCardValues = null;
-      if (shuffledDeck) {
-        const deckPos = gameData?.deckPosition || 4;
-        dealerCardValues = [
-          shuffledDeck[3],  // Hole card
-          ...shuffledDeck.slice(deckPos, deckPos + 5),  // Up to 5 hit cards
-        ];
-        console.log("[Game] Dealer turn - hole card:", shuffledDeck[3], "hit cards from pos:", deckPos);
+      if (!shuffledDeck) {
+        throw new Error("Shuffled deck not available - dealer must be in same session for demo");
       }
+      const deckPos = gameData?.deckPosition || 4;
+      const dealerCardValues = [
+        shuffledDeck[3],  // Hole card
+        ...shuffledDeck.slice(deckPos, deckPos + 5),  // Up to 5 hit cards
+      ];
+      console.log("[Game] Dealer turn - hole card:", shuffledDeck[3], "hit cards from pos:", deckPos);
 
       await dealerPlayTurn(gameId, dealerPubkey, dealerCardValues);
 
