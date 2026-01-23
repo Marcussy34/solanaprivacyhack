@@ -124,6 +124,49 @@ None! The fix has been pushed. Re-run the workflow.
 
 ---
 
+## ❌ Error: `lock file version 4 requires -Znext-lockfile-bump`
+
+### Problem
+```
+cargo build-sbf failed: exit status 1
+error: failed to parse lock file at: /home/runner/sunspot/gnark-solana/Cargo.lock
+Caused by:
+  lock file version 4 requires `-Znext-lockfile-bump`
+```
+
+### Cause
+- Sunspot's `Cargo.lock` uses version 4 (very recent format)
+- Solana's `cargo-build-sbf` (based on older Cargo) only supports up to version 3
+- This is a compatibility issue between Cargo versions
+
+### ✅ Solution (FIXED)
+**Regenerate Cargo.lock as version 3:**
+
+```yaml
+- name: Clone and Build Sunspot
+  run: |
+    git clone https://github.com/reilabs/sunspot.git
+    cd sunspot
+    
+    # Remove v4 lockfile and regenerate as v3
+    rm -f Cargo.lock
+    cargo generate-lockfile
+```
+
+**What this does:**
+- ❌ Old: Uses Sunspot's Cargo.lock v4 (incompatible)
+- ✅ New: Regenerates Cargo.lock as v3 (compatible with cargo-build-sbf)
+
+**Why it works:**
+- `cargo generate-lockfile` creates a v3 lockfile by default
+- The dependencies remain the same, just the format changes
+- `cargo-build-sbf` can now parse the lockfile
+
+### Action Required
+None! The fix has been pushed. Re-run the workflow.
+
+---
+
 ## ❌ Error: `sunspot: command not found`
 
 ### Problem
