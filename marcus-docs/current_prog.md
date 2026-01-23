@@ -20,13 +20,11 @@
 - [x] Measure browser proof (0.64s)
 - [x] Document proof format for CKay
 
-### Day 3 (Jan 23)
-- [x] Restructure circuits into Noir workspace (`circuits/` with sub-packages)
-- [x] Implement deal_proof circuit (1,111 constraints, 0.18s native prove)
-- [x] Write 3 passing tests for deal_proof (valid deal, wrong position, wrong blinding)
-- [x] Implement reveal_proof circuit (333 constraints, 0.011s native prove)
-- [x] Write 5 passing tests for reveal_proof (3 valid reveals, wrong card, wrong blinding)
-- [x] All 3 ZK circuits complete and verified
+### Day 4 (Jan 23)
+- [x] Measure browser proof timing for all circuits
+- [x] Create `hooks/useZK.js` for frontend integration
+- [x] Create `pages/zk-hook-test.js` for hook verification
+- [x] Verify deck size (13 cards, 0-12)
 
 ---
 
@@ -36,11 +34,13 @@
 |---------|--------|--------|--------|--------|
 | shuffle_proof | Constraints | <50k | **812** | ✅ |
 | shuffle_proof | Native proof | <5s | **0.44s** | ✅ |
-| shuffle_proof | Browser proof | <15s | **0.64s** | ✅ |
+| shuffle_proof | Browser proof | <15s | **0.54s** | ✅ |
 | deal_proof | Constraints | <50k | **1,111** | ✅ |
 | deal_proof | Native proof | <5s | **0.18s** | ✅ |
+| deal_proof | Browser proof | <5s | **0.61s** | ✅ |
 | reveal_proof | Constraints | <50k | **333** | ✅ |
 | reveal_proof | Native proof | <5s | **0.011s** | ✅ |
+| reveal_proof | Browser proof | <5s | **0.37s** | ✅ |
 
 ---
 
@@ -49,11 +49,10 @@
 | File | Purpose |
 |------|---------|
 | `circuits/Nargo.toml` | Workspace config (members: shuffle_proof, deal_proof, reveal_proof) |
-| `circuits/shuffle_proof/src/main.nr` | Shuffle proof circuit |
-| `circuits/deal_proof/src/main.nr` | Deal proof circuit |
-| `circuits/reveal_proof/src/main.nr` | Reveal proof circuit |
-| `pages/zk-test.js` | Browser proof test page |
-| `lib/noir/test-proof.mjs` | Node.js proof test |
+| `circuits/*/src/main.nr` | Circuit source code |
+| `hooks/useZK.js` | **[NEW]** React hook for ZK proof generation |
+| `pages/zk-test.js` | Raw browser proof test page |
+| `pages/zk-hook-test.js` | **[NEW]** Hook integration test page |
 | `marcus-docs/PROOF_FORMAT.md` | Proof format for CKay |
 
 ---
@@ -64,7 +63,8 @@ Per [MARCUS.md](../worksplit/MARCUS.md):
 
 - [x] Deal proof circuit (`circuits/deal_proof/src/main.nr`)
 - [x] Reveal proof circuit (`circuits/reveal_proof/src/main.nr`)
-- [ ] Browser proof timing for deal_proof and reveal_proof
-- [ ] Integrate NoirJS into main frontend (all 3 circuits)
+- [x] Browser proof timing for deal_proof and reveal_proof
+- [x] Integrate NoirJS into main frontend (`hooks/useZK.js`)
 - [ ] Integration testing with CKay's on-chain verifier
 - [ ] End-to-end proof chain test (shuffle→deal→reveal)
+- [ ] Game loop integration (connect hook to Game UI)
