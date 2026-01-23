@@ -402,6 +402,10 @@ export default function GamePage() {
 
       // Phase 3: Verify shuffle proof on-chain
       setProofPhase("verify");
+      console.log("[Game] Verifying shuffle on-chain...");
+      console.log("[Game] Proof size:", zkResult.proof.length);
+      console.log("[Game] Public inputs size:", zkResult.publicInputs.length);
+      
       const verifyResult = await verifyShuffle(
         newGameId,
         zkResult.proof,
