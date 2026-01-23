@@ -95,8 +95,17 @@ jobs:
           echo "Applying Cargo.lock v4 workaround and Rust 1.75 compatibility fixes..."
           cd $HOME/sunspot/gnark-solana
           
-          # Step 1: Downgrade dependencies FIRST (this regenerates Cargo.lock as v4)
-          # cargo-build-sbf uses Rust 1.75.0-dev, but many deps require newer Rust versions
+          # Step 1: Patch Cargo.toml files to force Solana v1.18.x instead of v3.x
+          # cargo-build-sbf uses Rust 1.75.0-dev, but Solana v3 requires Rust 1.81+
+          echo "Patching Cargo.toml files to use Solana v1.18.x..."
+          
+          # Find and replace all solana-* = "^3.0" dependencies with "~1.18"
+          find . -name "Cargo.toml" -type f -exec sed -i 's/solana-\([a-z-]*\) = "\^3\./solana-\1 = "~1.18./g' {} \;
+          find . -name "Cargo.toml" -type f -exec sed -i 's/solana-\([a-z-]*\) = "3\./solana-\1 = "1.18./g' {} \;
+          
+          echo "Cargo.toml files patched!"
+          
+          # Now downgrade dependencies with cargo update
           echo "Downgrading dependencies for Rust 1.75 compatibility..."
           
           # Downgrade proc-macro-crate (requires Rust 1.76+)
@@ -105,19 +114,15 @@ jobs:
           # Downgrade winnow (requires Rust 1.76+)
           cargo update winnow --precise 0.6.20 2>/dev/null || true
           
-          # Downgrade Solana v3 packages (require Rust 1.81+) to v1.18.x (Rust 1.75 compatible)
-          # We need to downgrade ALL Solana v3.x packages as they appear
-          echo "Downgrading Solana v3 packages to v1.18.x..."
-          cargo update solana-address --precise 1.18.26 2>/dev/null || true
-          cargo update solana-hash --precise 1.18.26 2>/dev/null || true
-          cargo update solana-pubkey --precise 1.18.26 2>/dev/null || true
-          cargo update solana-program --precise 1.18.26 2>/dev/null || true
-          cargo update solana-borsh --precise 1.18.26 2>/dev/null || true
-          cargo update solana-sanitize --precise 1.18.26 2>/dev/null || true
-          cargo update solana-msg --precise 1.18.26 2>/dev/null || true
-          cargo update solana-instruction --precise 1.18.26 2>/dev/null || true
-          cargo update solana-account --precise 1.18.26 2>/dev/null || true
-          cargo update solana-clock --precise 1.18.26 2>/dev/null || true
+          # Update all solana packages to 1.18.x (now that Cargo.toml allows it)
+          echo "Updating Solana packages to v1.18.x..."
+          cargo update -p solana-address --precise 1.18.26 2>/dev/null || true
+          cargo update -p solana-hash --precise 1.18.26 2>/dev/null || true
+          cargo update -p solana-pubkey --precise 1.18.26 2>/dev/null || true
+          cargo update -p solana-program --precise 1.18.26 2>/dev/null || true
+          cargo update -p solana-borsh --precise 1.18.26 2>/dev/null || true
+          cargo update -p solana-sanitize --precise 1.18.26 2>/dev/null || true
+          cargo update -p solana-msg --precise 1.18.26 2>/dev/null || true
           
           echo "Dependencies downgraded!"
           
