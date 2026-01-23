@@ -96,16 +96,18 @@ jobs:
           cd $HOME/sunspot/gnark-solana
           
           # Step 1: Downgrade dependencies FIRST (this regenerates Cargo.lock as v4)
-          # cargo-build-sbf uses Rust 1.75.0-dev, but some deps require 1.76+
-          # The issue: proc-macro-crate v3.4.0 requires toml_edit ^0.23.2 which requires Rust 1.76
-          # Solution: Downgrade proc-macro-crate v3.4.0 to v3.1.0 which uses toml_edit 0.21
+          # cargo-build-sbf uses Rust 1.75.0-dev, but many deps require newer Rust versions
           echo "Downgrading dependencies for Rust 1.75 compatibility..."
           
-          # Downgrade the v3.4.0 instance of proc-macro-crate (not the 0.1.5 one)
+          # Downgrade proc-macro-crate (requires Rust 1.76+)
           cargo update proc-macro-crate@3.4.0 --precise 3.1.0
           
-          # Also downgrade winnow if it appears
+          # Downgrade winnow (requires Rust 1.76+)
           cargo update winnow --precise 0.6.20 2>/dev/null || true
+          
+          # Downgrade solana-address (requires Rust 1.81+)
+          # Find the latest 1.x version that works with Rust 1.75
+          cargo update solana-address --precise 1.18.26 2>/dev/null || cargo update solana-address --precise 1.18.0 || true
           
           echo "Dependencies downgraded!"
           
