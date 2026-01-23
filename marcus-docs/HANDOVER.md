@@ -1,6 +1,7 @@
-# ZK Circuit Handover — All 3 Circuits Complete
+# ZK Circuit Handover — All 3 Circuits Complete + Sunspot Integration
 
-**Updated:** Jan 23, 2026 | **Branch:** `marcus` | **Deadline:** Feb 1, 2026
+**Updated:** Jan 23, 2026 | **Branch:** `marcus` | **Deadline:** Feb 1, 2026  
+**Proof System:** Sunspot (Noir → Groth16 for Solana)
 
 ---
 
@@ -171,10 +172,11 @@ nargo execute --package reveal_proof
 
 ## Known Issues / Notes
 
-- **BB quirk:** Always use `bb prove --write_vk` to generate VK alongside the proof. Running standalone `bb write_vk` produces a mismatched VK that fails verification.
-- **UltraHonk, not Groth16:** Native proofs use UltraHonk (Barretenberg). On-chain verification will use Light Protocol's Groth16 verifier — conversion/adapter needed.
+- **✅ Sunspot Integration:** Now using Sunspot to convert Noir circuits to Groth16 proofs for Solana on-chain verification.
+- **Proof System:** Groth16 (via Sunspot/Gnark), NOT UltraHonk. Verifier programs deployed to Solana.
 - **Poseidon v0.2.2:** All circuits depend on `poseidon = { tag = "v0.2.2", git = "https://github.com/noir-lang/poseidon" }`. Do not upgrade without testing.
 - **13-card deck:** Currently using a simplified 13-card deck (0-12). Full 52-card deck would increase constraints significantly.
+- **Trusted Setup:** Using local trusted setup (fine for hackathon, needs proper ceremony for production).
 - **VK sizes may differ per circuit** due to different constraint counts.
 
 ---
@@ -182,6 +184,8 @@ nargo execute --package reveal_proof
 ## Reference
 
 - [MARCUS.md](../worksplit/MARCUS.md) — Full task list
+- [SUNSPOT_INTEGRATION.md](./SUNSPOT_INTEGRATION.md) — Complete Sunspot guide
+- [SUNSPOT_QUICKSTART.md](./SUNSPOT_QUICKSTART.md) — Quick start commands
 - [Noir Docs](https://noir-lang.org/docs)
-- [Barretenberg](https://barretenberg.aztec.network/docs)
-- [Light Protocol](https://www.lightprotocol.com/)
+- [Sunspot Repo](https://github.com/reilabs/sunspot)
+- [Solana Noir Examples](https://github.com/solana-foundation/noir-examples)

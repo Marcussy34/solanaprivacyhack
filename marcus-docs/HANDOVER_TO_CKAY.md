@@ -174,16 +174,18 @@ if proof.len() < 100 {
 
 ### What You Need to Implement
 
-1. **Choose verification approach:**
-   - **Option A:** Use Light Protocol's Groth16 verifier (requires proof conversion)
-   - **Option B:** Implement UltraHonk verifier on Solana (complex)
-   - **Option C:** Off-chain verification with on-chain commitment checks (simplest)
+1. **✅ DECISION MADE:** Using Sunspot for on-chain Groth16 verification!
+   - Sunspot converts Noir circuits → Groth16 proofs
+   - Generates custom Solana verifier programs (one per circuit)
+   - No Light Protocol needed
+   - **Status:** Verifier programs ready to deploy
 
-2. **For Option A (Light Protocol):**
-   - I'll need to convert UltraHonk proofs to Groth16 format
-   - You integrate Light Protocol's verifier CPI
+2. **For CKay (Anchor integration):**
+   - Add CPI calls to the 3 Sunspot verifier programs
+   - Verifier Program IDs will be provided by Marcus
+   - Instruction data format: `proof_bytes || public_witness_bytes`
 
-3. **For Option C (Simplest path for hackathon):**
+3. **For Marcus (Backend API):**
    - Store commitments on-chain
    - Verify proofs off-chain (trusted server or client-side)
    - On-chain only checks commitment linkage
@@ -303,11 +305,17 @@ require!(
 
 ## What I Still Need From You
 
-1. **Confirmation on verification approach** - Are we doing full on-chain verification or commitment-only for the hackathon?
+1. **✅ RESOLVED:** Using Sunspot for full on-chain Groth16 verification!
 
-2. **If full verification:** Which verifier library? Light Protocol? Custom?
+2. **✅ Verifier approach:** 3 custom Sunspot verifier programs (one per circuit)
+   - Marcus will provide Program IDs
+   - CKay adds CPI calls in Anchor program
 
-3. **Game UI integration point** - Where should I wire `useZKGame` into the game components? I can do this once you confirm the game flow.
+3. **Backend API setup** - Marcus will create API endpoint for Sunspot proof generation
+   - Frontend: NoirJS witness → API → Groth16 proof
+   - CKay: Integrate API calls in frontend
+
+4. **Game UI integration point** - Where should `useZKGame` be wired into the game components?
 
 ---
 

@@ -7,23 +7,35 @@
 │                           FRONTEND (Next.js)                            │
 │  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐    │
 │  │   Wallet    │  │    Game     │  │   NoirJS    │  │    State    │    │
-│  │  Connect    │  │     UI      │  │   Prover    │  │   Manager   │    │
-│  └─────────────┘  └─────────────┘  └─────────────┘  └─────────────┘    │
-└─────────────────────────────────────────────────────────────────────────┘
-                                    │
-                                    ▼
+│  │  Connect    │  │     UI      │  │  Witness    │  │   Manager   │    │
+│  └─────────────┘  └─────────────┘  └──────┬──────┘  └─────────────┘    │
+└────────────────────────────────────────────┼───────────────────────────┘
+                                             │ witness
+                                             ▼
+┌─────────────────────────────────────────────────────────────────────────┐
+│                      BACKEND API (Sunspot Prover)                       │
+│  ┌──────────────────────────────────────────────────────────────────┐   │
+│  │  Sunspot: Noir witness → Groth16 proof generation                │   │
+│  └──────────────────────────────────────────────────────────────────┘   │
+└─────────────────────────────────────────────┬───────────────────────────┘
+                                              │ proof + public_inputs
+                                              ▼
 ┌─────────────────────────────────────────────────────────────────────────┐
 │                         SOLANA BLOCKCHAIN                               │
 │  ┌─────────────────────────────────────────────────────────────────┐   │
 │  │                    ZK Card Arena Program (Anchor)                │   │
 │  │  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐              │   │
-│  │  │   Game      │  │   Proof     │  │   Card      │              │   │
+│  │  │   Game      │  │   CPI to    │  │   Card      │              │   │
 │  │  │   State     │  │  Verifier   │  │  Reveals    │              │   │
-│  │  └─────────────┘  └─────────────┘  └─────────────┘              │   │
-│  └─────────────────────────────────────────────────────────────────┘   │
-│                                                                         │
-│  ┌─────────────────────────────────────────────────────────────────┐   │
-│  │              Light Protocol (Groth16 Verifier)                   │   │
+│  │  └─────────────┘  └──────┬──────┘  └─────────────┘              │   │
+│  └────────────────────────────┼────────────────────────────────────┘   │
+│                               │                                         │
+│  ┌────────────────────────────▼────────────────────────────────────┐   │
+│  │       Sunspot Groth16 Verifiers (3 separate programs)           │   │
+│  │  ┌───────────────┐ ┌───────────────┐ ┌───────────────┐         │   │
+│  │  │ shuffle_proof │ │  deal_proof   │ │ reveal_proof  │         │   │
+│  │  │   verifier    │ │   verifier    │ │   verifier    │         │   │
+│  │  └───────────────┘ └───────────────┘ └───────────────┘         │   │
 │  └─────────────────────────────────────────────────────────────────┘   │
 └─────────────────────────────────────────────────────────────────────────┘
 ```
@@ -38,7 +50,8 @@
 |-----------|------------|----------------|
 | **UI Framework** | Next.js + React | Game interface, state management |
 | **Wallet** | @solana/wallet-adapter | Wallet connection, signing |
-| **ZK Prover** | NoirJS | Browser-based proof generation |
+| **ZK Witness** | NoirJS | Browser-based witness generation |
+| **ZK Prover** | Sunspot (backend API) | Groth16 proof generation |
 | **RPC Client** | @solana/web3.js | Blockchain communication |
 | **Styling** | TailwindCSS | UI styling |
 
@@ -63,8 +76,9 @@
 
 | Component | Technology | Purpose |
 |-----------|------------|---------|
-| **Groth16 Verifier** | Light Protocol | On-chain proof verification |
-| **Verification Key** | Pre-computed | Circuit-specific verification |
+| **Groth16 Verifiers** | Sunspot-generated Solana programs | On-chain proof verification (3 separate verifiers) |
+| **Verification Keys** | Embedded in verifier programs | Circuit-specific verification |
+| **Proving System** | Gnark (via Sunspot) | Groth16 proof generation |
 
 ---
 
@@ -85,7 +99,7 @@
    └── Initialize game state
 
 3. Solana Program:
-   ├── Verify shuffle proof (Light Protocol)
+   ├── CPI to Sunspot shuffle verifier
    ├── Store deck commitment
    └── Mark game as "accepting players"
 ```
@@ -235,8 +249,9 @@ pub enum GameState {
 | Frontend | Next.js | 14.x |
 | Styling | TailwindCSS | 3.x |
 | Wallet | @solana/wallet-adapter | latest |
-| ZK Circuits | Noir | 0.30+ |
-| Proving | NoirJS | latest |
+| ZK Circuits | Noir | v1.0.0-beta.18 |
+| Witness Generation | NoirJS | latest |
+| Proof Generation | Sunspot (Gnark) | latest |
 | Smart Contracts | Anchor | 0.29+ |
-| ZK Verification | Light Protocol Groth16 | latest |
+| ZK Verification | Sunspot Groth16 Verifiers | On-chain |
 | Blockchain | Solana | Devnet → Mainnet |

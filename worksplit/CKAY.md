@@ -21,12 +21,12 @@
 - [ ] Add basic error handling
 - [ ] ✅ Receive from Marcus: Proof format spec
 
-### Day 5: Light Protocol Integration
-- [ ] Research Light Protocol Groth16 verifier
-- [ ] Set up verification key storage
-- [ ] Implement `verify_shuffle` instruction stub
+### Day 5: Sunspot Verifier Integration
+- [ ] Receive Sunspot verifier Program IDs from Marcus
+- [ ] Add verifier program accounts to Anchor context structs
+- [ ] Implement CPI to Sunspot verifiers in `verify_shuffle`
 - [ ] Test that program builds and deploys
-- [ ] **DECISION (with Marcus):** GO/NO-GO on full ZK
+- [ ] **SYNC (with Marcus):** Confirm proof format matches
 
 ---
 
@@ -126,13 +126,13 @@ See [SMART_CONTRACTS.md](../docs/SMART_CONTRACTS.md) for full details.
 | Instruction | Target CUs |
 |-------------|-----------|
 | create_game | ~10,000 |
-| verify_shuffle | ~200,000 |
+| verify_shuffle (with CPI) | ~200,000 |
 | join_game | ~5,000 |
-| deal_card | ~50,000 |
+| deal_card (with CPI) | ~200,000 |
 | player_action | ~5,000 |
-| reveal_card | ~30,000 |
+| reveal_card (with CPI) | ~200,000 |
 
-> ⚠️ Groth16 verification must fit in 400,000 CU limit. Test this on Day 3.
+> ✅ Sunspot Groth16 verifiers use < 200,000 CU each. CPI overhead is minimal.
 
 ---
 
@@ -141,8 +141,9 @@ See [SMART_CONTRACTS.md](../docs/SMART_CONTRACTS.md) for full details.
 | Day | What You Receive |
 |-----|------------------|
 | 2 | Proof format spec (to design verification) |
-| 5 | Working shuffle circuit |
-| 8 | NoirJS integration code |
+| 3 | Sunspot verifier Program IDs (deployed to devnet) |
+| 5 | Working shuffle circuit + backend API endpoint |
+| 8 | Frontend integration code (witness → proof) |
 
 ---
 
