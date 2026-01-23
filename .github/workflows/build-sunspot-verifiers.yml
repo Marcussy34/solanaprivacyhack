@@ -174,21 +174,23 @@ jobs:
           # Verify verifier-bin directory exists
           ls -la $GNARK_VERIFIER_BIN || echo "Verifier bin directory not found!"
           
-          # CRITICAL: Also apply fixes to verifier-bin subdirectory
-          # sunspot deploy runs cargo-build-sbf in the verifier-bin directory
-          echo "Applying fixes to verifier-bin directory..."
-          cd $GNARK_VERIFIER_BIN
+          # CRITICAL: Also apply fixes to ALL crates in gnark-solana workspace
+          # The conflict shows multiple crates depend on blake3
+          echo "Applying fixes to ALL Cargo.toml files in gnark-solana workspace..."
+          cd $HOME/sunspot/gnark-solana
           
-          echo "Original verifier-bin Cargo.toml [dependencies] section:"
-          grep -A 10 "^\[dependencies\]" Cargo.toml || echo "No dependencies section found"
+          # Find and patch ALL Cargo.toml files in the workspace
+          echo "Patching blake3 and constant_time_eq in ALL workspace crates..."
+          find . -name "Cargo.toml" -type f | while read toml; do
+            echo "Patching $toml"
+            # Replace blake3 lines (handles both simple and complex formats)
+            sed -i -E 's/^blake3[[:space:]]*=.*/blake3 = "=1.5.4"  # Pinned for Rust 1.75/' "$toml"
+            # Replace constant_time_eq lines
+            sed -i -E 's/^constant_time_eq[[:space:]]*=.*/constant_time_eq = "=0.3.1"  # Pinned for Rust 1.75/' "$toml"
+          done
           
-          # Replace existing blake3 and constant_time_eq lines (if they exist)
-          # Pattern matches: blake3 = { ... } or blake3 = "..."
-          sed -i -E 's/^blake3[[:space:]]*=.*/blake3 = "=1.5.4"  # Pinned for Rust 1.75 compatibility/' Cargo.toml
-          sed -i -E 's/^constant_time_eq[[:space:]]*=.*/constant_time_eq = "=0.3.1"  # Pinned for Rust 1.75 compatibility/' Cargo.toml
-          
-          echo "Patched verifier-bin Cargo.toml [dependencies] section:"
-          grep -A 10 "^\[dependencies\]" Cargo.toml || tail -10 Cargo.toml
+          echo "Verifying patches - showing blake3 entries in all Cargo.toml files:"
+          find . -name "Cargo.toml" -exec grep -H "blake3" {} \; || echo "No blake3 found"
 
       - name: Compile Noir Circuits
         run: |
