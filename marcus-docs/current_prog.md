@@ -24,6 +24,9 @@
 - [x] Restructure circuits into Noir workspace (`circuits/` with sub-packages)
 - [x] Implement deal_proof circuit (1,111 constraints, 0.18s native prove)
 - [x] Write 3 passing tests for deal_proof (valid deal, wrong position, wrong blinding)
+- [x] Implement reveal_proof circuit (333 constraints, 0.011s native prove)
+- [x] Write 5 passing tests for reveal_proof (3 valid reveals, wrong card, wrong blinding)
+- [x] All 3 ZK circuits complete and verified
 
 ---
 
@@ -36,6 +39,8 @@
 | shuffle_proof | Browser proof | <15s | **0.64s** | ✅ |
 | deal_proof | Constraints | <50k | **1,111** | ✅ |
 | deal_proof | Native proof | <5s | **0.18s** | ✅ |
+| reveal_proof | Constraints | <50k | **333** | ✅ |
+| reveal_proof | Native proof | <5s | **0.011s** | ✅ |
 
 ---
 
@@ -43,9 +48,10 @@
 
 | File | Purpose |
 |------|---------|
-| `circuits/Nargo.toml` | Workspace config (members: shuffle_proof, deal_proof) |
+| `circuits/Nargo.toml` | Workspace config (members: shuffle_proof, deal_proof, reveal_proof) |
 | `circuits/shuffle_proof/src/main.nr` | Shuffle proof circuit |
 | `circuits/deal_proof/src/main.nr` | Deal proof circuit |
+| `circuits/reveal_proof/src/main.nr` | Reveal proof circuit |
 | `pages/zk-test.js` | Browser proof test page |
 | `lib/noir/test-proof.mjs` | Node.js proof test |
 | `marcus-docs/PROOF_FORMAT.md` | Proof format for CKay |
@@ -57,6 +63,8 @@
 Per [MARCUS.md](../worksplit/MARCUS.md):
 
 - [x] Deal proof circuit (`circuits/deal_proof/src/main.nr`)
-- [ ] Reveal proof circuit (`circuits/reveal_proof/src/main.nr`)
-- [ ] Integrate NoirJS into main frontend
-- [ ] Test proof → contract flow with CKay
+- [x] Reveal proof circuit (`circuits/reveal_proof/src/main.nr`)
+- [ ] Browser proof timing for deal_proof and reveal_proof
+- [ ] Integrate NoirJS into main frontend (all 3 circuits)
+- [ ] Integration testing with CKay's on-chain verifier
+- [ ] End-to-end proof chain test (shuffle→deal→reveal)
