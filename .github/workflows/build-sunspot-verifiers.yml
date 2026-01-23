@@ -121,18 +121,26 @@ jobs:
           
           # Build shuffle verifier
           echo "Building shuffle_proof verifier..."
-          sunspot deploy target/shuffle_proof.vk --output shuffle_proof_verifier
+          sunspot deploy target/shuffle_proof.vk
+          mv verifier.so shuffle_proof_verifier.so
+          mv verifier-keypair.json shuffle_proof_verifier-keypair.json
           
           # Build deal verifier
           echo "Building deal_proof verifier..."
-          sunspot deploy target/deal_proof.vk --output deal_proof_verifier
+          sunspot deploy target/deal_proof.vk
+          mv verifier.so deal_proof_verifier.so
+          mv verifier-keypair.json deal_proof_verifier-keypair.json
           
           # Build reveal verifier
           echo "Building reveal_proof verifier..."
-          sunspot deploy target/reveal_proof.vk --output reveal_proof_verifier
+          sunspot deploy target/reveal_proof.vk
+          mv verifier.so reveal_proof_verifier.so
+          mv verifier-keypair.json reveal_proof_verifier-keypair.json
           
           # List generated verifiers
-          find . -name "*.so" -o -name "verifier*.so"
+          echo "Generated verifier files:"
+          ls -lh *_verifier.so
+          ls -lh *_verifier-keypair.json
 
       - name: Upload Verifier Artifacts
         uses: actions/upload-artifact@v4
@@ -140,9 +148,7 @@ jobs:
           name: solana-verifiers
           path: |
             circuits/*_verifier.so
-            circuits/shuffle_proof_verifier.so
-            circuits/deal_proof_verifier.so
-            circuits/reveal_proof_verifier.so
+            circuits/*_verifier-keypair.json
             circuits/target/*.vk
             circuits/target/*.pk
           retention-days: 30
@@ -168,21 +174,33 @@ jobs:
           BALANCE=$(solana balance -k /tmp/deployer.json)
           echo "Deployer balance: $BALANCE"
           
-          # Deploy shuffle verifier
+          # Deploy shuffle verifier using generated keypair
           echo "Deploying shuffle_proof verifier..."
-          SHUFFLE_ID=$(solana program deploy circuits/shuffle_proof_verifier.so -k /tmp/deployer.json --output json | jq -r '.programId')
+          SHUFFLE_ID=$(solana address -k circuits/shuffle_proof_verifier-keypair.json)
+          solana program deploy circuits/shuffle_proof_verifier.so \
+            --program-id circuits/shuffle_proof_verifier-keypair.json \
+            -k /tmp/deployer.json \
+            --url devnet
           echo "Shuffle Verifier Program ID: $SHUFFLE_ID"
           echo "SHUFFLE_VERIFIER_ID=$SHUFFLE_ID" >> $GITHUB_ENV
           
-          # Deploy deal verifier
+          # Deploy deal verifier using generated keypair
           echo "Deploying deal_proof verifier..."
-          DEAL_ID=$(solana program deploy circuits/deal_proof_verifier.so -k /tmp/deployer.json --output json | jq -r '.programId')
+          DEAL_ID=$(solana address -k circuits/deal_proof_verifier-keypair.json)
+          solana program deploy circuits/deal_proof_verifier.so \
+            --program-id circuits/deal_proof_verifier-keypair.json \
+            -k /tmp/deployer.json \
+            --url devnet
           echo "Deal Verifier Program ID: $DEAL_ID"
           echo "DEAL_VERIFIER_ID=$DEAL_ID" >> $GITHUB_ENV
           
-          # Deploy reveal verifier
+          # Deploy reveal verifier using generated keypair
           echo "Deploying reveal_proof verifier..."
-          REVEAL_ID=$(solana program deploy circuits/reveal_proof_verifier.so -k /tmp/deployer.json --output json | jq -r '.programId')
+          REVEAL_ID=$(solana address -k circuits/reveal_proof_verifier-keypair.json)
+          solana program deploy circuits/reveal_proof_verifier.so \
+            --program-id circuits/reveal_proof_verifier-keypair.json \
+            -k /tmp/deployer.json \
+            --url devnet
           echo "Reveal Verifier Program ID: $REVEAL_ID"
           echo "REVEAL_VERIFIER_ID=$REVEAL_ID" >> $GITHUB_ENV
           
