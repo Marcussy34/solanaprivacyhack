@@ -173,6 +173,26 @@ jobs:
           
           # Verify verifier-bin directory exists
           ls -la $GNARK_VERIFIER_BIN || echo "Verifier bin directory not found!"
+          
+          # CRITICAL: Also apply fixes to verifier-bin subdirectory
+          # sunspot deploy runs cargo-build-sbf in the verifier-bin directory
+          echo "Applying fixes to verifier-bin directory..."
+          cd $GNARK_VERIFIER_BIN
+          
+          # Patch verifier-bin Cargo.toml for edition2024 packages
+          sed -i -E 's/(blake3[[:space:]]*=[[:space:]]*")[^"]*"/\1=1.5.4"/g' Cargo.toml || true
+          sed -i -E 's/(constant_time_eq[[:space:]]*=[[:space:]]*")[^"]*"/\1=0.3.1"/g' Cargo.toml || true
+          
+          # Add explicit dependencies to lock versions
+          if ! grep -q "blake3.*=.*1.5.4" Cargo.toml; then
+            echo 'blake3 = "=1.5.4"' >> Cargo.toml
+          fi
+          if ! grep -q "constant_time_eq.*=.*0.3.1" Cargo.toml; then
+            echo 'constant_time_eq = "=0.3.1"' >> Cargo.toml
+          fi
+          
+          echo "verifier-bin Cargo.toml patched!"
+          tail -10 Cargo.toml
 
       - name: Compile Noir Circuits
         run: |
