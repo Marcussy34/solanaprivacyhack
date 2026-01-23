@@ -23,7 +23,17 @@
       "Bash(wsl -d docker-desktop -e sh -c \"curl -L https://raw.githubusercontent.com/noir-lang/noirup/main/install | bash\")",
       "Bash(wsl -d Ubuntu -e bash -c \"curl -L https://raw.githubusercontent.com/noir-lang/noirup/main/install | bash\")",
       "Bash(wsl -d Ubuntu -e bash -c \"source ~/.bashrc && noirup\")",
-      "Bash(wsl -d Ubuntu -e bash -c:*)"
+      "Bash(wsl -d Ubuntu -e bash -c:*)",
+      "Bash(brew upgrade:*)",
+      "Bash(time bb prove:*)",
+      "Bash(bb write_vk:*)",
+      "Bash(bb verify:*)",
+      "Bash(xxd:*)",
+      "Bash(bb:*)",
+      "Bash(~/.bb/bb prove:*)",
+      "Bash(~/.bb/bb verify:*)",
+      "Bash(git -C /Users/marcus/Projects/solanaprivacyhack log --oneline -20)",
+      "Bash(git -C /Users/marcus/Projects/solanaprivacyhack log --all --graph --oneline -15)"
     ]
   }
 }
