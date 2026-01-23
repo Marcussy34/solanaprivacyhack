@@ -131,7 +131,9 @@ jobs:
           cargo update rayon-core --precise 1.12.1 2>/dev/null || true  
           cargo update rayon --precise 1.10.0 2>/dev/null || true
           
-          # Downgrade blake3 (requires edition2024 feature not in Rust 1.75 Cargo)
+          # Downgrade blake3 (v1.8+ requires edition2024 not in Rust 1.75 Cargo)
+          # Must specify exact version being downgraded
+          cargo update blake3@1.8.3 --precise 1.5.4 2>/dev/null || true
           cargo update blake3 --precise 1.5.4 2>/dev/null || true
           
           # Update all solana packages to 1.18.x (now that Cargo.toml allows it)
