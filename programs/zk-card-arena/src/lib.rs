@@ -1,6 +1,24 @@
 use anchor_lang::prelude::*;
+use anchor_lang::solana_program::instruction::Instruction;
+use anchor_lang::solana_program::program::invoke;
 
 declare_id!("22BfrTbAzVmwENnyfzk6rFtPaNvCmaATbeWaJKKoqkK4");
+
+/// Sunspot Groth16 verifier program IDs (deployed to devnet)
+mod shuffle_verifier {
+    use super::*;
+    declare_id!("6sju9HLJTFfESLn49wAR2hqiC6mnu3MrP2K9WDbkjCL2");
+}
+
+mod deal_verifier {
+    use super::*;
+    declare_id!("Epoxbrv1Pc2XeYR2xsKsqm3Gy1j2MbkBx4yHfkg8yuSC");
+}
+
+mod reveal_verifier {
+    use super::*;
+    declare_id!("HrETBH5nTa3DTVjBFWMdytLtuX9GsFwiAGkkyQAXnMt9");
+}
 
 #[program]
 pub mod zk_card_arena {
@@ -50,8 +68,7 @@ pub mod zk_card_arena {
         Ok(())
     }
 
-    /// Verifies the shuffle proof and marks game ready for players
-    /// Uses Sunspot Groth16 verifier via CPI
+    /// Verifies the shuffle proof via CPI to deployed Sunspot Groth16 verifier
     pub fn verify_shuffle(
         ctx: Context<VerifyShuffle>,
         proof: Vec<u8>,
@@ -67,26 +84,33 @@ pub mod zk_card_arena {
             game.dealer == ctx.accounts.dealer.key(),
             GameError::Unauthorized
         );
+        require!(
+            ctx.accounts.shuffle_verifier_program.key() == shuffle_verifier::ID,
+            GameError::InvalidVerifier
+        );
 
-        // TODO: Implement CPI to Sunspot shuffle verifier
-        // Instruction data format: proof_bytes || public_witness_bytes
-        // let mut instruction_data = Vec::new();
-        // instruction_data.extend_from_slice(&proof);
-        // instruction_data.extend_from_slice(&public_inputs);
-        // 
-        // let verify_ix = Instruction {
-        //     program_id: ctx.accounts.shuffle_verifier_program.key(),
-        //     accounts: vec![],
-        //     data: instruction_data,
-        // };
-        // 
-        // anchor_lang::solana_program::program::invoke(&verify_ix, &[])?;
+        // Sunspot verifier instruction data: proof || public_inputs
+        let mut instruction_data = Vec::with_capacity(proof.len() + public_inputs.len());
+        instruction_data.extend_from_slice(&proof);
+        instruction_data.extend_from_slice(&public_inputs);
 
-        // For now, mark as verified (will implement with CPI)
+        let verify_ix = Instruction {
+            program_id: shuffle_verifier::ID,
+            accounts: vec![], // Sunspot verifiers are stateless
+            data: instruction_data,
+        };
+
+        // CPI call - will fail if proof is invalid
+        invoke(
+            &verify_ix,
+            &[ctx.accounts.shuffle_verifier_program.to_account_info()],
+        )?;
+
+        // Proof verified successfully - update game state
         game.shuffle_verified = true;
         game.state = GameState::AwaitingPlayer;
 
-        msg!("Shuffle verified for game {}", game.game_id);
+        msg!("Shuffle proof verified on-chain for game {}", game.game_id);
         Ok(())
     }
 
@@ -446,10 +470,10 @@ pub struct VerifyShuffle<'info> {
     pub game: Account<'info, Game>,
 
     pub dealer: Signer<'info>,
-    
-    /// CHECK: Sunspot shuffle verifier program (deployed separately)
-    /// Program ID will be provided by Marcus after Sunspot deployment
-    // pub shuffle_verifier_program: AccountInfo<'info>,
+
+    /// CHECK: Sunspot Groth16 shuffle verifier program.
+    /// Validated in instruction handler against shuffle_verifier::ID.
+    pub shuffle_verifier_program: AccountInfo<'info>,
 }
 
 #[derive(Accounts)]
@@ -592,6 +616,9 @@ pub enum GameError {
 
     #[msg("Invalid proof")]
     InvalidProof,
+
+    #[msg("Invalid verifier program ID")]
+    InvalidVerifier,
 
     #[msg("Not authorized for this action")]
     Unauthorized,
