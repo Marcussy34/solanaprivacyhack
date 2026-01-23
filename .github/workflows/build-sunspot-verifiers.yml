@@ -113,7 +113,11 @@ jobs:
           echo "Sample of patched dependencies:"
           grep -r "solana-" . -A 0 --include="Cargo.toml" | grep "1.18" | head -3 || echo "No matches found"
           
-          # Now downgrade dependencies with cargo update
+          # Remove old Cargo.lock to force regeneration with patched Cargo.toml files
+          echo "Removing old Cargo.lock to regenerate with patched dependencies..."
+          rm -f Cargo.lock
+          
+          # Now downgrade dependencies with cargo update (this regenerates Cargo.lock)
           echo "Downgrading dependencies for Rust 1.75 compatibility..."
           
           # Downgrade proc-macro-crate (requires Rust 1.76+)
@@ -123,9 +127,10 @@ jobs:
           cargo update winnow --precise 0.6.20 2>/dev/null || true
           
           # Downgrade rayon and rayon-core (requires Rust 1.80+)
-          # Need to downgrade both rayon and rayon-core together
-          cargo update -p rayon-core --precise 1.12.1 2>/dev/null || true
-          cargo update -p rayon --precise 1.10.0 2>/dev/null || true
+          # Specify all versions to catch any instance
+          cargo update rayon-core@1.13.0 --precise 1.12.1 2>/dev/null || true
+          cargo update rayon-core --precise 1.12.1 2>/dev/null || true  
+          cargo update rayon --precise 1.10.0 2>/dev/null || true
           
           # Update all solana packages to 1.18.x (now that Cargo.toml allows it)
           echo "Updating Solana packages to v1.18.x..."
