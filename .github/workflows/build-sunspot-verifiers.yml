@@ -179,20 +179,29 @@ jobs:
           echo "Applying fixes to verifier-bin directory..."
           cd $GNARK_VERIFIER_BIN
           
-          # Patch verifier-bin Cargo.toml for edition2024 packages
-          sed -i -E 's/(blake3[[:space:]]*=[[:space:]]*")[^"]*"/\1=1.5.4"/g' Cargo.toml || true
-          sed -i -E 's/(constant_time_eq[[:space:]]*=[[:space:]]*")[^"]*"/\1=0.3.1"/g' Cargo.toml || true
-          
-          # Add explicit dependencies to lock versions
-          if ! grep -q "blake3.*=.*1.5.4" Cargo.toml; then
-            echo 'blake3 = "=1.5.4"' >> Cargo.toml
-          fi
-          if ! grep -q "constant_time_eq.*=.*0.3.1" Cargo.toml; then
-            echo 'constant_time_eq = "=0.3.1"' >> Cargo.toml
-          fi
-          
-          echo "verifier-bin Cargo.toml patched!"
+          echo "Original verifier-bin Cargo.toml (last 10 lines):"
           tail -10 Cargo.toml
+          
+          # Check if [dependencies] section exists, if not add it
+          if ! grep -q "^\[dependencies\]" Cargo.toml; then
+            echo "" >> Cargo.toml
+            echo "[dependencies]" >> Cargo.toml
+          fi
+          
+          # Add blake3 and constant_time_eq version locks to [dependencies]
+          # Use awk to insert after [dependencies] section
+          awk '
+            /^\[dependencies\]/ {
+              print
+              print "blake3 = \"=1.5.4\"  # Pinned for Rust 1.75 compatibility"
+              print "constant_time_eq = \"=0.3.1\"  # Pinned for Rust 1.75 compatibility"
+              next
+            }
+            { print }
+          ' Cargo.toml > Cargo.toml.tmp && mv Cargo.toml.tmp Cargo.toml
+          
+          echo "Patched verifier-bin Cargo.toml (showing [dependencies] section):"
+          grep -A 5 "^\[dependencies\]" Cargo.toml || tail -10 Cargo.toml
 
       - name: Compile Noir Circuits
         run: |
