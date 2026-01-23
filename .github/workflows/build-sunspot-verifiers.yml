@@ -99,11 +99,13 @@ jobs:
           # cargo-build-sbf uses Rust 1.75.0-dev, but Solana v3 requires Rust 1.81+
           echo "Patching Cargo.toml files to use Solana v1.18.x..."
           
-          # Find and replace all solana-* = "^3.0" dependencies with "~1.18"
-          find . -name "Cargo.toml" -type f -exec sed -i 's/solana-\([a-z-]*\) = "\^3\./solana-\1 = "~1.18./g' {} \;
-          find . -name "Cargo.toml" -type f -exec sed -i 's/solana-\([a-z-]*\) = "3\./solana-\1 = "1.18./g' {} \;
+          # Replace solana-* version constraints: ^3.x → ~1.18, 3.x → 1.18.x
+          # We need to match the entire version string to avoid partial replacements
+          find . -name "Cargo.toml" -type f -exec sed -i -E 's/(solana-[a-z-]+[[:space:]]*=[[:space:]]*")(\^)?3\.[0-9]+(\.[0-9]+)?"/\1~1.18"/g' {} \;
           
           echo "Cargo.toml files patched!"
+          echo "Sample of patched dependencies:"
+          grep -r "solana-" . -A 0 --include="Cargo.toml" | grep "1.18" | head -3 || echo "No matches found"
           
           # Now downgrade dependencies with cargo update
           echo "Downgrading dependencies for Rust 1.75 compatibility..."
