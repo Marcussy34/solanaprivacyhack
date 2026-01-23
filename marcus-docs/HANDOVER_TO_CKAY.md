@@ -2,13 +2,38 @@
 
 **From:** Marcus (ZK Engineer)  
 **Date:** Jan 23, 2026  
-**Branch:** `marcus`
+**Status:** 🎉 **VERIFIERS DEPLOYED TO DEVNET**
 
 ---
 
 ## TL;DR
 
-All ZK circuits are done. Browser proof generation works (~0.5s per proof). I've built an integration hook (`useZKGame.js`) that handles the entire proof chain. **Your main task is wiring the on-chain verifier and connecting the game UI.**
+All ZK circuits are done. Browser proof generation works (~0.5s per proof). I've built an integration hook (`useZKGame.js`) that handles the entire proof chain. **All 3 Sunspot verifiers are now deployed to Solana devnet!** Your main task is wiring the CPI calls to these verifiers and connecting the game UI.
+
+---
+
+## 🎉 DEPLOYED VERIFIERS (Solana Devnet)
+
+**All verifiers are live on devnet!**
+
+| Verifier | Program ID | Explorer |
+|----------|------------|----------|
+| **Shuffle** | `6sju9HLJTFfESLn49wAR2hqiC6mnu3MrP2K9WDbkjCL2` | [View](https://explorer.solana.com/address/6sju9HLJTFfESLn49wAR2hqiC6mnu3MrP2K9WDbkjCL2?cluster=devnet) |
+| **Deal** | `Epoxbrv1Pc2XeYR2xsKsqm3Gy1j2MbkBx4yHfkg8yuSC` | [View](https://explorer.solana.com/address/Epoxbrv1Pc2XeYR2xsKsqm3Gy1j2MbkBx4yHfkg8yuSC?cluster=devnet) |
+| **Reveal** | `HrETBH5nTa3DTVjBFWMdytLtuX9GsFwiAGkkyQAXnMt9` | [View](https://explorer.solana.com/address/HrETBH5nTa3DTVjBFWMdytLtuX9GsFwiAGkkyQAXnMt9?cluster=devnet) |
+
+### Add to Anchor Program
+
+```rust
+use solana_program::pubkey;
+
+pub const SHUFFLE_VERIFIER_PROGRAM_ID: Pubkey = pubkey!("6sju9HLJTFfESLn49wAR2hqiC6mnu3MrP2K9WDbkjCL2");
+pub const DEAL_VERIFIER_PROGRAM_ID: Pubkey = pubkey!("Epoxbrv1Pc2XeYR2xsKsqm3Gy1j2MbkBx4yHfkg8yuSC");
+pub const REVEAL_VERIFIER_PROGRAM_ID: Pubkey = pubkey!("HrETBH5nTa3DTVjBFWMdytLtuX9GsFwiAGkkyQAXnMt9");
+```
+
+**Cost:** ~4.21 SOL on devnet  
+**Verification:** ~200k CU per proof
 
 ---
 

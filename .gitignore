@@ -65,3 +65,12 @@ vk_hash
 public_inputs
 Verifier.toml
 Prover.toml
+
+# Solana verifier build artifacts (large binary files)
+solana-verifiers/*.so
+solana-verifiers/*-keypair.json
+solana-verifiers/target/*.pk
+solana-verifiers/target/*.vk
+solana-verifiers/target/*.json
+solana-verifiers/target/*.ccs
+solana-verifiers/target/*.gz
