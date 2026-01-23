@@ -29,7 +29,9 @@
       "Bash(bb write_vk:*)",
       "Bash(bb verify:*)",
       "Bash(xxd:*)",
-      "Bash(bb:*)"
+      "Bash(bb:*)",
+      "Bash(~/.bb/bb prove:*)",
+      "Bash(~/.bb/bb verify:*)"
     ]
   }
 }
