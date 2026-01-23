@@ -1,9 +1,6 @@
-# Private inputs
 seed = "12345"
 shuffled_deck = [5, 2, 11, 0, 8, 3, 12, 6, 1, 9, 4, 10, 7]
 blinding_factor = "99999"
-
-# Public inputs
 deck_commitment = "0x04b91d7cc07a8e73f8ea50ec08d0457c785953dae3c2624a3a0a4ead6c02ed7e"
 card_commitment = "0x09855b336da066bd39ba5aa3478eb124515980d53118c0adcc232704bfad552b"
 card_position = "0"
