@@ -140,27 +140,32 @@ Caused by:
 - This is a compatibility issue between Cargo versions
 
 ### ✅ Solution (FIXED)
-**Regenerate Cargo.lock as version 3:**
+**Patch Cargo.lock version from 4 to 3:**
 
 ```yaml
 - name: Clone and Build Sunspot
   run: |
     git clone https://github.com/reilabs/sunspot.git
-    cd sunspot
+    cd sunspot/gnark-solana
     
-    # Remove v4 lockfile and regenerate as v3
-    rm -f Cargo.lock
-    cargo generate-lockfile
+    # Patch Cargo.lock v4 → v3 using sed
+    sed -i 's/version = 4/version = 3/' Cargo.lock
 ```
 
 **What this does:**
-- ❌ Old: Uses Sunspot's Cargo.lock v4 (incompatible)
-- ✅ New: Regenerates Cargo.lock as v3 (compatible with cargo-build-sbf)
+- ❌ Old: `version = 4` in Cargo.lock (incompatible)
+- ✅ New: `version = 3` in Cargo.lock (compatible with cargo-build-sbf)
 
 **Why it works:**
-- `cargo generate-lockfile` creates a v3 lockfile by default
-- The dependencies remain the same, just the format changes
-- `cargo-build-sbf` can now parse the lockfile
+- The lockfile format v3 and v4 are mostly compatible
+- Only the version number needs to change
+- Regenerating didn't work because modern Cargo always creates v4
+- This simple patch tricks `cargo-build-sbf` into accepting it
+
+**Alternative attempts that didn't work:**
+- ❌ `cargo generate-lockfile` → Creates v4
+- ❌ `cargo update --workspace` → Creates v4
+- ✅ `sed` patch → Forces v3
 
 ### Action Required
 None! The fix has been pushed. Re-run the workflow.
