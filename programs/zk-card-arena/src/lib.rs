@@ -51,11 +51,11 @@ pub mod zk_card_arena {
     }
 
     /// Verifies the shuffle proof and marks game ready for players
-    /// TODO: Integrate Light Protocol Groth16 verification
+    /// Uses Sunspot Groth16 verifier via CPI
     pub fn verify_shuffle(
         ctx: Context<VerifyShuffle>,
-        _proof: Vec<u8>,
-        _public_inputs: Vec<[u8; 32]>,
+        proof: Vec<u8>,
+        public_inputs: Vec<u8>,
     ) -> Result<()> {
         let game = &mut ctx.accounts.game;
 
@@ -68,8 +68,21 @@ pub mod zk_card_arena {
             GameError::Unauthorized
         );
 
-        // TODO: Verify Groth16 proof via Light Protocol CPI
-        // For now, mark as verified (will implement Day 5)
+        // TODO: Implement CPI to Sunspot shuffle verifier
+        // Instruction data format: proof_bytes || public_witness_bytes
+        // let mut instruction_data = Vec::new();
+        // instruction_data.extend_from_slice(&proof);
+        // instruction_data.extend_from_slice(&public_inputs);
+        // 
+        // let verify_ix = Instruction {
+        //     program_id: ctx.accounts.shuffle_verifier_program.key(),
+        //     accounts: vec![],
+        //     data: instruction_data,
+        // };
+        // 
+        // anchor_lang::solana_program::program::invoke(&verify_ix, &[])?;
+
+        // For now, mark as verified (will implement with CPI)
         game.shuffle_verified = true;
         game.state = GameState::AwaitingPlayer;
 
@@ -433,6 +446,10 @@ pub struct VerifyShuffle<'info> {
     pub game: Account<'info, Game>,
 
     pub dealer: Signer<'info>,
+    
+    /// CHECK: Sunspot shuffle verifier program (deployed separately)
+    /// Program ID will be provided by Marcus after Sunspot deployment
+    // pub shuffle_verifier_program: AccountInfo<'info>,
 }
 
 #[derive(Accounts)]

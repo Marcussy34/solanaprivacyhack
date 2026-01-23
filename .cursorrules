@@ -1,0 +1,228 @@
+# ZK Card Arena - Project Rules
+
+## Project Overview
+
+ZK Card Arena is a provably fair Blackjack game on Solana using zero-knowledge proofs.
+
+**Key Technologies:**
+- **ZK Circuits:** Noir v1.0.0-beta.18
+- **Proof System:** Sunspot (Noir → Groth16 for Solana)
+- **Smart Contracts:** Anchor (Solana)
+- **Frontend:** Next.js + React + NoirJS
+- **Backend:** Node.js/Go API for Sunspot proof generation
+
+## Proof Generation Pipeline
+
+```
+1. Frontend (Browser)
+   └─ NoirJS generates witness from circuit inputs (~2s)
+   
+2. Backend API
+   └─ Sunspot generates Groth16 proof from witness (~10s)
+   
+3. Frontend
+   └─ Submit proof + public_inputs to Anchor program
+   
+4. Solana (On-chain)
+   └─ Anchor program calls Sunspot verifier via CPI
+   └─ Verification succeeds or fails (< 200k CU)
+```
+
+## Circuit Architecture
+
+### 1. shuffle_proof
+- **Purpose:** Prove deck is valid permutation
+- **Private Inputs:** seed, shuffled_deck
+- **Public Inputs:** deck_commitment, original_deck
+- **Output:** deck_commitment (Poseidon hash)
+- **Constraints:** ~812
+
+### 2. deal_proof
+- **Purpose:** Prove card comes from committed deck
+- **Private Inputs:** seed, shuffled_deck, blinding_factor
+- **Public Inputs:** deck_commitment, card_commitment, position
+- **Output:** card_commitment (Poseidon hash)
+- **Constraints:** ~1,111
+
+### 3. reveal_proof
+- **Purpose:** Prove revealed card matches commitment
+- **Private Inputs:** blinding_factor
+- **Public Inputs:** card_commitment, card_value
+- **Constraints:** ~333
+
+## Code Style Guidelines
+
+### Noir Circuits
+```noir
+// Use explicit types
+fn main(seed: Field, deck: [u8; 13]) -> pub Field {
+    // Use Poseidon v0.2.2
+    use poseidon::poseidon::bn254::hash_14;
+    
+    // Clear variable names
+    let deck_commitment = hash_14(inputs);
+    
+    // Explicit assertions
+    assert(deck_commitment == expected);
+}
+```
+
+### Anchor Programs
+```rust
+// Always use explicit error handling
+pub fn verify_shuffle(
+    ctx: Context<VerifyShuffle>,
+    proof: Vec<u8>,
+    public_inputs: Vec<u8>,
+) -> Result<()> {
+    // State checks first
+    require!(
+        game.state == GameState::Created,
+        GameError::InvalidState
+    );
+    
+    // CPI to Sunspot verifier
+    // Instruction data: proof_bytes || public_witness_bytes
+    
+    Ok(())
+}
+```
+
+### Frontend (React)
+```javascript
+// Use custom hooks for ZK operations
+const { generateShuffleProof } = useZK();
+const { createGame } = useGameProgram();
+
+// Clear async/await flow
+const handleCreateGame = async () => {
+    // 1. Generate witness
+    const witness = await noir.execute(inputs);
+    
+    // 2. Get Groth16 proof from backend
+    const { proof, publicInputs } = await fetch('/api/prove', {
+        method: 'POST',
+        body: JSON.stringify({ circuit: 'shuffle_proof', witness })
+    }).then(r => r.json());
+    
+    // 3. Submit to chain
+    await createGame(deckCommitment, proof, publicInputs);
+};
+```
+
+## Important Constraints
+
+### Security
+- **Trusted Setup:** Current Sunspot setup uses local trusted setup (fine for hackathon, NOT for production)
+- **Deck Size:** 13 cards (0-12) for performance. Full 52-card deck significantly increases constraints
+- **Dealer Advantage:** Creator knows shuffle order (consider VRF for production)
+
+### Performance
+- **Witness Generation:** Must be < 2s in browser
+- **Proof Generation:** Must be < 10s in backend
+- **On-chain Verification:** Must be < 200k CU per proof
+- **Total Circuit Constraints:** Keep < 50k per circuit
+
+### Solana Limits
+- **Account Size:** Game account ~500 bytes
+- **Transaction Size:** Proofs are large, may need optimization
+- **CPI Depth:** Anchor → Sunspot verifier (depth 2)
+
+## File Structure
+
+```
+circuits/
+├── shuffle_proof/          # Deck shuffle circuit
+├── deal_proof/             # Card deal circuit  
+├── reveal_proof/           # Card reveal circuit
+├── hash_14_helper/         # Poseidon(seed + 13 cards)
+└── hash_2_helper/          # Poseidon(card, blinding)
+
+programs/zk-card-arena/
+└── src/lib.rs              # Anchor program (CPI to verifiers)
+
+hooks/
+├── useZK.js                # NoirJS witness generation
+├── useZKGame.js            # ZK game state management
+└── useGameProgram.js       # Anchor program interactions
+
+marcus-docs/
+├── SUNSPOT_INTEGRATION.md  # Complete Sunspot guide
+├── SUNSPOT_QUICKSTART.md   # Quick reference
+└── HANDOVER_TO_CKAY.md     # CKay integration tasks
+```
+
+## Common Commands
+
+### Circuits (Noir + Sunspot)
+```bash
+# Compile circuit
+cd circuits/shuffle_proof
+nargo compile
+
+# Generate witness
+nargo execute
+
+# Convert to Groth16
+sunspot compile target/shuffle_proof.json
+sunspot setup target/shuffle_proof.ccs
+
+# Generate proof
+sunspot prove target/shuffle_proof.json target/shuffle_proof.gz target/shuffle_proof.ccs target/proving_key.pk
+
+# Deploy verifier
+sunspot deploy target/verifying_key.vk
+solana program deploy verifier.so --keypair keypair.json --url devnet
+```
+
+### Anchor Program
+```bash
+# Build
+anchor build
+
+# Test
+anchor test
+
+# Deploy to devnet
+anchor deploy
+
+# View logs
+solana logs
+```
+
+### Frontend
+```bash
+# Development
+npm run dev
+
+# Build
+npm run build
+
+# Test ZK integration
+# Visit http://localhost:3000/zk-game-test
+```
+
+## Critical Reminders
+
+1. **Never upgrade Poseidon** without testing (pinned to v0.2.2)
+2. **Always use Sunspot** for proof generation (not Barretenberg UltraHonk)
+3. **Proof format:** `proof_bytes || public_witness_bytes` for CPI
+4. **Verifier Program IDs:** Store in constants, provided by Marcus
+5. **13-card deck only:** Cards 0-12 (not full 52-card deck)
+
+## Next Steps (Post-Current Work)
+
+1. **Backend API:** Create Node.js/Go endpoint for Sunspot proof generation
+2. **CPI Integration:** Add actual CPI calls to Sunspot verifiers in Anchor
+3. **Frontend Integration:** Wire `useZKGame` into game UI components
+4. **E2E Testing:** Full game flow with on-chain verification
+5. **Production:** Proper trusted setup ceremony for Groth16 keys
+
+## Resources
+
+- [Sunspot Repo](https://github.com/reilabs/sunspot)
+- [Solana Noir Examples](https://github.com/solana-foundation/noir-examples)
+- [Noir Docs](https://noir-lang.org/docs)
+- [Anchor Book](https://www.anchor-lang.com/)
+- [Project Docs](./docs/)
+
