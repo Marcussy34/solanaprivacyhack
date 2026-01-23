@@ -33,11 +33,10 @@ const IDL = {
       accounts: [
         { name: "game", isMut: true, isSigner: false },
         { name: "dealer", isMut: false, isSigner: true },
-        { name: "shuffleVerifierProgram", isMut: false, isSigner: false },
       ],
       args: [
         { name: "proof", type: "bytes" },
-        { name: "publicInputs", type: "bytes" },
+        { name: "publicInputs", type: { vec: { array: ["u8", 32] } } },
       ],
     },
     {
@@ -269,18 +268,25 @@ export function useGameProgram() {
       console.log("[Game] PublicInputs type:", typeof publicInputs, Array.isArray(publicInputs) ? "array" : "object");
 
       const proofBytes = proof instanceof Uint8Array ? proof : new Uint8Array(proof);
-      const publicInputsBytes = publicInputs instanceof Uint8Array ? publicInputs : new Uint8Array(publicInputs);
 
       // Anchor requires Buffer for bytes type
       const proofBuffer = Buffer.from(proofBytes);
-      const publicInputsBuffer = Buffer.from(publicInputsBytes);
+
+      // The deployed program expects Vec<[u8; 32]> for publicInputs but ignores the content
+      // (it just sets shuffle_verified = true). The raw .pw file from Sunspot (460 bytes)
+      // is not directly compatible with this format. Construct a valid Vec<[u8; 32]> instead.
+      // When the program is redeployed with actual CPI verification, this will use the real
+      // public inputs from the verifier.
+      const publicInputsForChain = [];
+
+      console.log("[Game] Proof buffer length:", proofBuffer.length);
+      console.log("[Game] Public inputs for chain:", publicInputsForChain.length, "elements");
 
       const tx = await program.methods
-        .verifyShuffle(proofBuffer, publicInputsBuffer)
+        .verifyShuffle(proofBuffer, publicInputsForChain)
         .accounts({
           game: gamePda,
           dealer: wallet.publicKey,
-          shuffleVerifierProgram: SHUFFLE_VERIFIER_PROGRAM_ID,
         })
         .rpc();
 

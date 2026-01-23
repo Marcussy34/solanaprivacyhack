@@ -503,7 +503,17 @@ export default function GamePage() {
       await dealInitialHand(gameId, dealerPubkey, commitments, initialCardValues);
     } catch (err) {
       console.error("Deal cards error:", err);
-      setError(err.message || "Failed to deal cards");
+      
+      let errorMessage = err.message || "Failed to deal cards";
+      
+      // Handle common wallet errors
+      if (err.name === "WalletSignTransactionError" || errorMessage.includes("Unexpected error")) {
+        errorMessage = "Wallet transaction failed. Please try again and keep your wallet open.";
+      } else if (errorMessage.includes("User rejected")) {
+        errorMessage = "Transaction rejected by user.";
+      }
+      
+      setError(errorMessage);
     }
 
     setLoading(false);
