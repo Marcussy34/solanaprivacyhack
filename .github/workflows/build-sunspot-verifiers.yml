@@ -1,0 +1,236 @@
+name: Build Sunspot Verifiers
+
+on:
+  workflow_dispatch:  # Manual trigger
+    inputs:
+      deploy_to_devnet:
+        description: 'Deploy to Solana devnet after building'
+        required: false
+        type: boolean
+        default: false
+  push:
+    branches:
+      - main
+    paths:
+      - 'circuits/**'
+      - '.github/workflows/build-sunspot-verifiers.yml'
+
+env:
+  SOLANA_VERSION: 1.18.20
+  GO_VERSION: '1.24'
+
+jobs:
+  build-verifiers:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+
+      - name: Install Rust
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          toolchain: stable
+
+      - name: Install Solana CLI
+        run: |
+          sh -c "$(curl -sSfL https://release.solana.com/v${{ env.SOLANA_VERSION }}/install)"
+          echo "$HOME/.local/share/solana/install/active_release/bin" >> $GITHUB_PATH
+          export PATH="$HOME/.local/share/solana/install/active_release/bin:$PATH"
+          solana --version
+          cargo-build-sbf --version || echo "cargo-build-sbf check"
+
+      - name: Install Noir
+        run: |
+          curl -L https://raw.githubusercontent.com/noir-lang/noirup/main/install | bash
+          echo "$HOME/.nargo/bin" >> $GITHUB_PATH
+          export PATH="$HOME/.nargo/bin:$PATH"
+          noirup -v 1.0.0-beta.18
+          nargo --version
+
+      - name: Clone and Build Sunspot
+        run: |
+          cd $HOME
+          git clone https://github.com/reilabs/sunspot.git
+          cd sunspot/go
+          go build -o sunspot .
+          echo "$HOME/sunspot/go" >> $GITHUB_PATH
+          export GNARK_VERIFIER_BIN="$HOME/sunspot/gnark-solana/crates/verifier-bin"
+          echo "GNARK_VERIFIER_BIN=$GNARK_VERIFIER_BIN" >> $GITHUB_ENV
+
+      - name: Compile Noir Circuits
+        run: |
+          cd circuits
+          nargo compile --package shuffle_proof
+          nargo compile --package deal_proof
+          nargo compile --package reveal_proof
+          ls -la target/*.json
+
+      - name: Convert to Groth16 with Sunspot
+        run: |
+          cd circuits
+          export PATH="$HOME/sunspot/go:$PATH"
+          
+          # Shuffle proof
+          sunspot compile target/shuffle_proof.json
+          sunspot setup target/shuffle_proof.ccs
+          
+          # Deal proof
+          sunspot compile target/deal_proof.json
+          sunspot setup target/deal_proof.ccs
+          
+          # Reveal proof
+          sunspot compile target/reveal_proof.json
+          sunspot setup target/reveal_proof.ccs
+          
+          ls -la target/*.vk
+
+      - name: Build Solana Verifiers
+        run: |
+          export PATH="$HOME/sunspot/go:$PATH"
+          export PATH="$HOME/.local/share/solana/install/active_release/bin:$PATH"
+          cd circuits
+          
+          # Build shuffle verifier
+          echo "Building shuffle_proof verifier..."
+          sunspot deploy target/shuffle_proof.vk --output shuffle_proof_verifier
+          
+          # Build deal verifier
+          echo "Building deal_proof verifier..."
+          sunspot deploy target/deal_proof.vk --output deal_proof_verifier
+          
+          # Build reveal verifier
+          echo "Building reveal_proof verifier..."
+          sunspot deploy target/reveal_proof.vk --output reveal_proof_verifier
+          
+          # List generated verifiers
+          find . -name "*.so" -o -name "verifier*.so"
+
+      - name: Upload Verifier Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: solana-verifiers
+          path: |
+            circuits/*_verifier.so
+            circuits/shuffle_proof_verifier.so
+            circuits/deal_proof_verifier.so
+            circuits/reveal_proof_verifier.so
+            circuits/target/*.vk
+            circuits/target/*.pk
+          retention-days: 30
+
+      - name: Deploy to Solana Devnet (Optional)
+        if: ${{ github.event.inputs.deploy_to_devnet == 'true' }}
+        env:
+          SOLANA_DEPLOYER_KEY: ${{ secrets.SOLANA_DEPLOYER_KEY }}
+        run: |
+          if [ -z "$SOLANA_DEPLOYER_KEY" ]; then
+            echo "⚠️ SOLANA_DEPLOYER_KEY secret not set. Skipping deployment."
+            echo "To deploy, add your deployer keypair as a GitHub secret."
+            exit 0
+          fi
+          
+          export PATH="$HOME/.local/share/solana/install/active_release/bin:$PATH"
+          
+          # Create keypair from secret
+          echo "$SOLANA_DEPLOYER_KEY" > /tmp/deployer.json
+          
+          # Configure Solana CLI for devnet
+          solana config set --url https://api.devnet.solana.com
+          
+          # Check balance
+          BALANCE=$(solana balance -k /tmp/deployer.json)
+          echo "Deployer balance: $BALANCE"
+          
+          # Deploy shuffle verifier
+          echo "Deploying shuffle_proof verifier..."
+          SHUFFLE_ID=$(solana program deploy circuits/shuffle_proof_verifier.so -k /tmp/deployer.json --output json | jq -r '.programId')
+          echo "Shuffle Verifier Program ID: $SHUFFLE_ID"
+          echo "SHUFFLE_VERIFIER_ID=$SHUFFLE_ID" >> $GITHUB_ENV
+          
+          # Deploy deal verifier
+          echo "Deploying deal_proof verifier..."
+          DEAL_ID=$(solana program deploy circuits/deal_proof_verifier.so -k /tmp/deployer.json --output json | jq -r '.programId')
+          echo "Deal Verifier Program ID: $DEAL_ID"
+          echo "DEAL_VERIFIER_ID=$DEAL_ID" >> $GITHUB_ENV
+          
+          # Deploy reveal verifier
+          echo "Deploying reveal_proof verifier..."
+          REVEAL_ID=$(solana program deploy circuits/reveal_proof_verifier.so -k /tmp/deployer.json --output json | jq -r '.programId')
+          echo "Reveal Verifier Program ID: $REVEAL_ID"
+          echo "REVEAL_VERIFIER_ID=$REVEAL_ID" >> $GITHUB_ENV
+          
+          # Clean up keypair
+          rm /tmp/deployer.json
+          
+          echo "✅ All verifiers deployed to devnet!"
+
+      - name: Create Program IDs File
+        if: ${{ github.event.inputs.deploy_to_devnet == 'true' }}
+        run: |
+          cat > VERIFIER_PROGRAM_IDS.txt << EOF
+          # Sunspot Verifier Program IDs
+          
+          **Deployed:** $(date)
+          **Network:** Devnet
+          **Git Commit:** ${{ github.sha }}
+          
+          ## Program IDs
+          
+          Shuffle Verifier: ${{ env.SHUFFLE_VERIFIER_ID }}
+          Deal Verifier: ${{ env.DEAL_VERIFIER_ID }}
+          Reveal Verifier: ${{ env.REVEAL_VERIFIER_ID }}
+          
+          ## Rust Constants
+          
+          \`\`\`rust
+          pub const SHUFFLE_VERIFIER_PROGRAM_ID: Pubkey = pubkey!("${{ env.SHUFFLE_VERIFIER_ID }}");
+          pub const DEAL_VERIFIER_PROGRAM_ID: Pubkey = pubkey!("${{ env.DEAL_VERIFIER_ID }}");
+          pub const REVEAL_VERIFIER_PROGRAM_ID: Pubkey = pubkey!("${{ env.REVEAL_VERIFIER_ID }}");
+          \`\`\`
+          
+          ## Solana Explorer Links
+          
+          - Shuffle: https://explorer.solana.com/address/${{ env.SHUFFLE_VERIFIER_ID }}?cluster=devnet
+          - Deal: https://explorer.solana.com/address/${{ env.DEAL_VERIFIER_ID }}?cluster=devnet
+          - Reveal: https://explorer.solana.com/address/${{ env.REVEAL_VERIFIER_ID }}?cluster=devnet
+          EOF
+          
+          cat VERIFIER_PROGRAM_IDS.txt
+
+      - name: Upload Program IDs
+        if: ${{ github.event.inputs.deploy_to_devnet == 'true' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: verifier-program-ids
+          path: VERIFIER_PROGRAM_IDS.txt
+
+      - name: Summary
+        run: |
+          echo "## Build Summary 🎉" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "✅ Noir circuits compiled" >> $GITHUB_STEP_SUMMARY
+          echo "✅ Groth16 conversion complete" >> $GITHUB_STEP_SUMMARY
+          echo "✅ Solana verifiers built" >> $GITHUB_STEP_SUMMARY
+          
+          if [ "${{ github.event.inputs.deploy_to_devnet }}" == "true" ]; then
+            echo "✅ Verifiers deployed to devnet" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "### Program IDs:" >> $GITHUB_STEP_SUMMARY
+            echo "- Shuffle: \`${{ env.SHUFFLE_VERIFIER_ID }}\`" >> $GITHUB_STEP_SUMMARY
+            echo "- Deal: \`${{ env.DEAL_VERIFIER_ID }}\`" >> $GITHUB_STEP_SUMMARY
+            echo "- Reveal: \`${{ env.REVEAL_VERIFIER_ID }}\`" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "📦 Verifier artifacts uploaded (not deployed)" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "To deploy: Re-run workflow with 'deploy_to_devnet' checked" >> $GITHUB_STEP_SUMMARY
+          fi
+
