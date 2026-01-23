@@ -137,9 +137,10 @@ jobs:
           cargo update rayon --precise 1.10.0 2>/dev/null || true
           
           # Downgrade packages that require edition2024 (not in Rust 1.75 Cargo)
-          # These packages use Rust 2024 edition which is too new
+          # blake3: v1.7.0 is last version with "digest" feature before edition2024
+          # blake3: v1.8.0+ requires edition2024
           echo "Downgrading edition2024 packages..."
-          cargo update -p blake3 --precise 1.5.4 2>/dev/null || true
+          cargo update -p blake3 --precise 1.7.0 2>/dev/null || true
           cargo update -p constant_time_eq --precise 0.3.1 2>/dev/null || true
           
           # Verify critical packages
@@ -175,7 +176,9 @@ jobs:
           ls -la $GNARK_VERIFIER_BIN || echo "Verifier bin directory not found!"
           
           # CRITICAL: Also apply fixes to ALL crates in gnark-solana workspace
-          # The conflict shows multiple crates depend on blake3
+          # blake3 v1.5.4 doesn't have "digest" feature, but v1.5.5+ does
+          # We need a version that: (1) has "digest" feature, (2) doesn't require edition2024
+          # blake3 v1.7.0 is the last version before edition2024 and has "digest" feature
           echo "Applying fixes to ALL Cargo.toml files in gnark-solana workspace..."
           cd $HOME/sunspot/gnark-solana
           
@@ -183,14 +186,14 @@ jobs:
           echo "Patching blake3 and constant_time_eq in ALL workspace crates..."
           find . -name "Cargo.toml" -type f | while read toml; do
             echo "Patching $toml"
-            # Replace blake3 lines (handles both simple and complex formats)
-            sed -i -E 's/^blake3[[:space:]]*=.*/blake3 = "=1.5.4"  # Pinned for Rust 1.75/' "$toml"
+            # Replace blake3 lines - use v1.7.0 (has "digest" feature, no edition2024)
+            sed -i -E 's/^blake3[[:space:]]*=.*/blake3 = "=1.7.0"  # Pinned for Rust 1.75 (last before edition2024)/' "$toml"
             # Replace constant_time_eq lines
             sed -i -E 's/^constant_time_eq[[:space:]]*=.*/constant_time_eq = "=0.3.1"  # Pinned for Rust 1.75/' "$toml"
           done
           
           echo "Verifying patches - showing blake3 entries in all Cargo.toml files:"
-          find . -name "Cargo.toml" -exec grep -H "blake3" {} \; || echo "No blake3 found"
+          find . -name "Cargo.toml" -exec grep -H "blake3" {} \; | head -10 || echo "No blake3 found"
 
       - name: Compile Noir Circuits
         run: |
