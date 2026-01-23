@@ -87,6 +87,43 @@ If it's still missing, try:
 
 ---
 
+## ❌ Error: `unknown flag: --output`
+
+### Problem
+```
+sunspot deploy target/shuffle_proof.vk --output shuffle_proof_verifier
+Error: unknown flag: --output
+```
+
+### Cause
+- The `sunspot deploy` command doesn't support the `--output` flag
+- According to Sunspot docs, it outputs `verifier.so` and `verifier-keypair.json` by default
+
+### ✅ Solution (FIXED)
+**Updated workflow to use correct syntax:**
+
+```yaml
+# Build shuffle verifier
+sunspot deploy target/shuffle_proof.vk
+mv verifier.so shuffle_proof_verifier.so
+mv verifier-keypair.json shuffle_proof_verifier-keypair.json
+```
+
+**What changed:**
+- ❌ Old: `sunspot deploy file.vk --output name`
+- ✅ New: `sunspot deploy file.vk` + rename files
+
+**Sunspot generates:**
+- `verifier.so` - The Solana program binary
+- `verifier-keypair.json` - The program ID keypair
+
+We rename them to distinguish between the three circuits.
+
+### Action Required
+None! The fix has been pushed. Re-run the workflow.
+
+---
+
 ## ❌ Error: `sunspot: command not found`
 
 ### Problem
