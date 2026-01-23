@@ -58,3 +58,10 @@ nul
 /circuits/*/target/
 *.proof
 *.witness
+*.gz
+proof
+vk
+vk_hash
+public_inputs
+Verifier.toml
+Prover.toml
