@@ -172,13 +172,19 @@ None! The fix has been pushed. Re-run the workflow.
 
 ---
 
-## ❌ Error: `toml_edit requires rustc 1.76 or newer, while the currently active rustc version is 1.75`
+## ❌ Error: Package requires newer Rust than cargo-build-sbf provides (1.75.0-dev)
 
 ### Problem
 ```
-error: package `toml_edit v0.23.7` cannot be built because it requires rustc 1.76 or newer,
+error: package `<PACKAGE>` cannot be built because it requires rustc X.XX or newer,
 while the currently active rustc version is 1.75.0-dev
 ```
+
+**Common packages that fail:**
+- `toml_edit v0.23.7` → requires Rust 1.76+
+- `proc-macro-crate v3.4.0` → requires Rust 1.76+
+- `winnow v0.6.21+` → requires Rust 1.76+
+- `solana-address v1.0.0` → requires Rust 1.81+
 
 ### Cause
 - `cargo-build-sbf` uses Rust 1.75.0-dev (older version bundled with Solana)
@@ -186,12 +192,17 @@ while the currently active rustc version is 1.75.0-dev
 - Dependency version conflict
 
 ### ✅ Solution (FIXED)
-**Downgrade the dependency chain at the source:**
+**Downgrade incompatible packages to Rust 1.75-compatible versions:**
 
 ```yaml
-# Downgrade proc-macro-crate which pulls in toml_edit 0.23+
-cargo update proc-macro-crate --precise 3.1.0
+# Downgrade proc-macro-crate (pulls in toml_edit 0.23+)
+cargo update proc-macro-crate@3.4.0 --precise 3.1.0
+
+# Downgrade winnow
 cargo update winnow --precise 0.6.20
+
+# Downgrade solana-address
+cargo update solana-address --precise 1.18.26
 ```
 
 **The dependency chain:**
