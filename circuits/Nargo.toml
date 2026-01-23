@@ -1,2 +1,2 @@
 [workspace]
-members = ["shuffle_proof", "deal_proof"]
+members = ["shuffle_proof", "deal_proof", "reveal_proof"]
