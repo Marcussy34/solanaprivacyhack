@@ -186,24 +186,31 @@ while the currently active rustc version is 1.75.0-dev
 - Dependency version conflict
 
 ### ✅ Solution (FIXED)
-**Downgrade incompatible dependencies:**
+**Downgrade the dependency chain at the source:**
 
 ```yaml
-# Downgrade to versions compatible with Rust 1.75
-cargo update toml_edit --precise 0.22.22
+# Downgrade proc-macro-crate which pulls in toml_edit 0.23+
+cargo update proc-macro-crate --precise 3.1.0
 cargo update winnow --precise 0.6.20
 ```
 
+**The dependency chain:**
+```
+proc-macro-crate v3.4.0 (requires Rust 1.76)
+  └─ toml_edit ^0.23.2 (requires Rust 1.76)
+      └─ winnow ^0.6.0 (requires Rust 1.76)
+```
+
 **What this does:**
-- ❌ `toml_edit v0.23.7` requires Rust 1.76+
-- ✅ `toml_edit v0.22.22` works with Rust 1.75
-- ❌ `winnow v0.6.21+` requires Rust 1.76+
-- ✅ `winnow v0.6.20` works with Rust 1.75
+- ❌ Can't downgrade `toml_edit` directly (other packages require v0.23+)
+- ✅ Downgrade `proc-macro-crate` from v3.4.0 → v3.1.0
+- ✅ v3.1.0 uses `toml_edit v0.21` which works with Rust 1.75
+- ✅ Also downgrade `winnow` to v0.6.20
 
 **Why it works:**
-- `cargo update --precise` pins specific versions
-- These older versions have the same functionality
-- They're compatible with Solana's bundled Rust 1.75
+- Targets the root cause (proc-macro-crate)
+- Breaks the dependency chain requiring Rust 1.76
+- All downstream dependencies now use Rust 1.75-compatible versions
 
 ### Action Required
 None! The fix has been pushed. Re-run the workflow.
