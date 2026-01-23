@@ -136,14 +136,16 @@ jobs:
           cargo update rayon-core --precise 1.12.1 2>/dev/null || true  
           cargo update rayon --precise 1.10.0 2>/dev/null || true
           
-          # Downgrade blake3 (v1.8+ requires edition2024 not in Rust 1.75 Cargo)
-          # This is critical - must downgrade before cargo-build-sbf runs
-          echo "Downgrading blake3..."
+          # Downgrade packages that require edition2024 (not in Rust 1.75 Cargo)
+          # These packages use Rust 2024 edition which is too new
+          echo "Downgrading edition2024 packages..."
           cargo update -p blake3 --precise 1.5.4 2>/dev/null || echo "blake3 downgrade attempted"
+          cargo update -p constant_time_eq --precise 0.3.1 2>/dev/null || echo "constant_time_eq downgrade attempted"
           
-          # Verify blake3 version
-          echo "Checking blake3 version in Cargo.lock:"
-          grep -A 2 "name = \"blake3\"" Cargo.lock | head -5 || echo "blake3 not found in Cargo.lock"
+          # Verify critical packages
+          echo "Checking downgraded package versions in Cargo.lock:"
+          grep -A 2 "name = \"blake3\"" Cargo.lock | head -5 || echo "blake3 not found"
+          grep -A 2 "name = \"constant_time_eq\"" Cargo.lock | head -5 || echo "constant_time_eq not found"
           
           # Update all solana packages to 1.18.x (now that Cargo.toml allows it)
           echo "Updating Solana packages to v1.18.x..."
