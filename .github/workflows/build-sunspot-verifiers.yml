@@ -16,7 +16,7 @@ on:
       - '.github/workflows/build-sunspot-verifiers.yml'
 
 env:
-  SOLANA_VERSION: 1.18.20
+  SOLANA_VERSION: 2.0.21
   GO_VERSION: '1.24'
   CARGO_NET_GIT_FETCH_WITH_CLI: 'true'
 
