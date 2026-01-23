@@ -153,6 +153,16 @@ jobs:
           find . -name "Cargo.toml" -type f -exec sed -i -E 's/(blake3[[:space:]]*=[[:space:]]*")1\.[89][^"]*"/\1=1.5.4"/g' {} \;
           find . -name "Cargo.toml" -type f -exec sed -i -E 's/(constant_time_eq[[:space:]]*=[[:space:]]*")0\.[4-9][^"]*"/\1=0.3.1"/g' {} \;
           
+          # Add [patch.crates-io] section to force specific versions
+          # This overrides ALL dependencies, even transitive ones
+          echo "" >> Cargo.toml
+          echo "[patch.crates-io]" >> Cargo.toml
+          echo "blake3 = \"=1.5.4\"" >> Cargo.toml
+          echo "constant_time_eq = \"=0.3.1\"" >> Cargo.toml
+          
+          echo "Added [patch.crates-io] section to Cargo.toml:"
+          tail -5 Cargo.toml
+          
           # Remove Cargo.lock again and regenerate with patched Cargo.toml files
           rm -f Cargo.lock
           cargo generate-lockfile
