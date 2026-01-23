@@ -110,17 +110,18 @@ jobs:
           # Patch 2: Downgrade dependency chain that requires Rust 1.76+ 
           # cargo-build-sbf uses Rust 1.75.0-dev, but some deps require 1.76+
           # The issue: proc-macro-crate v3.4.0 requires toml_edit ^0.23.2 which requires Rust 1.76
-          # Solution: Downgrade proc-macro-crate to v3.1.0 which uses toml_edit 0.21
+          # Solution: Downgrade proc-macro-crate v3.4.0 to v3.1.0 which uses toml_edit 0.21
           echo "Downgrading dependencies for Rust 1.75 compatibility..."
           
-          # Downgrade proc-macro-crate (which pulls in toml_edit 0.23+)
-          cargo update proc-macro-crate --precise 3.1.0
+          # Downgrade the v3.4.0 instance of proc-macro-crate (not the 0.1.5 one)
+          cargo update proc-macro-crate@3.4.0 --precise 3.1.0
           
           # Also downgrade winnow if it appears
           cargo update winnow --precise 0.6.20 2>/dev/null || true
           
           echo "Dependency fixes applied!"
-          cargo tree -p proc-macro-crate 2>/dev/null | head -5 || echo "Dependency tree check skipped"
+          echo "Checking proc-macro-crate versions:"
+          cargo tree -i proc-macro-crate 2>/dev/null | head -10 || echo "Dependency tree check skipped"
           
           # Verify verifier-bin directory exists
           ls -la $GNARK_VERIFIER_BIN || echo "Verifier bin directory not found!"
