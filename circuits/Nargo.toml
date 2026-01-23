@@ -1,2 +1,8 @@
 [workspace]
-members = ["shuffle_proof", "deal_proof", "reveal_proof"]
+members = [
+    "shuffle_proof",
+    "deal_proof", 
+    "reveal_proof",
+    "hash_14_helper",
+    "hash_2_helper"
+]
