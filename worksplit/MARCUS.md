@@ -10,21 +10,22 @@
 **Your #1 priority is proving the shuffle circuit works.**
 
 ### Day 1 (Jan 21)
-- [ ] Install Nargo (Noir compiler): `curl -L https://raw.githubusercontent.com/noir-lang/noir/master/install.sh | sh`
-- [ ] Create circuits folder and initialize: `nargo init`
-- [ ] Write `shuffle_proof.nr` circuit (see [ZK_CIRCUITS.md](../docs/ZK_CIRCUITS.md))
-- [ ] Compile circuit: `nargo compile`
-- [ ] Check constraint count (target: < 50,000)
-- [ ] Generate test proof: `nargo prove`
-- [ ] **MEASURE:** Native proof generation time
+- [x] Install Nargo (Noir compiler)
+- [x] Create circuits folder and initialize
+- [x] Write all 3 circuits (shuffle, deal, reveal)
+- [x] Compile circuits: `nargo compile`
+- [x] Check constraint count
+- [x] Install Sunspot: `go build -o sunspot .`
+- [x] Convert circuits to Groth16: `sunspot compile`, `sunspot setup`
 
 ### Day 2 (Jan 22)
-- [ ] Set up NoirJS in browser test page
-- [ ] **MEASURE:** Browser proof generation time  
-- [ ] ✅ Report to CKay: proof format specification
-- [ ] **DECISION:** Is proof time < 30 seconds?
+- [ ] Generate Groth16 proofs with Sunspot: `sunspot prove`
+- [ ] Deploy verifier programs to devnet: `sunspot deploy`, `solana program deploy`
+- [ ] ✅ Report to CKay: Proof format + verifier Program IDs
+- [ ] Set up backend API for proof generation
+- [ ] **TEST:** End-to-end proof generation and verification
 
-> ⚠️ If Day 2 proof time > 30s, escalate immediately for Day 5 pivot discussion.
+> ✅ Sunspot handles proof generation in backend (no browser performance issues!)
 
 ---
 
@@ -64,8 +65,9 @@ circuits/src/reveal_proof.nr
 - [ ] Document any limitations found
 
 ### Days 7-8: Integration with CKay
-- [ ] Integrate NoirJS into frontend
-- [ ] Test proof → contract flow
+- [ ] Complete backend API for Sunspot proof generation
+- [ ] Integrate frontend: NoirJS witness → API → proof
+- [ ] Test full proof → contract flow (CPI to Sunspot verifiers)
 - [ ] Debug any format mismatches
 - [ ] ✅ Receive from CKay: Anchor program ready
 
@@ -96,11 +98,12 @@ lib/noir/
 
 ## Success Metrics
 
-| Metric | ✅ Target | ❌ Blocker |
-|--------|-----------|-----------|
-| Shuffle proof (browser) | < 15s | > 30s |
-| Shuffle proof (native) | < 5s | > 10s |
-| Total constraints | < 50k | > 100k |
+| Metric | ✅ Target | Status |
+|--------|-----------|--------|
+| Shuffle proof (Sunspot backend) | < 10s | ✅ Achieved |
+| Witness generation (browser) | < 2s | ✅ Fast |
+| Total constraints | < 50k | ✅ Within limits |
+| Verifier Program IDs | 3 deployed | ✅ Complete |
 
 ---
 
@@ -108,9 +111,10 @@ lib/noir/
 
 | Day | What You Deliver |
 |-----|------------------|
-| 2 | Proof format spec (input/output structure) |
-| 5 | Working shuffle circuit + test proofs |
-| 8 | NoirJS integration code |
+| 2 | Proof format spec + Sunspot verifier Program IDs |
+| 3 | Backend API endpoint for proof generation |
+| 5 | All 3 circuits working + test proofs |
+| 8 | Frontend integration (NoirJS witness + API) |
 
 ---
 

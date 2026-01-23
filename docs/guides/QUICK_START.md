@@ -263,7 +263,8 @@ avm use latest
 - [Noir Documentation](https://noir-lang.org/docs)
 - [Anchor Book](https://www.anchor-lang.com/)
 - [Solana Docs](https://docs.solana.com/)
-- [Light Protocol](https://lightprotocol.com/)
+- [Sunspot (Noir → Solana)](https://github.com/reilabs/sunspot)
+- [Solana Noir Examples](https://github.com/solana-foundation/noir-examples)
 
 ---
 

@@ -52,8 +52,8 @@ Track E: Polish & Video         ░░░░░░░░████ Days 9-10
 | Task | Priority | Owner |
 |------|----------|-------|
 | Set up NoirJS in browser | P0 | ZK |
-| Benchmark browser proof generation | P0 | ZK |
-| Test Light Protocol Groth16 verifier | P0 | Backend |
+| Install Sunspot and convert circuits | P0 | ZK |
+| Deploy Sunspot verifiers to devnet | P0 | ZK |
 | Measure verification compute units | P0 | Backend |
 
 **Success Criteria:**

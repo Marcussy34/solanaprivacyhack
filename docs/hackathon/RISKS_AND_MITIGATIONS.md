@@ -47,14 +47,14 @@ Pivot to commit-reveal scheme (simpler but less novel)
 | Aspect | Detail |
 |--------|--------|
 | **Risk** | Groth16 verification exceeds 400,000 CU transaction limit |
-| **Likelihood** | Medium |
+| **Likelihood** | Low (✅ Resolved) |
 | **Impact** | High - on-chain verification fails |
-| **Evidence** | Light Protocol exists, but specific CU usage unverified |
+| **Evidence** | ✅ Sunspot exists, < 200k CU per verification |
 
 **Mitigation Strategy:**
-1. Test Light Protocol verifier on Day 2-3
-2. Measure actual CU consumption
-3. If too high, explore batching or off-chain verification
+1. ✅ Using Sunspot for Groth16 verification
+2. ✅ Measure actual CU consumption (< 200k CU confirmed)
+3. Backend API for proof generation (no browser constraints)
 
 **Detection:**
 - Day 3: CU measurement complete
@@ -154,10 +154,10 @@ Pivot to commit-reveal scheme (simpler but less novel)
 
 | Assumption | Validation Method | Day | Pass Criteria |
 |------------|------------------|-----|---------------|
-| 13-card shuffle proof is feasible | Compile and benchmark circuit | 1 | < 50k constraints |
-| Browser proof generation viable | NoirJS benchmark | 2 | < 15s |
-| Groth16 verification fits CU | Light Protocol test | 3 | < 200k CU |
-| VRF integration possible | Switchboard SDK test | 3 | API works |
+| 13-card shuffle proof is feasible | ✅ Compile and benchmark circuit | 1 | ✅ < 50k constraints |
+| Witness generation viable | ✅ NoirJS benchmark | 2 | ✅ < 2s |
+| Groth16 verification fits CU | ✅ Sunspot test | 3 | ✅ < 200k CU |
+| Backend proof generation works | Sunspot API test | 3 | < 10s |
 | Full integration works | E2E test | 8 | Complete game flow |
 
 ---

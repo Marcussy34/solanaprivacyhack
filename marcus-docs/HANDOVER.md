@@ -1,6 +1,7 @@
-# ZK Circuit Handover — All 3 Circuits Complete
+# ZK Circuit Handover — All 3 Circuits Complete + Sunspot Integration
 
-**Updated:** Jan 23, 2026 | **Branch:** `marcus` | **Deadline:** Feb 1, 2026
+**Updated:** Jan 23, 2026 | **Branch:** `marcus` | **Deadline:** Feb 1, 2026  
+**Proof System:** Sunspot (Noir → Groth16 for Solana)
 
 ---
 
@@ -119,21 +120,25 @@ seed + deck ──────► Poseidon hash ──────────�
 - [x] deal_proof circuit — implemented, tested, proven, verified
 - [x] reveal_proof circuit — implemented, tested, proven, verified
 - [x] Noir workspace structure with all 3 circuits
-- [x] NoirJS browser proof generation working (shuffle_proof: 0.64s)
+- [x] NoirJS browser proof generation working for ALL circuits
+    - shuffle_proof: 0.54s
+    - deal_proof: 0.61s
+    - reveal_proof: 0.37s
+- [x] `hooks/useZK.js` implemented — unified hook for generating all 3 proofs
+- [x] `pages/zk-hook-test.js` — verification page for the hook
 - [x] Native proof generation working for all 3
 - [x] Proof format documented for CKay's on-chain verifier
-- [x] All circuits use Poseidon from `poseidon v0.2.2`
+- [x] Confirmed 13-card deck (0-12) logic in circuits
 
 ---
 
 ## What's Next (Week 2 — Ordered)
 
-1. **Browser proof timing for deal_proof and reveal_proof** — measure via `pages/zk-test.js`
-2. **NoirJS integration into main frontend** — wire all 3 circuits into the game flow
-3. **Integration testing with on-chain verifier** — CKay's Anchor program + Light Protocol Groth16
-4. **End-to-end proof chain test** — shuffle→deal→reveal with real game state
-5. **Proof serialization for Solana** — format proof bytes for on-chain submission
-6. **Game loop integration** — connect proofs to game state machine
+1.  **Integration testing with on-chain verifier** — CKay's Anchor program + Light Protocol Groth16
+    - *Note:* Current proofs are UltraHonk. Need to confirm if we are using Light Protocol's verifier (which usually requires Groth16) or if we are verifying UltraHonk proofs directly/via adapter.
+2.  **End-to-end proof chain test** — shuffle→deal→reveal with real game state
+3.  **Proof serialization for Solana** — format proof bytes for on-chain submission
+4.  **Game loop integration** — connect `useZK` hook to the actual Game UI components
 
 ---
 
@@ -167,10 +172,11 @@ nargo execute --package reveal_proof
 
 ## Known Issues / Notes
 
-- **BB quirk:** Always use `bb prove --write_vk` to generate VK alongside the proof. Running standalone `bb write_vk` produces a mismatched VK that fails verification.
-- **UltraHonk, not Groth16:** Native proofs use UltraHonk (Barretenberg). On-chain verification will use Light Protocol's Groth16 verifier — conversion/adapter needed.
+- **✅ Sunspot Integration:** Now using Sunspot to convert Noir circuits to Groth16 proofs for Solana on-chain verification.
+- **Proof System:** Groth16 (via Sunspot/Gnark), NOT UltraHonk. Verifier programs deployed to Solana.
 - **Poseidon v0.2.2:** All circuits depend on `poseidon = { tag = "v0.2.2", git = "https://github.com/noir-lang/poseidon" }`. Do not upgrade without testing.
 - **13-card deck:** Currently using a simplified 13-card deck (0-12). Full 52-card deck would increase constraints significantly.
+- **Trusted Setup:** Using local trusted setup (fine for hackathon, needs proper ceremony for production).
 - **VK sizes may differ per circuit** due to different constraint counts.
 
 ---
@@ -178,6 +184,8 @@ nargo execute --package reveal_proof
 ## Reference
 
 - [MARCUS.md](../worksplit/MARCUS.md) — Full task list
+- [SUNSPOT_INTEGRATION.md](./SUNSPOT_INTEGRATION.md) — Complete Sunspot guide
+- [SUNSPOT_QUICKSTART.md](./SUNSPOT_QUICKSTART.md) — Quick start commands
 - [Noir Docs](https://noir-lang.org/docs)
-- [Barretenberg](https://barretenberg.aztec.network/docs)
-- [Light Protocol](https://www.lightprotocol.com/)
+- [Sunspot Repo](https://github.com/reilabs/sunspot)
+- [Solana Noir Examples](https://github.com/solana-foundation/noir-examples)

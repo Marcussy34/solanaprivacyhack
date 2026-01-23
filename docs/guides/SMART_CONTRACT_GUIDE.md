@@ -138,7 +138,8 @@ game.deck_position = 0;                    // No cards dealt
 
 **What it does (currently stub):**
 ```rust
-// TODO: Verify Groth16 proof via Light Protocol CPI
+// TODO: Implement CPI to Sunspot shuffle verifier
+// Instruction data format: proof_bytes || public_witness_bytes
 // For now, just mark as verified
 game.shuffle_verified = true;
 game.state = GameState::AwaitingPlayer;
@@ -146,7 +147,7 @@ game.state = GameState::AwaitingPlayer;
 
 **State transition:** `Created → AwaitingPlayer`
 
-**Note:** This is a stub! Day 5 task is to integrate Light Protocol's Groth16 verifier.
+**Note:** This is a stub! Next step is to integrate Sunspot's Groth16 verifier via CPI.
 
 ---
 
@@ -566,8 +567,9 @@ await provider.sendAndConfirm(transferTx);
 After understanding this contract:
 
 1. **Frontend Integration** - Use the IDL to call these instructions from React
-2. **NoirJS Integration** - Generate real proofs for `deck_commitment`
-3. **Light Protocol** - Replace `verify_shuffle` stub with real verification
+2. **NoirJS Integration** - Generate witness for proof generation
+3. **Sunspot Backend** - Generate Groth16 proofs via API
+4. **CPI Integration** - Replace `verify_shuffle` stub with Sunspot verifier CPI
 
 ---
 

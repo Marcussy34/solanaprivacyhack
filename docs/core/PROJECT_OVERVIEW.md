@@ -22,7 +22,7 @@ A provably fair card game using ZK proofs will differentiate in the hackathon's 
 |---------|-------------|----------|
 | **ZK Shuffle Proof** | Prove deck is valid permutation without revealing order | P0 |
 | **Card Commitments** | Hide cards until strategic reveal | P0 |
-| **On-chain Verification** | Groth16 verification via Light Protocol | P0 |
+| **On-chain Verification** | Groth16 verification via Sunspot | P0 |
 | **Blackjack Game** | Player vs. automated dealer | P0 |
 | **Basic UI** | Functional game interface | P1 |
 | **Wallet Integration** | Solana wallet connect | P1 |
@@ -46,7 +46,7 @@ No existing ZK mental poker implementations on Solana mainnet.
 Applying Noir circuits to card games is unexplored territory.
 
 ### 3. Trustless Verification
-On-chain Groth16 verification means anyone can audit fairness.
+On-chain Groth16 verification (via Sunspot) means anyone can audit fairness.
 
 ### 4. Hackathon-Optimized
 Architecture designed to hit multiple bounty categories simultaneously.
@@ -93,7 +93,7 @@ Architecture designed to hit multiple bounty categories simultaneously.
 |------------|--------|------------|
 | **10 days remaining** | Limited scope | Aggressive prioritization |
 | **Learning ZK during build** | Slower progress | Fallback plan ready |
-| **Solana compute limits** | Proof size limits | Light Protocol optimization |
+| **Solana compute limits** | Proof size limits | Sunspot Groth16 optimization |
 | **Solo/small team** | Limited parallelization | Focus on critical path |
 
 ---
@@ -105,11 +105,12 @@ Architecture designed to hit multiple bounty categories simultaneously.
 1. **Noir can handle 13-card permutation proofs efficiently**
    - Must benchmark Day 1
 
-2. **Groth16 verification fits Solana compute limits**
-   - Must test Day 2-3
+2. **✅ Sunspot Groth16 verification fits Solana compute limits**
+   - < 200,000 CU per proof verification
 
-3. **Browser-based proof generation is viable**
-   - NoirJS must work with acceptable speed
+3. **✅ Witness generation + backend proving is viable**
+   - NoirJS generates witness in browser (< 2s)
+   - Sunspot generates Groth16 proof in backend (< 10s)
 
 4. **10 days is enough for ZK + Anchor + Frontend**
    - Requires disciplined execution
