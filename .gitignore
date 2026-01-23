@@ -52,3 +52,9 @@ nul
 # Claude local files
 .claude/agents/
 .claude/settings.local.json
+
+# Noir/Barretenberg artifacts
+/circuits/target/
+/circuits/*/target/
+*.proof
+*.witness
