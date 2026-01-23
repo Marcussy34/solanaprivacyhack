@@ -45,7 +45,10 @@
       "Bash(python3:*)",
       "Bash(npm run lint:*)",
       "Bash(npx eslint:*)",
-      "Bash(anchor:*)"
+      "Bash(anchor:*)",
+      "Bash(git -C /Users/marcus/Projects/solanaprivacyhack log --oneline programs/zk-card-arena/src/lib.rs)",
+      "Bash(git -C /Users/marcus/Projects/solanaprivacyhack diff 6c1772c~1..6c1772c -- programs/zk-card-arena/src/lib.rs)",
+      "Bash(git -C /Users/marcus/Projects/solanaprivacyhack show 6c1772c~1:programs/zk-card-arena/src/lib.rs)"
     ]
   }
 }
