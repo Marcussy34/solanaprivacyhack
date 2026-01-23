@@ -139,33 +139,8 @@ jobs:
           # Downgrade packages that require edition2024 (not in Rust 1.75 Cargo)
           # These packages use Rust 2024 edition which is too new
           echo "Downgrading edition2024 packages..."
-          
-          # Try multiple approaches to ensure blake3 is downgraded
           cargo update -p blake3 --precise 1.5.4 2>/dev/null || true
-          cargo update blake3 --precise 1.5.4 2>/dev/null || true
-          cargo update blake3@1.8.3 --precise 1.5.4 2>/dev/null || true
-          
           cargo update -p constant_time_eq --precise 0.3.1 2>/dev/null || true
-          cargo update constant_time_eq --precise 0.3.1 2>/dev/null || true
-          
-          # Also patch any Cargo.toml that specifies blake3 or constant_time_eq versions
-          echo "Patching edition2024 package versions in Cargo.toml files..."
-          find . -name "Cargo.toml" -type f -exec sed -i -E 's/(blake3[[:space:]]*=[[:space:]]*")1\.[89][^"]*"/\1=1.5.4"/g' {} \;
-          find . -name "Cargo.toml" -type f -exec sed -i -E 's/(constant_time_eq[[:space:]]*=[[:space:]]*")0\.[4-9][^"]*"/\1=0.3.1"/g' {} \;
-          
-          # Add [patch.crates-io] section to force specific versions
-          # This overrides ALL dependencies, even transitive ones
-          echo "" >> Cargo.toml
-          echo "[patch.crates-io]" >> Cargo.toml
-          echo "blake3 = \"=1.5.4\"" >> Cargo.toml
-          echo "constant_time_eq = \"=0.3.1\"" >> Cargo.toml
-          
-          echo "Added [patch.crates-io] section to Cargo.toml:"
-          tail -5 Cargo.toml
-          
-          # Remove Cargo.lock again and regenerate with patched Cargo.toml files
-          rm -f Cargo.lock
-          cargo generate-lockfile
           
           # Verify critical packages
           echo "Checking downgraded package versions in Cargo.lock:"
