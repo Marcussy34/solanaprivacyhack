@@ -31,7 +31,9 @@
       "Bash(xxd:*)",
       "Bash(bb:*)",
       "Bash(~/.bb/bb prove:*)",
-      "Bash(~/.bb/bb verify:*)"
+      "Bash(~/.bb/bb verify:*)",
+      "Bash(git -C /Users/marcus/Projects/solanaprivacyhack log --oneline -20)",
+      "Bash(git -C /Users/marcus/Projects/solanaprivacyhack log --all --graph --oneline -15)"
     ]
   }
 }
