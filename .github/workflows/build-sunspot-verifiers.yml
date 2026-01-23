@@ -106,12 +106,18 @@ jobs:
           cargo update winnow --precise 0.6.20 2>/dev/null || true
           
           # Downgrade Solana v3 packages (require Rust 1.81+) to v1.18.x (Rust 1.75 compatible)
+          # We need to downgrade ALL Solana v3.x packages as they appear
           echo "Downgrading Solana v3 packages to v1.18.x..."
-          cargo update solana-address@3.0.0 --precise 1.18.26 2>/dev/null || true
-          cargo update solana-hash@3.0.0 --precise 1.18.26 2>/dev/null || true
-          cargo update solana-pubkey@3.0.0 --precise 1.18.26 2>/dev/null || true
-          cargo update solana-program@3.0.0 --precise 1.18.26 2>/dev/null || true
-          cargo update solana-borsh@3.0.0 --precise 1.18.26 2>/dev/null || true
+          cargo update solana-address --precise 1.18.26 2>/dev/null || true
+          cargo update solana-hash --precise 1.18.26 2>/dev/null || true
+          cargo update solana-pubkey --precise 1.18.26 2>/dev/null || true
+          cargo update solana-program --precise 1.18.26 2>/dev/null || true
+          cargo update solana-borsh --precise 1.18.26 2>/dev/null || true
+          cargo update solana-sanitize --precise 1.18.26 2>/dev/null || true
+          cargo update solana-msg --precise 1.18.26 2>/dev/null || true
+          cargo update solana-instruction --precise 1.18.26 2>/dev/null || true
+          cargo update solana-account --precise 1.18.26 2>/dev/null || true
+          cargo update solana-clock --precise 1.18.26 2>/dev/null || true
           
           echo "Dependencies downgraded!"
           
