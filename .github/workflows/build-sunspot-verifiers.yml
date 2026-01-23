@@ -91,12 +91,15 @@ jobs:
           export GNARK_VERIFIER_BIN="$HOME/sunspot/gnark-solana/crates/verifier-bin"
           echo "GNARK_VERIFIER_BIN=$GNARK_VERIFIER_BIN" >> $GITHUB_ENV
           
-          # Fix Cargo.lock version 4 issue
+          # Fix Cargo.lock version 4 issue in gnark-solana
           # cargo build-sbf doesn't support lockfile v4, so we regenerate as v3
           echo "Fixing Cargo.lock version for Solana compatibility..."
-          cd $HOME/sunspot
-          rm -f Cargo.lock
-          cargo generate-lockfile
+          cd $HOME/sunspot/gnark-solana
+          if [ -f Cargo.lock ]; then
+            echo "Found Cargo.lock v4, regenerating as v3..."
+            rm -f Cargo.lock
+            cargo generate-lockfile
+          fi
           
           # Verify verifier-bin directory exists
           ls -la $GNARK_VERIFIER_BIN || echo "Verifier bin directory not found!"
