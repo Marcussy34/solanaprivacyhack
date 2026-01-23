@@ -225,7 +225,20 @@ jobs:
       - name: Build Solana Verifiers
         run: |
           export PATH="$HOME/sunspot/go:$PATH"
-          cd circuits
+          
+          # CRITICAL: Patch Cargo.lock v4 → v3 right before building
+          # This must happen immediately before cargo-build-sbf runs
+          echo "Patching Cargo.lock v4 → v3 before building..."
+          cd $HOME/sunspot/gnark-solana
+          if grep -q "version = 4" Cargo.lock 2>/dev/null; then
+            sed -i 's/version = 4/version = 3/' Cargo.lock
+            echo "✅ Cargo.lock patched to v3"
+          else
+            echo "Cargo.lock already v3 or not found"
+          fi
+          head -3 Cargo.lock
+          
+          cd $GITHUB_WORKSPACE/circuits
           
           # Build shuffle verifier
           echo "Building shuffle_proof verifier..."
