@@ -48,7 +48,15 @@
       "Bash(anchor:*)",
       "Bash(git -C /Users/marcus/Projects/solanaprivacyhack log --oneline programs/zk-card-arena/src/lib.rs)",
       "Bash(git -C /Users/marcus/Projects/solanaprivacyhack diff 6c1772c~1..6c1772c -- programs/zk-card-arena/src/lib.rs)",
-      "Bash(git -C /Users/marcus/Projects/solanaprivacyhack show 6c1772c~1:programs/zk-card-arena/src/lib.rs)"
+      "Bash(git -C /Users/marcus/Projects/solanaprivacyhack show 6c1772c~1:programs/zk-card-arena/src/lib.rs)",
+      "Bash(cargo build-bpf:*)",
+      "Bash(cargo build-sbf:*)",
+      "Bash(export PATH=\"/Users/marcus/.local/share/solana/install/active_release/bin:$PATH\")",
+      "Bash(cargo-build-sbf:*)",
+      "Bash(cargo --version:*)",
+      "Bash(rustc:*)",
+      "Bash(cargo generate-lockfile:*)",
+      "Bash(npx next lint:*)"
     ]
   }
 }
