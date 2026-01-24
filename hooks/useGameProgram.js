@@ -86,11 +86,14 @@ const IDL = {
       accounts: [
         { name: "game", isMut: true, isSigner: false },
         { name: "dealer", isMut: false, isSigner: true },
+        { name: "revealVerifierProgram", isMut: false, isSigner: false },
       ],
       args: [
         { name: "cardIndex", type: "u8" },
         { name: "cardValue", type: "u8" },
         { name: "isPlayerCard", type: "bool" },
+        { name: "proof", type: "bytes" },
+        { name: "publicInputs", type: "bytes" },
       ],
     },
     {
@@ -392,9 +395,10 @@ export function useGameProgram() {
     [program, wallet.publicKey, getGamePda]
   );
 
-  // Reveal a card (dealer action)
+  // Reveal a card with ZK proof verification (dealer action)
+  // proof and publicInputs are Uint8Array or array of bytes from Groth16 prover
   const revealCard = useCallback(
-    async (gameId, cardIndex, cardValue, isPlayerCard, dealerPubkey = null) => {
+    async (gameId, cardIndex, cardValue, isPlayerCard, proof, publicInputs, dealerPubkey = null) => {
       if (!program || !wallet.publicKey) {
         throw new Error("Wallet not connected");
       }
@@ -402,12 +406,21 @@ export function useGameProgram() {
       const dealer = dealerPubkey ? new PublicKey(dealerPubkey) : wallet.publicKey;
       const gamePda = getGamePda(gameId, dealer);
 
+      // Convert proof data to buffers for Anchor serialization
+      const proofBuffer = Buffer.from(proof instanceof Uint8Array ? proof : new Uint8Array(proof));
+      const publicInputsBuffer = Buffer.from(publicInputs instanceof Uint8Array ? publicInputs : new Uint8Array(publicInputs));
+
       const tx = await program.methods
-        .revealCard(cardIndex, cardValue, isPlayerCard)
+        .revealCard(cardIndex, cardValue, isPlayerCard, proofBuffer, publicInputsBuffer)
         .accounts({
           game: gamePda,
           dealer: wallet.publicKey,
+          revealVerifierProgram: REVEAL_VERIFIER_PROGRAM_ID,
         })
+        .preInstructions([
+          // Reveal proof verification requires ~500k CU
+          ComputeBudgetProgram.setComputeUnitLimit({ units: 600_000 }),
+        ])
         .rpc();
 
       return { tx };
@@ -416,9 +429,11 @@ export function useGameProgram() {
   );
 
   // Reveal all unrevealed cards in one batched transaction (dealer action)
+  // Each card reveal requires a ZK proof - proofs must match card values in order
   // playerStartIndex/dealerStartIndex: start revealing from these indices
+  // playerProofs/dealerProofs: arrays of { proof, publicInputs } for each card
   const revealAllCards = useCallback(
-    async (gameId, playerCardValues, dealerCardValues, dealerPubkey = null, playerStartIndex = 0, dealerStartIndex = 0) => {
+    async (gameId, playerCardValues, dealerCardValues, playerProofs, dealerProofs, dealerPubkey = null, playerStartIndex = 0, dealerStartIndex = 0) => {
       if (!program || !wallet.publicKey) {
         throw new Error("Wallet not connected");
       }
@@ -429,14 +444,25 @@ export function useGameProgram() {
       // Build all reveal instructions
       const instructions = [];
 
+      // Add compute budget for multiple reveals (600k CU per reveal)
+      const totalReveals = playerCardValues.length + dealerCardValues.length;
+      instructions.push(
+        ComputeBudgetProgram.setComputeUnitLimit({ units: Math.min(totalReveals * 600_000, 1_400_000) })
+      );
+
       // Reveal player cards starting from playerStartIndex
       for (let i = 0; i < playerCardValues.length; i++) {
         const cardIndex = playerStartIndex + i;
+        const proofData = playerProofs[i];
+        const proofBuffer = Buffer.from(proofData.proof instanceof Uint8Array ? proofData.proof : new Uint8Array(proofData.proof));
+        const publicInputsBuffer = Buffer.from(proofData.publicInputs instanceof Uint8Array ? proofData.publicInputs : new Uint8Array(proofData.publicInputs));
+
         const ix = await program.methods
-          .revealCard(cardIndex, playerCardValues[i], true)
+          .revealCard(cardIndex, playerCardValues[i], true, proofBuffer, publicInputsBuffer)
           .accounts({
             game: gamePda,
             dealer: wallet.publicKey,
+            revealVerifierProgram: REVEAL_VERIFIER_PROGRAM_ID,
           })
           .instruction();
         instructions.push(ix);
@@ -445,11 +471,16 @@ export function useGameProgram() {
       // Reveal dealer cards starting from dealerStartIndex
       for (let i = 0; i < dealerCardValues.length; i++) {
         const cardIndex = dealerStartIndex + i;
+        const proofData = dealerProofs[i];
+        const proofBuffer = Buffer.from(proofData.proof instanceof Uint8Array ? proofData.proof : new Uint8Array(proofData.proof));
+        const publicInputsBuffer = Buffer.from(proofData.publicInputs instanceof Uint8Array ? proofData.publicInputs : new Uint8Array(proofData.publicInputs));
+
         const ix = await program.methods
-          .revealCard(cardIndex, dealerCardValues[i], false)
+          .revealCard(cardIndex, dealerCardValues[i], false, proofBuffer, publicInputsBuffer)
           .accounts({
             game: gamePda,
             dealer: wallet.publicKey,
+            revealVerifierProgram: REVEAL_VERIFIER_PROGRAM_ID,
           })
           .instruction();
         instructions.push(ix);
