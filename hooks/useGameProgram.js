@@ -366,20 +366,14 @@ export function useGameProgram() {
       switch (action.toLowerCase()) {
         case "hit":
           actionEnum = { hit: {} };
-          if (explicitCardValue === null || explicitCardValue === undefined) {
-            throw new Error("Card value required for hit - shuffled deck not available");
-          }
-          cardValue = explicitCardValue;
+          cardValue = explicitCardValue ?? null;
           break;
         case "stand":
           actionEnum = { stand: {} };
           break;
         case "double":
           actionEnum = { double: {} };
-          if (explicitCardValue === null || explicitCardValue === undefined) {
-            throw new Error("Card value required for double - shuffled deck not available");
-          }
-          cardValue = explicitCardValue;
+          cardValue = explicitCardValue ?? null;
           break;
         default:
           throw new Error("Invalid action");
