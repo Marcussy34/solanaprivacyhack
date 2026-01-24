@@ -4,9 +4,11 @@ import { WalletMultiButton } from "@solana/wallet-adapter-react-ui";
 import { motion, AnimatePresence } from "framer-motion";
 import { PlayingCard, HiddenCard, CardSlot, PendingCard } from "../components/game/PlayingCard";
 import { ProofProgress } from "../components/game/ProofProgress";
+import { BetSelector } from "../components/BetSelector";
 import { BlurFade } from "../components/ui/blur-fade";
 import { useGameProgram } from "../hooks/useGameProgram";
 import { useZKGame } from "../hooks/useZKGame";
+import { useShadowPay } from "../hooks/useShadowPay";
 import { cn } from "../lib/utils";
 import {
   Loader2,
@@ -26,11 +28,14 @@ import {
   Zap,
   Users,
   Shield,
+  Coins,
+  Gift,
 } from "lucide-react";
 
-// Game states matching smart contract
+// Game states matching smart contract + betting phase
 const GAME_STATES = {
   IDLE: "idle",
+  BETTING: "betting",        // New: Player placing private bet via ShadowPay
   CREATED: "created",
   AWAITING_PLAYER: "awaitingPlayer",
   PLAYING: "playing",
@@ -236,9 +241,17 @@ export default function GamePage() {
     shuffleProofData,
   } = useZKGame();
 
+  // ShadowPay for private betting
+  const { requestPayout, escrowBalance, getBalance: refreshEscrowBalance } = useShadowPay();
+
   // Proof generation progress
   const [proofPhase, setProofPhase] = useState(null);
   const [proofError, setProofError] = useState(null);
+
+  // Betting state
+  const [currentBet, setCurrentBet] = useState(null);
+  const [betTxSignature, setBetTxSignature] = useState(null);
+  const [payoutProcessed, setPayoutProcessed] = useState(false);
 
   // Game state
   const [gameState, setGameState] = useState(GAME_STATES.IDLE);
@@ -260,6 +273,7 @@ export default function GamePage() {
   // Join game input
   const [joinGameCode, setJoinGameCode] = useState("");
   const [copied, setCopied] = useState(false);
+  const [pendingJoinCode, setPendingJoinCode] = useState(null);
 
   // Derived state
   const playerCards = gameData?.playerCards || [];
@@ -480,8 +494,8 @@ export default function GamePage() {
     setLoading(false);
   };
 
-  const handleJoinGame = async () => {
-    const code = joinGameCode.trim();
+  const handleJoinGame = async (codeOverride) => {
+    const code = (codeOverride || joinGameCode).trim();
     if (!code) {
       setError("Please enter a Game Code");
       return;
@@ -746,7 +760,91 @@ export default function GamePage() {
     setJoinGameCode("");
     setProofPhase(null);
     setProofError(null);
+    setCurrentBet(null);
+    setBetTxSignature(null);
+    setPayoutProcessed(false);
+    setPendingJoinCode(null);
     zkResetGame();
+  };
+
+  // Handle transitioning to betting phase (dealer wants to create game)
+  // UPDATED: Dealer (Host) creates game WITHOUT betting.
+  // Player (Client) bets BEFORE joining.
+  // Single Player Demo does both.
+  const [bettingIntent, setBettingIntent] = useState(null); // 'join', 'single_player'
+
+  const handleStartHostGame = async () => {
+    // Host just creates the game, no bet
+    await handleCreateGame();
+  };
+
+  const handleStartJoinBetting = () => {
+    const code = joinGameCode.trim();
+    if (!code) {
+      setError("Please enter a Game Code");
+      return;
+    }
+    setPendingJoinCode(code); // Keep pendingJoinCode for handleJoinGame to use
+    setBettingIntent('join');
+    setGameState(GAME_STATES.BETTING);
+  };
+
+  const handleStartSinglePlayerBetting = () => {
+    setBettingIntent('single_player');
+    setGameState(GAME_STATES.BETTING);
+  };
+
+  // Handle bet placement - called from BetSelector
+  const handleBetPlaced = async (betInfo) => {
+    console.log("[Game] Bet placed:", betInfo);
+    setCurrentBet(betInfo.amount);
+    setBetTxSignature(betInfo.txSignature);
+
+    // After bet is placed, proceed based on intent
+    if (bettingIntent === 'single_player') {
+        await handleCreateGame();
+    } else if (bettingIntent === 'join') {
+        // Use pendingJoinCode set in handleStartJoinBetting
+        if (pendingJoinCode) {
+            await handleJoinGame(pendingJoinCode);
+            setPendingJoinCode(null); // Clear after use
+        } else {
+            setError("No join code provided for joining game.");
+        }
+    }
+  };
+
+  // Handle payout when game ends
+  const handlePayout = async () => {
+    if (!currentBet || payoutProcessed) return;
+
+    const isWinner = gameState === GAME_STATES.PLAYER_WON;
+    const isPush = gameState === GAME_STATES.PUSH;
+
+    if (!isWinner && !isPush) {
+      // Player lost - no payout
+      setPayoutProcessed(true);
+      return;
+    }
+
+    try {
+      setLoading(true);
+
+      // Calculate payout: 2x for win, 1x for push (refund)
+      const payoutAmount = isWinner ? currentBet * 2 : currentBet;
+      console.log("[Game] Requesting payout:", payoutAmount, "SOL");
+
+      await requestPayout(payoutAmount);
+      setPayoutProcessed(true);
+
+      // Refresh escrow balance
+      await refreshEscrowBalance();
+    } catch (err) {
+      console.error("[Game] Payout error:", err);
+      setError("Payout failed: " + err.message);
+    } finally {
+      setLoading(false);
+    }
   };
 
   // Render game result with celebrations
@@ -960,11 +1058,11 @@ export default function GamePage() {
               </p>
 
               <div className="flex flex-col md:flex-row gap-6">
-                {/* Create Game */}
+                {/* Create Game (Dealer) - no betting, goes straight to game creation */}
                 <motion.button
                   whileTap={{ scale: 0.95 }}
                   whileHover={{ scale: 1.02 }}
-                  onClick={handleCreateGame}
+                  onClick={handleStartHostGame}
                   disabled={loading}
                   className={cn(
                     "flex items-center gap-3 px-8 py-4 rounded-xl",
@@ -974,12 +1072,32 @@ export default function GamePage() {
                     "disabled:opacity-50 disabled:cursor-not-allowed"
                   )}
                 >
-                  {loading ? (
-                    <Loader2 className="w-6 h-6 animate-spin" />
-                  ) : (
-                    <Play className="w-6 h-6" />
+                  <Play className="w-6 h-6" />
+                  <div className="flex flex-col items-start">
+                    <span className="text-lg font-semibold">Host Game</span>
+                    <span className="text-xs opacity-80">Be the Dealer</span>
+                  </div>
+                </motion.button>
+
+                {/* Single Player Demo */}
+                <motion.button
+                  whileTap={{ scale: 0.95 }}
+                  whileHover={{ scale: 1.02 }}
+                  onClick={handleStartSinglePlayerBetting}
+                  disabled={loading}
+                  className={cn(
+                    "flex items-center gap-3 px-8 py-4 rounded-xl",
+                    "bg-white/10 border border-white/20",
+                    "hover:bg-white/20",
+                    "transition-colors duration-300",
+                    "disabled:opacity-50 disabled:cursor-not-allowed"
                   )}
-                  <span className="text-lg font-semibold">Create Game (Dealer)</span>
+                >
+                  <UserPlus className="w-6 h-6" />
+                  <div className="flex flex-col items-start">
+                    <span className="text-lg font-semibold">Single Player</span>
+                    <span className="text-xs opacity-80">Demo Mode (Bet + Play)</span>
+                  </div>
                 </motion.button>
 
                 {/* Join Game */}
@@ -995,7 +1113,7 @@ export default function GamePage() {
                     <motion.button
                       whileTap={{ scale: 0.95 }}
                       whileHover={{ scale: 1.02 }}
-                      onClick={handleJoinGame}
+                      onClick={handleStartJoinBetting}
                       disabled={loading || !joinGameCode.trim()}
                       className={cn(
                         "flex items-center gap-2 px-6 py-3 rounded-xl",
@@ -1024,6 +1142,38 @@ export default function GamePage() {
               )}
             </div>
           </BlurFade>
+        ) : gameState === GAME_STATES.BETTING ? (
+          /* Betting State - Player places private bet before joining */
+          <BlurFade delay={0.1}>
+            <div className="flex flex-col items-center justify-center min-h-[60vh] gap-8 max-w-md mx-auto">
+              <div className="text-center">
+                <h1 className="text-3xl md:text-4xl font-bold mb-2">
+                  Place Your Bet
+                </h1>
+                <p className="text-gray-400">
+                  Place your private bet before joining the game
+                </p>
+              </div>
+
+              <BetSelector
+                onBetPlaced={handleBetPlaced}
+                disabled={loading}
+              />
+
+              <button
+                onClick={() => { setPendingJoinCode(null); setGameState(GAME_STATES.IDLE); }}
+                className="text-sm text-gray-400 hover:text-white underline"
+              >
+                Cancel
+              </button>
+
+              {error && (
+                <div className="p-4 rounded-xl bg-red-500/10 border border-red-500/20 w-full">
+                  <p className="text-red-400 text-sm">{error}</p>
+                </div>
+              )}
+            </div>
+          </BlurFade>
         ) : (
           /* Game Table */
           <div className="flex flex-col gap-6">
@@ -1047,6 +1197,13 @@ export default function GamePage() {
                 </button>
               </div>
               <div className="flex items-center gap-2">
+                {/* Bet Amount Display */}
+                {currentBet && (
+                  <span className="px-2 py-1 rounded-full text-xs font-medium bg-yellow-500/20 text-yellow-400 border border-yellow-500/30 flex items-center gap-1">
+                    <Coins className="w-3 h-3" />
+                    {currentBet} SOL
+                  </span>
+                )}
                 {zkDeckCommitment && (
                   <span className="px-2 py-1 rounded-full text-xs font-medium bg-green-500/20 text-green-400 border border-green-500/30">
                     ZK Active
@@ -1327,24 +1484,65 @@ export default function GamePage() {
                 </motion.button>
               )}
 
-              {/* Game over - new game */}
+              {/* Game over - payout + new game */}
               {isGameOver && (
-                <motion.button
-                  whileTap={{ scale: 0.95 }}
-                  whileHover={{ scale: 1.02 }}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.5 }}
-                  onClick={handleNewGame}
-                  className={cn(
-                    "flex items-center gap-2 px-6 py-3 rounded-xl",
-                    "bg-white/10 border border-white/20 hover:bg-white/20",
-                    "transition-colors duration-300"
+                <div className="flex flex-wrap justify-center gap-4">
+                  {/* Payout button (only for winner/push with active bet) */}
+                  {currentBet && !payoutProcessed && (gameState === GAME_STATES.PLAYER_WON || gameState === GAME_STATES.PUSH) && (
+                    <motion.button
+                      whileTap={{ scale: 0.95 }}
+                      whileHover={{ scale: 1.02 }}
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: 0.3 }}
+                      onClick={handlePayout}
+                      disabled={loading}
+                      className={cn(
+                        "flex items-center gap-2 px-6 py-3 rounded-xl",
+                        "bg-gradient-to-r from-green-600 to-emerald-600",
+                        "hover:from-green-500 hover:to-emerald-500",
+                        "transition-colors duration-300",
+                        "disabled:opacity-50"
+                      )}
+                    >
+                      {loading ? (
+                        <Loader2 className="w-5 h-5 animate-spin" />
+                      ) : (
+                        <Gift className="w-5 h-5" />
+                      )}
+                      Claim {gameState === GAME_STATES.PLAYER_WON ? currentBet * 2 : currentBet} SOL
+                    </motion.button>
                   )}
-                >
-                  <RefreshCw className="w-5 h-5" />
-                  New Game
-                </motion.button>
+
+                  {/* Show payout success */}
+                  {payoutProcessed && currentBet && (
+                    <motion.div
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="flex items-center gap-2 px-6 py-3 rounded-xl bg-green-500/20 border border-green-500/30 text-green-400"
+                    >
+                      <Check className="w-5 h-5" />
+                      Payout Claimed!
+                    </motion.div>
+                  )}
+
+                  <motion.button
+                    whileTap={{ scale: 0.95 }}
+                    whileHover={{ scale: 1.02 }}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.5 }}
+                    onClick={handleNewGame}
+                    className={cn(
+                      "flex items-center gap-2 px-6 py-3 rounded-xl",
+                      "bg-white/10 border border-white/20 hover:bg-white/20",
+                      "transition-colors duration-300"
+                    )}
+                  >
+                    <RefreshCw className="w-5 h-5" />
+                    New Game
+                  </motion.button>
+                </div>
               )}
             </div>
 
