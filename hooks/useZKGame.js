@@ -28,29 +28,44 @@ const PROVE_API_URL = '/api/prove'; // Backend Groth16 proof generation
 // ============================================================================
 
 /**
- * Fisher-Yates shuffle algorithm for cryptographically fair shuffle.
+ * Fisher-Yates shuffle algorithm with cryptographically secure randomness.
+ * Uses rejection sampling to avoid modulo bias for provably fair shuffling.
+ *
  * @param {number[]} array - Original deck [0,1,2,...,12]
  * @returns {number[]} Shuffled deck (new array, doesn't mutate original)
  */
 function shuffleArray(array) {
   const shuffled = [...array];
   for (let i = shuffled.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
+    // Rejection sampling: avoid modulo bias by discarding values >= maxVal
+    // maxVal is the largest multiple of (i+1) that fits in a byte (256)
+    const maxVal = 256 - (256 % (i + 1));
+    let randomByte;
+    do {
+      randomByte = crypto.getRandomValues(new Uint8Array(1))[0];
+    } while (randomByte >= maxVal);
+    const j = randomByte % (i + 1);
     [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
   }
   return shuffled;
 }
 
 /**
- * Generate a random field element as a decimal string.
+ * Generate a cryptographically secure random field element as a decimal string.
  * Field elements are 254-bit integers in BN254 curve.
- * For simplicity, we use a random 64-bit integer (safe for our use case).
+ * Uses 8 bytes (64 bits) of secure randomness - safe for seeds and blinding factors.
+ *
+ * @returns {string} Random 64-bit integer as decimal string
  */
 function generateRandomField() {
-  // Generate a random 64-bit integer as a string
-  const high = Math.floor(Math.random() * 0x7FFFFFFF);  // 31 bits
-  const low = Math.floor(Math.random() * 0xFFFFFFFF);   // 32 bits
-  return String((BigInt(high) << 32n) | BigInt(low));
+  // Generate 8 cryptographically secure random bytes
+  const bytes = crypto.getRandomValues(new Uint8Array(8));
+  // Convert to BigInt (little-endian byte order)
+  let value = 0n;
+  for (let i = 0; i < 8; i++) {
+    value |= BigInt(bytes[i]) << BigInt(i * 8);
+  }
+  return value.toString();
 }
 
 /**
