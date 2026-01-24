@@ -6,7 +6,7 @@ resolution = true
 skip-lint = false
 
 [programs.devnet]
-zk_card_arena = "22BfrTbAzVmwENnyfzk6rFtPaNvCmaATbeWaJKKoqkK4"
+zk_card_arena = "8Da8a3Q9GLYuxYLXPtxKiAedZZbx5DUQCuG8TPY1dLnx"
 
 [registry]
 url = "https://api.apr.dev"

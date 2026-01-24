@@ -49,17 +49,18 @@
       "Bash(git -C /Users/marcus/Projects/solanaprivacyhack log --oneline programs/zk-card-arena/src/lib.rs)",
       "Bash(git -C /Users/marcus/Projects/solanaprivacyhack diff 6c1772c~1..6c1772c -- programs/zk-card-arena/src/lib.rs)",
       "Bash(git -C /Users/marcus/Projects/solanaprivacyhack show 6c1772c~1:programs/zk-card-arena/src/lib.rs)",
-      "Skill(codebase-digest)",
-      "Bash(tree:*)",
-      "Bash(find:*)",
-      "Bash(noirup --version:*)",
-      "Bash(cargo install:*)",
-      "Bash(go version:*)",
-      "Bash(brew install:*)",
-      "Bash(mkdir:*)",
-      "Bash(~/bin/sunspot compile:*)",
-      "Bash(~/bin/sunspot setup:*)",
-      "Bash(mv:*)"
+      "Bash(cargo build-bpf:*)",
+      "Bash(cargo build-sbf:*)",
+      "Bash(export PATH=\"/Users/marcus/.local/share/solana/install/active_release/bin:$PATH\")",
+      "Bash(cargo-build-sbf:*)",
+      "Bash(cargo --version:*)",
+      "Bash(rustc:*)",
+      "Bash(cargo generate-lockfile:*)",
+      "Bash(npx next lint:*)",
+      "Bash(npm run build:*)",
+      "Bash(claude mcp add:*)",
+      "Bash(claude mcp:*)"
     ]
-  }
+  },
+  "outputStyle": "Explanatory"
 }

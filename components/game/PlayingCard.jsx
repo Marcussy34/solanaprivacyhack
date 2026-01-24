@@ -1,4 +1,5 @@
 import { motion, AnimatePresence } from "framer-motion";
+import { Loader2 } from "lucide-react";
 import { cn } from "../../lib/utils";
 
 // Card value to display mapping
@@ -159,6 +160,30 @@ export function HiddenCard({ className, delay = 0, isRevealing = false }) {
     >
       <div className="w-14 h-20 md:w-16 md:h-24 rounded-lg border-2 border-purple-400/30 bg-purple-700/50 flex items-center justify-center">
         <div className="text-purple-300/50 text-2xl md:text-3xl font-bold">ZK</div>
+      </div>
+    </motion.div>
+  );
+}
+
+// Pending card (waiting for dealer to reveal) - with spinner
+export function PendingCard({ className, delay = 0 }) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: -100, rotate: -15, scale: 0.8 }}
+      animate={{ opacity: 1, y: 0, rotate: 0, scale: 1 }}
+      transition={{ duration: 0.6, delay, type: "spring", stiffness: 80, damping: 12 }}
+      className={cn(
+        "w-20 h-28 md:w-24 md:h-32 rounded-xl",
+        "border-2 border-yellow-500/50",
+        "bg-gradient-to-br from-yellow-900/30 via-purple-800 to-purple-900",
+        "flex items-center justify-center",
+        "shadow-lg shadow-yellow-500/20",
+        "animate-pulse",
+        className
+      )}
+    >
+      <div className="w-14 h-20 md:w-16 md:h-24 rounded-lg border-2 border-yellow-400/30 bg-purple-700/50 flex items-center justify-center">
+        <Loader2 className="w-6 h-6 text-yellow-400 animate-spin" />
       </div>
     </motion.div>
   );

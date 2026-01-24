@@ -29,43 +29,27 @@ The `handleDealerPlay` function similarly now requires the shuffled deck and con
 
 ## What Still Needs to Be Done
 
-### Issue 3: verifyShuffle Sends Empty Public Inputs
+### Issue 3: verifyShuffle Sends Empty Public Inputs - FIXED
 
-**File:** `hooks/useGameProgram.js:258-298`
+The `verifyShuffle` function now passes the raw `.pw` bytes from the Sunspot verifier directly as `Vec<u8>`, matching the source program's `public_inputs: Vec<u8>` parameter type. The IDL was updated to use `"bytes"` type for `publicInputs`.
 
-The `verifyShuffle` function sends the proof bytes to the on-chain program, but passes an empty array `[]` for `publicInputsForChain`. The comment at line 277-281 explains why:
+### Issue 5: On-Chain Verification is a Stub - FIXED
 
-> The deployed program expects `Vec<[u8; 32]>` for publicInputs but ignores the content (it just sets `shuffle_verified = true`). The raw `.pw` file from Sunspot (460 bytes) is not directly compatible with this format.
+The Anchor program now performs real CPI to the deployed Sunspot Groth16 shuffle verifier at `6sju9HLJTFfESLn49wAR2hqiC6mnu3MrP2K9WDbkjCL2`. The program concatenates proof + public_inputs and invokes the verifier, which will fail the transaction if the proof is invalid. The program was redeployed to devnet at new address `8Da8a3Q9GLYuxYLXPtxKiAedZZbx5DUQCuG8TPY1dLnx`.
 
-**To fix this:**
-1. Parse the Sunspot verifier's `.pw` public witness output into individual 32-byte field elements
-2. Pass the correctly-formatted `Vec<[u8; 32]>` to the program
-3. Redeploy the Anchor program with actual CPI verification logic (see Issue 5)
-
-### Issue 5: On-Chain Verification is a Stub
-
-The deployed Anchor program's `verify_shuffle` instruction currently just sets `game.shuffle_verified = true` without performing any actual proof verification. It does not CPI into the Light Protocol Groth16 verifier.
-
-**To implement real on-chain verification:**
-1. Generate a Groth16 verification key from the Noir circuit (compile -> export vkey)
-2. Deploy the verification key via Light Protocol's verifier infrastructure
-3. Update the Anchor program's `verify_shuffle` to CPI into the Light Protocol verifier, passing the proof and public inputs
-4. Ensure the transaction fits within 400,000 compute units (Solana limit)
-5. Redeploy the program to devnet
-
-**Reference:** The IDL already has the `verifyShuffle` instruction with `proof: bytes` and `publicInputs: Vec<[u8; 32]>` parameters. The accounts list includes `game` and `dealer` but will need the verifier program account added back when CPI is implemented.
+The IDL now includes `shuffleVerifierProgram` in the accounts list for the `verifyShuffle` instruction.
 
 ---
 
 ## Known Limitations
 
-### Single-Browser Demo
+### Dealer Must Remain Online
 
-The `shuffledDeck` state is held in-memory in the React component (`pages/game.js`). Both the dealer and player must operate within the same browser session for card values to be available. In a production system, card data would be committed on-chain and revealed via ZK proofs, eliminating this requirement.
+The `shuffledDeck` state is held in-memory in the dealer's React session. Remote players can now hit/double from a separate browser, but the dealer's window must stay open to auto-reveal cards (each reveal requires a Phantom wallet approval). In a production system, card data would be committed on-chain and revealed via ZK proofs, eliminating this requirement.
 
-### Legacy `dealCard` Function
+### Groth16 Verification Compute Units
 
-`hooks/useGameProgram.js:364-385` still contains a `dealCard` function that uses `generateRandomCommitment()`. This function is not used in the main game flow (which uses `dealInitialHand` + `playerAction` instead) but remains exported. It should either be removed or updated to require real commitments if it has a use case.
+The Sunspot Groth16 verifier consumes **527,073 CUs** for shuffle proof verification (533,475 total including game program overhead). This exceeds the 400,000 CU architecture target in CLAUDE.md. The transaction uses a 600,000 CU budget. This is within Solana's 1.4M max but means verification costs more than initially planned. The verifier likely uses pure BPF pairing operations rather than Solana's native `alt_bn128` precompiles.
 
 ### Proof Generation Performance
 
@@ -78,11 +62,9 @@ Browser-based Noir proof generation via NoirJS has not been benchmarked against 
 ### Confirming Random Fallbacks Are Gone
 
 ```bash
-# Should return NO matches for random fallback patterns in game logic:
+# Should return NO matches for random fallback patterns:
 grep -n "Math.random\|Math.floor(Math.random" hooks/useGameProgram.js
-
-# The only Math.random in the file should be in generateRandomCommitment() helper (used only by legacy dealCard)
-grep -n "Math.random" hooks/useGameProgram.js
+# Expected: no results (generateRandomCommitment has been removed)
 ```
 
 ### Confirming Null Guards Are In Place
@@ -109,16 +91,22 @@ grep -n "throw new Error" pages/game.js | grep -i "not available"
 solana account <GAME_PDA> --output json | jq '.data'
 ```
 
-The `shuffle_verified` field will be `true` after `verifyShuffle` is called, but this currently does not represent actual cryptographic verification.
+The `shuffle_verified` field will be `true` after `verifyShuffle` succeeds. This now represents real cryptographic verification via CPI to the Sunspot Groth16 verifier. If the proof is invalid, the transaction will revert.
 
-### Enable Remote Player Gameplay (Request-Response Flow)
+### Enable Remote Player Gameplay (Request-Response Flow) - FIXED
 
-**Issue:** Currently, the Player cannot "Hit" if they are in a different browser session than the Dealer, because the `shuffledDeck` is only in the Dealer's memory.
+**Issue:** The Player could not "Hit" or "Double" from a different browser session than the Dealer, because `shuffledDeck` only existed in the Dealer's React state.
 
-**Solution:** Implement a Request-Response flow:
-1. **Player** clicks "Hit" -> Sends transaction with `cardValue: null`. This sets `pendingHit = true` on-chain.
-2. **Dealer** (who has the deck) listens for `pendingHit`.
-3. **Dealer** automatically sends a transaction to fulfill the hit (deal card + reveal).
+**Solution:** Implemented a request-response flow using the existing contract (no on-chain changes):
+1. **Player** clicks "Hit"/"Double" → sends transaction with `cardValue: null` (contract deals from `committed_cards` without revealing)
+2. **Signal:** On-chain state has `playerCards.length > playerRevealed.length`
+3. **Dealer auto-fulfills:** A `useEffect` in the dealer's session detects the mismatch and calls `revealCard` for each unrevealed card
+4. **Both see update:** Subscription fires with the newly revealed card
 
-**Status:** In Progress
+**Changes made:**
+- `hooks/useGameProgram.js` — Removed null-throw guards for hit/double; passes `null` to Anchor as `Option::None`
+- `pages/game.js` — Branched hit/double for remote play, added dealer auto-reveal `useEffect`, disabled action buttons during pending reveal
+- `components/game/PlayingCard.jsx` — Added `PendingCard` component (yellow-bordered spinner) shown to remote player while awaiting reveal
+
+**Limitation:** Dealer's browser must remain open to fulfill reveals (Phantom approval required per reveal transaction).
 

@@ -1,10 +1,10 @@
 import { useCallback, useMemo } from "react";
 import { useConnection, useWallet } from "@solana/wallet-adapter-react";
-import { PublicKey, SystemProgram } from "@solana/web3.js";
+import { PublicKey, SystemProgram, ComputeBudgetProgram } from "@solana/web3.js";
 import { Program, AnchorProvider, BN } from "@coral-xyz/anchor";
 
 // Program ID from deployed contract
-const PROGRAM_ID = new PublicKey("22BfrTbAzVmwENnyfzk6rFtPaNvCmaATbeWaJKKoqkK4");
+const PROGRAM_ID = new PublicKey("8Da8a3Q9GLYuxYLXPtxKiAedZZbx5DUQCuG8TPY1dLnx");
 
 // Sunspot Groth16 verifier program IDs (deployed to devnet)
 const SHUFFLE_VERIFIER_PROGRAM_ID = new PublicKey("6sju9HLJTFfESLn49wAR2hqiC6mnu3MrP2K9WDbkjCL2");
@@ -33,10 +33,11 @@ const IDL = {
       accounts: [
         { name: "game", isMut: true, isSigner: false },
         { name: "dealer", isMut: false, isSigner: true },
+        { name: "shuffleVerifierProgram", isMut: false, isSigner: false },
       ],
       args: [
         { name: "proof", type: "bytes" },
-        { name: "publicInputs", type: { vec: { array: ["u8", 32] } } },
+        { name: "publicInputs", type: "bytes" },
       ],
     },
     {
@@ -167,20 +168,6 @@ const IDL = {
   ],
 };
 
-// Helper: Generate a random 32-byte commitment (for demo purposes)
-// In production, this would come from the ZK circuit
-function generateRandomCommitment() {
-  const commitment = new Uint8Array(32);
-  if (typeof window !== "undefined" && window.crypto) {
-    window.crypto.getRandomValues(commitment);
-  } else {
-    for (let i = 0; i < 32; i++) {
-      commitment[i] = Math.floor(Math.random() * 256);
-    }
-  }
-  return Array.from(commitment);
-}
-
 // Helper: Convert game state enum to string
 function parseGameState(state) {
   if (state.created) return "created";
@@ -266,30 +253,26 @@ export function useGameProgram() {
 
       // proof and publicInputs should be arrays of numbers or Uint8Array
       console.log("[Game] Preparing verifyShuffle args...");
-      console.log("[Game] Proof type:", typeof proof, Array.isArray(proof) ? "array" : "object");
-      console.log("[Game] PublicInputs type:", typeof publicInputs, Array.isArray(publicInputs) ? "array" : "object");
 
       const proofBytes = proof instanceof Uint8Array ? proof : new Uint8Array(proof);
-
-      // Anchor requires Buffer for bytes type
       const proofBuffer = Buffer.from(proofBytes);
 
-      // The deployed program expects Vec<[u8; 32]> for publicInputs but ignores the content
-      // (it just sets shuffle_verified = true). The raw .pw file from Sunspot (460 bytes)
-      // is not directly compatible with this format. Construct a valid Vec<[u8; 32]> instead.
-      // When the program is redeployed with actual CPI verification, this will use the real
-      // public inputs from the verifier.
-      const publicInputsForChain = [];
+      const publicInputsBytes = publicInputs instanceof Uint8Array ? publicInputs : new Uint8Array(publicInputs);
+      const publicInputsBuffer = Buffer.from(publicInputsBytes);
 
       console.log("[Game] Proof buffer length:", proofBuffer.length);
-      console.log("[Game] Public inputs for chain:", publicInputsForChain.length, "elements");
+      console.log("[Game] Public inputs buffer length:", publicInputsBuffer.length);
 
       const tx = await program.methods
-        .verifyShuffle(proofBuffer, publicInputsForChain)
+        .verifyShuffle(proofBuffer, publicInputsBuffer)
         .accounts({
           game: gamePda,
           dealer: wallet.publicKey,
+          shuffleVerifierProgram: SHUFFLE_VERIFIER_PROGRAM_ID,
         })
+        .preInstructions([
+          ComputeBudgetProgram.setComputeUnitLimit({ units: 600_000 }),
+        ])
         .rpc();
 
       return { tx };
@@ -360,30 +343,6 @@ export function useGameProgram() {
     [program, wallet.publicKey, getGamePda]
   );
 
-  // Deal a card (dealer action) - legacy, kept for compatibility
-  const dealCard = useCallback(
-    async (gameId, toPlayer, dealerPubkey = null) => {
-      if (!program || !wallet.publicKey) {
-        throw new Error("Wallet not connected");
-      }
-
-      const dealer = dealerPubkey ? new PublicKey(dealerPubkey) : wallet.publicKey;
-      const gamePda = getGamePda(gameId, dealer);
-      const cardCommitment = generateRandomCommitment();
-
-      const tx = await program.methods
-        .dealCard(cardCommitment, toPlayer)
-        .accounts({
-          game: gamePda,
-          dealer: wallet.publicKey,
-        })
-        .rpc();
-
-      return { tx };
-    },
-    [program, wallet.publicKey, getGamePda]
-  );
-
   // Player action (hit, stand, double)
   // Requires dealer's pubkey to derive PDA
   // explicitCardValue required for hit/double (from shuffled deck)
@@ -407,20 +366,14 @@ export function useGameProgram() {
       switch (action.toLowerCase()) {
         case "hit":
           actionEnum = { hit: {} };
-          if (explicitCardValue === null || explicitCardValue === undefined) {
-            throw new Error("Card value required for hit - shuffled deck not available");
-          }
-          cardValue = explicitCardValue;
+          cardValue = explicitCardValue ?? null;
           break;
         case "stand":
           actionEnum = { stand: {} };
           break;
         case "double":
           actionEnum = { double: {} };
-          if (explicitCardValue === null || explicitCardValue === undefined) {
-            throw new Error("Card value required for double - shuffled deck not available");
-          }
-          cardValue = explicitCardValue;
+          cardValue = explicitCardValue ?? null;
           break;
         default:
           throw new Error("Invalid action");
@@ -647,7 +600,6 @@ export function useGameProgram() {
     verifyShuffle,
     joinGame,
     dealInitialHand,
-    dealCard,
     playerAction,
     revealCard,
     revealAllCards,

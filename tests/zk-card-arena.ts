@@ -27,7 +27,7 @@ describe("ZK Card Arena", () => {
   const idl = JSON.parse(fs.readFileSync(idlPath, "utf8"));
 
   // Anchor SDK 0.28.0 Program constructor: (idl, programId, provider)
-  const programId = new PublicKey("22BfrTbAzVmwENnyfzk6rFtPaNvCmaATbeWaJKKoqkK4");
+  const programId = new PublicKey("8Da8a3Q9GLYuxYLXPtxKiAedZZbx5DUQCuG8TPY1dLnx");
   const program = new anchor.Program(idl, programId, provider);
 
   // Test data
