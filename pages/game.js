@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useWallet } from "@solana/wallet-adapter-react";
 import { WalletMultiButton } from "@solana/wallet-adapter-react-ui";
 import { motion, AnimatePresence } from "framer-motion";
-import { PlayingCard, HiddenCard, CardSlot } from "../components/game/PlayingCard";
+import { PlayingCard, HiddenCard, CardSlot, PendingCard } from "../components/game/PlayingCard";
 import { ProofProgress } from "../components/game/ProofProgress";
 import { BlurFade } from "../components/ui/blur-fade";
 import { useGameProgram } from "../hooks/useGameProgram";
@@ -254,6 +254,9 @@ export default function GamePage() {
   const [gamePda, setGamePda] = useState(null);
   const [gameData, setGameData] = useState(null);
 
+  // Auto-reveal state (dealer fulfills remote player's hit/double)
+  const [isAutoRevealing, setIsAutoRevealing] = useState(false);
+
   // Join game input
   const [joinGameCode, setJoinGameCode] = useState("");
   const [copied, setCopied] = useState(false);
@@ -318,6 +321,37 @@ export default function GamePage() {
       setWalletError(null);
     }
   }, [connected]);
+
+  // Dealer auto-reveal: when remote player hits/doubles, dealer fulfills by revealing the card
+  useEffect(() => {
+    if (!isDealer || !shuffledDeck || !gameData || isAutoRevealing) return;
+    if (gameData.state !== "playing" && gameData.state !== "dealerTurn") return;
+
+    const playerCardCount = gameData.playerCards?.length || 0;
+    const playerRevealedCount = gameData.playerRevealed?.length || 0;
+    if (playerCardCount <= playerRevealedCount) return;
+
+    const autoReveal = async () => {
+      setIsAutoRevealing(true);
+      try {
+        for (let i = playerRevealedCount; i < playerCardCount; i++) {
+          // Deck position mapping:
+          // player_cards[0,1] = deck positions 0,1 (initial deal)
+          // player_cards[2+] = deck positions 4+ (hits)
+          const deckPos = i < 2 ? i : 4 + (i - 2);
+          const cardValue = shuffledDeck[deckPos];
+          console.log("[Game] Auto-reveal player card", i, "value:", cardValue, "deckPos:", deckPos);
+          await revealCard(gameId, i, cardValue, true, dealerPubkey);
+        }
+      } catch (err) {
+        console.error("[Game] Auto-reveal error:", err);
+        setError("Failed to auto-reveal: " + err.message);
+      }
+      setIsAutoRevealing(false);
+    };
+
+    autoReveal();
+  }, [gameData?.playerCards?.length, gameData?.playerRevealed?.length, isDealer, shuffledDeck, gameData?.state]);
 
   // Calculate hand value
   const calculateHandValue = (cards) => {
@@ -525,13 +559,16 @@ export default function GamePage() {
     setError(null);
 
     try {
-      // Get real card value from shuffled deck at current deck position
-      if (!shuffledDeck) {
-        throw new Error("Card deck not available - dealer must be in same session for demo");
+      if (shuffledDeck) {
+        // Same-session: instant reveal path
+        const cardValue = shuffledDeck[gameData?.deckPosition || 4];
+        console.log("[Game] Hit - card value:", cardValue, "from position:", gameData?.deckPosition);
+        await playerAction(gameId, "hit", dealerPubkey, cardValue);
+      } else {
+        // Remote player: pass null, dealer will auto-reveal
+        console.log("[Game] Hit (remote) - requesting card at position:", gameData?.deckPosition);
+        await playerAction(gameId, "hit", dealerPubkey, null);
       }
-      const cardValue = shuffledDeck[gameData?.deckPosition || 4];
-      console.log("[Game] Hit - card value:", cardValue, "from position:", gameData?.deckPosition);
-      await playerAction(gameId, "hit", dealerPubkey, cardValue);
     } catch (err) {
       console.error("Hit error:", err);
       setError(err.message || "Failed to hit");
@@ -563,12 +600,16 @@ export default function GamePage() {
     setError(null);
 
     try {
-      if (!shuffledDeck) {
-        throw new Error("Card deck not available - dealer must be in same session for demo");
+      if (shuffledDeck) {
+        // Same-session: instant reveal path
+        const cardValue = shuffledDeck[gameData?.deckPosition || 4];
+        console.log("[Game] Double - card value:", cardValue, "from position:", gameData?.deckPosition);
+        await playerAction(gameId, "double", dealerPubkey, cardValue);
+      } else {
+        // Remote player: pass null, dealer will auto-reveal
+        console.log("[Game] Double (remote) - requesting card at position:", gameData?.deckPosition);
+        await playerAction(gameId, "double", dealerPubkey, null);
       }
-      const cardValue = shuffledDeck[gameData?.deckPosition || 4];
-      console.log("[Game] Double - card value:", cardValue, "from position:", gameData?.deckPosition);
-      await playerAction(gameId, "double", dealerPubkey, cardValue);
     } catch (err) {
       console.error("Double error:", err);
       setError(err.message || "Failed to double");
@@ -1151,6 +1192,8 @@ export default function GamePage() {
                         suit={SUITS[Math.floor(playerRevealed[index] / 13)]}
                         delay={index * 0.2}
                       />
+                    ) : !isDealer ? (
+                      <PendingCard key={index} delay={index * 0.2} />
                     ) : (
                       <HiddenCard key={index} delay={index * 0.2} />
                     )
@@ -1202,9 +1245,8 @@ export default function GamePage() {
                 </motion.button>
               )}
 
-              {/* Player: Hit/Stand/Double (only after cards dealt) */}
-              {/* Note: Hit now auto-deals from pre-committed cards - no dealer action needed */}
-              {!isDealer && gameState === GAME_STATES.PLAYING && cardsDealt && (
+              {/* Player: Hit/Stand/Double (only after cards dealt, disabled while pending reveal) */}
+              {!isDealer && gameState === GAME_STATES.PLAYING && cardsDealt && playerCards.length <= playerRevealed.length && (
                 <>
                   <motion.button
                     whileTap={{ scale: 0.95 }}
