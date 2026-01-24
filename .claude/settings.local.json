@@ -68,7 +68,11 @@
       "Bash(npx next build:*)",
       "mcp__marcus-mcp-server__search-docs",
       "mcp__context7__resolve-library-id",
-      "mcp__firecrawl__firecrawl_map"
+      "mcp__firecrawl__firecrawl_map",
+      "Bash(git log:*)",
+      "Bash(git fetch:*)",
+      "Bash(git rebase:*)",
+      "Bash(git stash:*)"
     ]
   },
   "outputStyle": "Explanatory"
