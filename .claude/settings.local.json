@@ -59,7 +59,16 @@
       "Bash(npx next lint:*)",
       "Bash(npm run build:*)",
       "Bash(claude mcp add:*)",
-      "Bash(claude mcp:*)"
+      "Bash(claude mcp:*)",
+      "Bash(tree:*)",
+      "Bash(xargs:*)",
+      "mcp__firecrawl__firecrawl_search",
+      "mcp__firecrawl__firecrawl_scrape",
+      "Bash(npx skills add:*)",
+      "Bash(npx next build:*)",
+      "mcp__marcus-mcp-server__search-docs",
+      "mcp__context7__resolve-library-id",
+      "mcp__firecrawl__firecrawl_map"
     ]
   },
   "outputStyle": "Explanatory"
