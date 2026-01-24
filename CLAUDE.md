@@ -2,6 +2,9 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+> [!IMPORTANT]
+> **DO NOT ASSUME YOU KNOW EVERYTHING. BE HUMBLE. REFERENCE OFFICIAL AND UP TO DATE DOCS. USE THE RELEVANT MCP TOOLS AVAILABLE AT YOUR DISPOSAL.**
+
 ## Project Overview
 
 ZK Card Arena is a provably fair Blackjack game on Solana using zero-knowledge proofs. The system uses Noir circuits for ZK proof generation, Anchor for smart contracts, and Sunspot for on-chain Groth16 verification.
