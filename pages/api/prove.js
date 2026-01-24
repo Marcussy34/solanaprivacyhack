@@ -131,7 +131,7 @@ function runCommand(cmd, args, options = {}) {
   // Ensure nargo and sunspot are findable
   const env = {
     ...process.env,
-    PATH: `${process.env.HOME}/.nargo/bin:/usr/local/bin:${process.env.PATH}`,
+    PATH: `${process.env.HOME}/.nargo/bin:${process.env.HOME}/bin:/usr/local/bin:${process.env.PATH}`,
   };
 
   return new Promise((resolve) => {
