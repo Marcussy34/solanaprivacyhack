@@ -216,7 +216,6 @@ export default function GamePage() {
     verifyShuffle,
     joinGame,
     dealInitialHand,
-    dealCard,
     playerAction,
     revealCard,
     revealAllCards,
