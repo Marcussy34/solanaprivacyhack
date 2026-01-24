@@ -265,12 +265,16 @@ pub mod zk_card_arena {
         Ok(())
     }
 
-    /// Reveals a card with its value
+    /// Reveals a card with its value, verified by ZK proof.
+    /// The proof demonstrates that the revealed card_value matches the commitment
+    /// stored when the card was dealt, without revealing the blinding factor.
     pub fn reveal_card(
         ctx: Context<RevealCard>,
         card_index: u8,
         card_value: u8,
         is_player_card: bool,
+        proof: Vec<u8>,
+        public_inputs: Vec<u8>,
     ) -> Result<()> {
         let game = &mut ctx.accounts.game;
 
@@ -279,6 +283,30 @@ pub mod zk_card_arena {
             GameError::Unauthorized
         );
         require!(card_value < 13, GameError::InvalidCard);
+        require!(
+            ctx.accounts.reveal_verifier_program.key() == reveal_verifier::ID,
+            GameError::InvalidVerifier
+        );
+
+        // CPI to reveal verifier - proves card_value matches the card commitment
+        // Verifier instruction data format: proof_bytes || public_inputs_bytes
+        let mut instruction_data = Vec::with_capacity(proof.len() + public_inputs.len());
+        instruction_data.extend_from_slice(&proof);
+        instruction_data.extend_from_slice(&public_inputs);
+
+        let verify_ix = Instruction {
+            program_id: reveal_verifier::ID,
+            accounts: vec![], // Sunspot verifiers are stateless
+            data: instruction_data,
+        };
+
+        // CPI call - will fail if proof is invalid
+        invoke(
+            &verify_ix,
+            &[ctx.accounts.reveal_verifier_program.to_account_info()],
+        )?;
+
+        msg!("Reveal proof verified for card {} = {}", card_index, card_value);
 
         if is_player_card {
             require!(
@@ -507,6 +535,10 @@ pub struct RevealCard<'info> {
     pub game: Account<'info, Game>,
 
     pub dealer: Signer<'info>,
+
+    /// CHECK: Sunspot Groth16 reveal verifier program.
+    /// Validated in instruction handler against reveal_verifier::ID.
+    pub reveal_verifier_program: AccountInfo<'info>,
 }
 
 // ============================================================================
