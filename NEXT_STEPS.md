@@ -321,3 +321,52 @@ encryptionService.deriveEncryptionKeyFromSignature(signature)
 
 **Docs:** https://privacycash.mintlify.app/
 **Program:** `9fhQBbumKEFuXtMBDw8AaQyAjCorLGJQiS3skWZdQyQD` (verified on Solscan)
+
+---
+
+## Security Gaps (Documented Jan 25, 2026)
+
+### Gap 1: Deal Phase Not Verified On-Chain
+
+**Severity:** High (Dealer can cheat)
+
+The `deal_initial_hand` instruction accepts card commitments without verifying they came from the shuffled deck.
+
+**Technical Details:**
+- `lib.rs:180-236` - No CPI to `deal_verifier` program
+- `game.js:548` - Uses `computeCardCommitmentAtPosition` (hash only)
+- `DealCard` context lacks `deal_verifier_program` account
+
+**Attack Vector:**
+1. Dealer generates shuffle proof for Deck A → verified on-chain
+2. Dealer submits card commitments from Deck B → accepted without proof
+3. Player has no cryptographic guarantee cards came from verified shuffle
+
+**Fix Required:** Add CPI to deal_verifier in `deal_initial_hand`, or use commitment binding.
+
+### Gap 2: Player Action Accepts Card Values Without Proof
+
+**Severity:** High (Player can cheat)
+
+The `player_action` instruction accepts `card_value: Option<u8>` with only range validation.
+
+**Technical Details:**
+- `lib.rs:119-175` - Accepts `Option<u8>` for card value
+- `lib.rs:134` - Only check: `require!(value < 13, GameError::InvalidCard)`
+- `useGameProgram.js:360` - Frontend passes value directly
+
+**Attack Vector:**
+1. Player calls `playerAction("hit", 11)` claiming an Ace
+2. Contract accepts value with only range check
+3. Winner determination uses falsified hand total
+
+**Fix Required:** Remove `card_value` parameter and force reveals through `reveal_card` (which verifies proofs).
+
+### Proof Chain Status
+
+| Phase | Verified? | Status |
+|-------|-----------|--------|
+| Shuffle | ✅ CPI to shuffle_verifier | Secure |
+| Deal | ❌ No verification | **Vulnerable** |
+| Reveal (via reveal_card) | ✅ CPI to reveal_verifier | Secure |
+| Reveal (via player_action) | ❌ No verification | **Vulnerable** |
