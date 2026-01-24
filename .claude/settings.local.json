@@ -56,7 +56,8 @@
       "Bash(cargo --version:*)",
       "Bash(rustc:*)",
       "Bash(cargo generate-lockfile:*)",
-      "Bash(npx next lint:*)"
+      "Bash(npx next lint:*)",
+      "Bash(npm run build:*)"
     ]
   }
 }

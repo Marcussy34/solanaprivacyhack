@@ -43,9 +43,9 @@ The IDL now includes `shuffleVerifierProgram` in the accounts list for the `veri
 
 ## Known Limitations
 
-### Single-Browser Demo
+### Dealer Must Remain Online
 
-The `shuffledDeck` state is held in-memory in the React component (`pages/game.js`). Both the dealer and player must operate within the same browser session for card values to be available. In a production system, card data would be committed on-chain and revealed via ZK proofs, eliminating this requirement.
+The `shuffledDeck` state is held in-memory in the dealer's React session. Remote players can now hit/double from a separate browser, but the dealer's window must stay open to auto-reveal cards (each reveal requires a Phantom wallet approval). In a production system, card data would be committed on-chain and revealed via ZK proofs, eliminating this requirement.
 
 ### Groth16 Verification Compute Units
 
@@ -93,14 +93,20 @@ solana account <GAME_PDA> --output json | jq '.data'
 
 The `shuffle_verified` field will be `true` after `verifyShuffle` succeeds. This now represents real cryptographic verification via CPI to the Sunspot Groth16 verifier. If the proof is invalid, the transaction will revert.
 
-### Enable Remote Player Gameplay (Request-Response Flow)
+### Enable Remote Player Gameplay (Request-Response Flow) - FIXED
 
-**Issue:** Currently, the Player cannot "Hit" if they are in a different browser session than the Dealer, because the `shuffledDeck` is only in the Dealer's memory.
+**Issue:** The Player could not "Hit" or "Double" from a different browser session than the Dealer, because `shuffledDeck` only existed in the Dealer's React state.
 
-**Solution:** Implement a Request-Response flow:
-1. **Player** clicks "Hit" -> Sends transaction with `cardValue: null`. This sets `pendingHit = true` on-chain.
-2. **Dealer** (who has the deck) listens for `pendingHit`.
-3. **Dealer** automatically sends a transaction to fulfill the hit (deal card + reveal).
+**Solution:** Implemented a request-response flow using the existing contract (no on-chain changes):
+1. **Player** clicks "Hit"/"Double" → sends transaction with `cardValue: null` (contract deals from `committed_cards` without revealing)
+2. **Signal:** On-chain state has `playerCards.length > playerRevealed.length`
+3. **Dealer auto-fulfills:** A `useEffect` in the dealer's session detects the mismatch and calls `revealCard` for each unrevealed card
+4. **Both see update:** Subscription fires with the newly revealed card
 
-**Status:** In Progress
+**Changes made:**
+- `hooks/useGameProgram.js` — Removed null-throw guards for hit/double; passes `null` to Anchor as `Option::None`
+- `pages/game.js` — Branched hit/double for remote play, added dealer auto-reveal `useEffect`, disabled action buttons during pending reveal
+- `components/game/PlayingCard.jsx` — Added `PendingCard` component (yellow-bordered spinner) shown to remote player while awaiting reveal
+
+**Limitation:** Dealer's browser must remain open to fulfill reveals (Phantom approval required per reveal transaction).
 
