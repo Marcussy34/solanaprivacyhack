@@ -239,6 +239,8 @@ export default function GamePage() {
     fieldTo32Bytes,
     resetGame: zkResetGame,
     shuffleProofData,
+    revealCard: generateRevealProof,  // ZK proof generator (not blockchain submit)
+    getBlindingFactor,                 // Get stored blinding factor for a position
   } = useZKGame();
 
   // ShadowPay for private betting
@@ -337,6 +339,7 @@ export default function GamePage() {
   }, [connected]);
 
   // Dealer auto-reveal: when remote player hits/doubles, dealer fulfills by revealing the card
+  // Generates ZK reveal proof for each card to prove it matches the earlier commitment
   useEffect(() => {
     if (!isDealer || !shuffledDeck || !gameData || isAutoRevealing) return;
     if (gameData.state !== "playing" && gameData.state !== "dealerTurn") return;
@@ -354,8 +357,22 @@ export default function GamePage() {
           // player_cards[2+] = deck positions 4+ (hits)
           const deckPos = i < 2 ? i : 4 + (i - 2);
           const cardValue = shuffledDeck[deckPos];
-          console.log("[Game] Auto-reveal player card", i, "value:", cardValue, "deckPos:", deckPos);
-          await revealCard(gameId, i, cardValue, true, dealerPubkey);
+
+          // Generate ZK reveal proof for this card position
+          // This proves the revealed card value matches the earlier commitment
+          console.log("[Game] Generating reveal proof for player card", i, "deckPos:", deckPos);
+          const proofData = await generateRevealProof(deckPos);
+
+          console.log("[Game] Auto-reveal player card", i, "value:", cardValue, "with ZK proof");
+          await revealCard(
+            gameId,
+            i,
+            cardValue,
+            true, // isPlayerCard
+            proofData.proof,
+            proofData.publicInputs,
+            dealerPubkey
+          );
         }
       } catch (err) {
         console.error("[Game] Auto-reveal error:", err);
@@ -672,31 +689,47 @@ export default function GamePage() {
       // Position 4+ = hit cards (player hits first, then dealer hits)
       const playerHitCount = gameData.playerCards.length - 2;
 
+      // Generate reveal proofs and collect card values for player cards
       const playerCardValues = [];
+      const playerProofs = [];
       for (let i = 0; i < playerUnrevealedCount; i++) {
         const cardIndex = playerAlreadyRevealed + i;
         // First 2 player cards are deck[0] and deck[1], hits start at deck[4]
         const deckPos = cardIndex < 2 ? cardIndex : 4 + (cardIndex - 2);
         playerCardValues.push(shuffledDeck[deckPos]);
+
+        // Generate ZK reveal proof for this card position
+        console.log(`[Game] Generating reveal proof for player card ${cardIndex} (deckPos: ${deckPos})`);
+        const proofData = await generateRevealProof(deckPos);
+        playerProofs.push(proofData);
       }
 
+      // Generate reveal proofs and collect card values for dealer cards
       const dealerCardValues = [];
+      const dealerProofs = [];
       for (let i = 0; i < dealerUnrevealedCount; i++) {
         const cardIndex = dealerAlreadyRevealed + i;
         // First 2 dealer cards are deck[2] and deck[3], hits start after player hits
         const deckPos = cardIndex < 2 ? 2 + cardIndex : 4 + playerHitCount + (cardIndex - 2);
         dealerCardValues.push(shuffledDeck[deckPos]);
+
+        // Generate ZK reveal proof for this card position
+        console.log(`[Game] Generating reveal proof for dealer card ${cardIndex} (deckPos: ${deckPos})`);
+        const proofData = await generateRevealProof(deckPos);
+        dealerProofs.push(proofData);
       }
 
-      // Reveal unrevealed cards in one batched transaction
+      // Reveal unrevealed cards in one batched transaction with proofs
       if (playerCardValues.length > 0 || dealerCardValues.length > 0) {
         await revealAllCards(
           gameId,
           playerCardValues,
           dealerCardValues,
+          playerProofs,             // ZK proofs for player cards
+          dealerProofs,             // ZK proofs for dealer cards
           dealerPubkey,
-          playerAlreadyRevealed,  // Start index for player
-          dealerAlreadyRevealed   // Start index for dealer
+          playerAlreadyRevealed,    // Start index for player
+          dealerAlreadyRevealed     // Start index for dealer
         );
       }
 
