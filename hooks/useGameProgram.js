@@ -55,8 +55,9 @@ const IDL = {
         { name: "player", isMut: false, isSigner: true },
       ],
       args: [
+        // SECURITY FIX: Removed cardValue parameter - cards are dealt as commitments only
+        // Dealer must call reveal_card with ZK proof to reveal actual card values
         { name: "action", type: { defined: "PlayerActionType" } },
-        { name: "cardValue", type: { option: "u8" } },
       ],
     },
     {
@@ -64,10 +65,15 @@ const IDL = {
       accounts: [
         { name: "game", isMut: true, isSigner: false },
         { name: "dealer", isMut: false, isSigner: true },
+        // SECURITY FIX: Added deal verifier for ZK proof verification
+        { name: "dealVerifierProgram", isMut: false, isSigner: false },
       ],
       args: [
         { name: "cardCommitments", type: { vec: { array: ["u8", 32] } } },
         { name: "initialCardValues", type: { vec: "u8" } },
+        // SECURITY FIX: Added proof parameters for deal verification
+        { name: "proof", type: "bytes" },
+        { name: "publicInputs", type: "bytes" },
       ],
     },
     {
@@ -314,9 +320,10 @@ export function useGameProgram() {
   // Deal initial hand + commit cards for future hits (dealer action)
   // Commits 10 cards, deals first 4 (2 player, 2 dealer)
   // Auto-reveals player's 2 cards + dealer's upcard for standard Blackjack UX
-  // cardCommitments and initialCardValues are required (from ZK proof)
+  // SECURITY FIX: Now requires ZK deal proof to verify cards come from committed deck
+  // cardCommitments, initialCardValues, proof, and publicInputs are required
   const dealInitialHand = useCallback(
-    async (gameId, dealerPubkey = null, cardCommitments = null, initialCardValues = null) => {
+    async (gameId, dealerPubkey = null, cardCommitments = null, initialCardValues = null, proof = null, publicInputs = null) => {
       if (!program || !wallet.publicKey) {
         throw new Error("Wallet not connected");
       }
@@ -330,15 +337,28 @@ export function useGameProgram() {
       if (!initialCardValues) {
         throw new Error("Card values required - shuffled deck not available");
       }
+      if (!proof || !publicInputs) {
+        throw new Error("Deal proof required - ZK deal proof generation must complete first");
+      }
+
       const commitments = cardCommitments;
       const cardValues = initialCardValues;
 
+      // Convert proof data to buffers for Anchor serialization
+      const proofBuffer = Buffer.from(proof instanceof Uint8Array ? proof : new Uint8Array(proof));
+      const publicInputsBuffer = Buffer.from(publicInputs instanceof Uint8Array ? publicInputs : new Uint8Array(publicInputs));
+
       const tx = await program.methods
-        .dealInitialHand(commitments, cardValues)
+        .dealInitialHand(commitments, cardValues, proofBuffer, publicInputsBuffer)
         .accounts({
           game: gamePda,
           dealer: wallet.publicKey,
+          dealVerifierProgram: DEAL_VERIFIER_PROGRAM_ID,
         })
+        .preInstructions([
+          // Deal proof verification requires ~500k CU (similar to reveal)
+          ComputeBudgetProgram.setComputeUnitLimit({ units: 600_000 }),
+        ])
         .rpc();
 
       return { tx, initialCardValues: cardValues };
@@ -348,9 +368,10 @@ export function useGameProgram() {
 
   // Player action (hit, stand, double)
   // Requires dealer's pubkey to derive PDA
-  // explicitCardValue required for hit/double (from shuffled deck)
+  // SECURITY FIX: Removed card value parameter - cards are dealt as commitments only
+  // Dealer must call reveal_card with ZK proof to reveal actual values
   const playerAction = useCallback(
-    async (gameId, action, dealerPubkey, explicitCardValue = null) => {
+    async (gameId, action, dealerPubkey) => {
       if (!program || !wallet.publicKey) {
         throw new Error("Wallet not connected");
       }
@@ -364,33 +385,30 @@ export function useGameProgram() {
 
       // Convert action string to enum
       let actionEnum;
-      let cardValue = null;
 
       switch (action.toLowerCase()) {
         case "hit":
           actionEnum = { hit: {} };
-          cardValue = explicitCardValue ?? null;
           break;
         case "stand":
           actionEnum = { stand: {} };
           break;
         case "double":
           actionEnum = { double: {} };
-          cardValue = explicitCardValue ?? null;
           break;
         default:
           throw new Error("Invalid action");
       }
 
       const tx = await program.methods
-        .playerAction(actionEnum, cardValue)
+        .playerAction(actionEnum)
         .accounts({
           game: gamePda,
           player: wallet.publicKey,
         })
         .rpc();
 
-      return { tx, cardValue };
+      return { tx };
     },
     [program, wallet.publicKey, getGamePda]
   );
