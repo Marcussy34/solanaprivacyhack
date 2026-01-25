@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test": "ts-mocha -p ./tsconfig.json -t 60000 tests/**/*.ts"
+    "test": "ts-mocha -p ./tsconfig.json -t 60000 tests/**/*.ts",
+    "sync-circuits": "node scripts/sync-circuits.mjs"
   },
   "dependencies": {
     "@aztec/bb.js": "^3.0.0-nightly.20260102",
