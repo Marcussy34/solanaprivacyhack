@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useWallet } from "@solana/wallet-adapter-react";
 import { WalletMultiButton } from "@solana/wallet-adapter-react-ui";
 import { motion, AnimatePresence } from "framer-motion";
@@ -30,12 +30,14 @@ import {
   Shield,
   Coins,
   Gift,
+  MessageCircle,
 } from "lucide-react";
 
 // Game states matching smart contract + betting phase
 const GAME_STATES = {
   IDLE: "idle",
-  BETTING: "betting",        // New: Player placing private bet via ShadowPay
+  BETTING: "betting",                    // Player placing private bet via ShadowPay
+  WAITING_DEALER_BET: "waitingDealerBet", // Player waiting for dealer to match bet
   CREATED: "created",
   AWAITING_PLAYER: "awaitingPlayer",
   PLAYING: "playing",
@@ -191,6 +193,18 @@ function TurnIndicator({ gameState, isDealer, cardsDealt, playerJoined }) {
       subMessage = "Dealer is playing their hand...";
       icon = <Clock className="w-6 h-6 animate-pulse" />;
     }
+  } else if (gameState === GAME_STATES.WAITING_DEALER_BET) {
+    if (isDealer) {
+      message = "Match Player's Bet";
+      subMessage = "Player is waiting for you to match their bet";
+      icon = <Coins className="w-6 h-6" />;
+      color = "text-yellow-400";
+    } else {
+      message = "Waiting for Dealer";
+      subMessage = "Dealer is matching your bet...";
+      icon = <Clock className="w-6 h-6 animate-pulse" />;
+      color = "text-purple-400";
+    }
   }
 
   if (!message) return null;
@@ -251,6 +265,10 @@ export default function GamePage() {
   const [proofPhase, setProofPhase] = useState(null);
   const [proofError, setProofError] = useState(null);
 
+  // Ref to skip on-chain state sync during betting flows (prevents race condition)
+  // When true, useEffect won't overwrite gameState from on-chain data
+  const skipOnchainStateSync = useRef(false);
+
   // Betting state
   const [currentBet, setCurrentBet] = useState(null);
   const [betTxSignature, setBetTxSignature] = useState(null);
@@ -278,6 +296,9 @@ export default function GamePage() {
   const [copied, setCopied] = useState(false);
   const [pendingJoinCode, setPendingJoinCode] = useState(null);
 
+  // Manual bet input for dealer (cross-browser - can't use localStorage)
+  const [manualBetInput, setManualBetInput] = useState("");
+
   // Derived state
   const playerCards = gameData?.playerCards || [];
   const dealerCards = gameData?.dealerCards || [];
@@ -293,7 +314,10 @@ export default function GamePage() {
     const unsubscribe = subscribeToGame(gameId, dealerPubkey, (data) => {
       console.log("Game update:", data);
       setGameData(data);
-      setGameState(data.state);
+      // Don't overwrite betting-related UI states (prevents race condition)
+      if (!skipOnchainStateSync.current) {
+        setGameState(data.state);
+      }
 
       if (publicKey) {
         setIsDealer(data.dealer === publicKey.toBase58());
@@ -305,7 +329,10 @@ export default function GamePage() {
       if (data) {
         console.log("Initial game data:", data);
         setGameData(data);
-        setGameState(data.state);
+        // Don't overwrite betting-related UI states (prevents race condition)
+        if (!skipOnchainStateSync.current) {
+          setGameState(data.state);
+        }
         setGamePda(data.pda);
         if (publicKey) {
           setIsDealer(data.dealer === publicKey.toBase58());
@@ -584,6 +611,17 @@ export default function GamePage() {
     } catch (err) {
       console.error("Deal cards error:", err);
 
+      // Extract detailed error info for debugging
+      if (err.logs) {
+        console.error("[Game] Transaction logs:", err.logs);
+      }
+      if (err.error) {
+        console.error("[Game] Error details:", err.error);
+      }
+      if (err.message) {
+        console.error("[Game] Error message:", err.message);
+      }
+
       let errorMessage = err.message || "Failed to deal cards";
 
       // Handle common wallet errors
@@ -591,6 +629,12 @@ export default function GamePage() {
         errorMessage = "Wallet transaction failed. Please try again and keep your wallet open.";
       } else if (errorMessage.includes("User rejected")) {
         errorMessage = "Transaction rejected by user.";
+      } else if (err.logs) {
+        // Try to extract the actual error from transaction logs
+        const errorLog = err.logs.find(log => log.includes("Error") || log.includes("failed"));
+        if (errorLog) {
+          errorMessage = `Deal failed: ${errorLog}`;
+        }
       }
 
       setError(errorMessage);
@@ -815,21 +859,75 @@ export default function GamePage() {
     await handleCreateGame();
   };
 
-  const handleStartJoinBetting = () => {
+  // FIXED: Join FIRST, then payment (prevents losing SOL if join fails)
+  const handleStartJoinBetting = async () => {
     const code = joinGameCode.trim();
     if (!code) {
       setError("Please enter a Game Code");
       return;
     }
-    setPendingJoinCode(code); // Keep pendingJoinCode for handleJoinGame to use
-    setBettingIntent('join');
-    setGameState(GAME_STATES.BETTING);
+
+    setLoading(true);
+    setError(null);
+
+    try {
+      const { gameId: parsedGameId, dealerPubkey: parsedDealer } = parseGameCode(code);
+
+      // PRE-VALIDATION: Check game exists and is joinable BEFORE attempting join
+      console.log("[Game] Pre-validating game state before join...");
+      const gameData = await fetchGame(parsedGameId, parsedDealer);
+
+      if (!gameData) {
+        throw new Error("Game not found. Please check the game code.");
+      }
+
+      if (gameData.state !== GAME_STATES.AWAITING_PLAYER) {
+        if (gameData.state === GAME_STATES.CREATED) {
+          throw new Error("Game not ready yet. The dealer is still setting up the game.");
+        } else if (gameData.state === GAME_STATES.PLAYING) {
+          throw new Error("Game already in progress.");
+        } else {
+          throw new Error(`Cannot join game in ${gameData.state} state.`);
+        }
+      }
+
+      if (gameData.player) {
+        throw new Error("Game is full. Another player already joined.");
+      }
+
+      // JOIN GAME FIRST (before any payment)
+      console.log("[Game] Pre-validation passed, joining game...");
+      const result = await joinGame(parsedGameId, parsedDealer);
+      console.log("[Game] Successfully joined game:", result.tx);
+
+      // Join succeeded - now set up state for payment
+      setGameId(parsedGameId);
+      setDealerPubkey(parsedDealer);
+      setGamePda(result.gamePda.toBase58());
+      setIsDealer(false);
+      setTxSignature(result.tx);
+
+      // NOW show betting UI (user is already in game, safe to bet)
+      // Set flag to prevent useEffect from overwriting gameState during betting
+      skipOnchainStateSync.current = true;
+      setBettingIntent('join_payment');
+      setGameState(GAME_STATES.BETTING);
+
+    } catch (err) {
+      console.error("Join game error:", err);
+      setError(err.message || "Failed to join game - no payment was made");
+    }
+
+    setLoading(false);
   };
 
   const handleStartSinglePlayerBetting = () => {
     setBettingIntent('single_player');
     setGameState(GAME_STATES.BETTING);
   };
+
+  // State for tracking player's bet amount (for dealer to match)
+  const [playerBetAmount, setPlayerBetAmount] = useState(null);
 
   // Handle bet placement - called from BetSelector
   const handleBetPlaced = async (betInfo) => {
@@ -839,17 +937,79 @@ export default function GamePage() {
 
     // After bet is placed, proceed based on intent
     if (bettingIntent === 'single_player') {
-        await handleCreateGame();
+      await handleCreateGame();
+    } else if (bettingIntent === 'join_payment') {
+      // NEW FLOW: User already joined (in handleStartJoinBetting)
+      // Now they've placed their bet - wait for dealer to match
+      console.log("[Game] Player bet placed, waiting for dealer to match...");
+      setPlayerBetAmount(betInfo.amount);
+
+      // Store bet amount in localStorage so dealer can read it
+      // (Simple sync mechanism for hackathon - dealer polls this)
+      if (gameId) {
+        localStorage.setItem(`game_${gameId}_player_bet`, JSON.stringify({
+          amount: betInfo.amount,
+          timestamp: Date.now(),
+          txSignature: betInfo.txSignature
+        }));
+      }
+
+      // Clear the sync skip flag - betting flow complete
+      skipOnchainStateSync.current = false;
+      setGameState(GAME_STATES.WAITING_DEALER_BET);
     } else if (bettingIntent === 'join') {
-        // Use pendingJoinCode set in handleStartJoinBetting
-        if (pendingJoinCode) {
-            await handleJoinGame(pendingJoinCode);
-            setPendingJoinCode(null); // Clear after use
-        } else {
-            setError("No join code provided for joining game.");
-        }
+      // LEGACY: Old flow (keeping for backwards compatibility during transition)
+      if (pendingJoinCode) {
+        await handleJoinGame(pendingJoinCode);
+        setPendingJoinCode(null);
+      } else {
+        setError("No join code provided for joining game.");
+      }
     }
   };
+
+  // Handle dealer matching the player's bet
+  const handleDealerBetPlaced = async (betInfo) => {
+    console.log("[Game] Dealer matched bet:", betInfo);
+    setCurrentBet(betInfo.amount);
+    setBetTxSignature(betInfo.txSignature);
+
+    // Clear the stored player bet
+    if (gameId) {
+      localStorage.removeItem(`game_${gameId}_player_bet`);
+    }
+
+    // Both bets confirmed - now deal cards
+    console.log("[Game] Both bets confirmed, starting game...");
+    setGameState(GAME_STATES.PLAYING);
+    await handleDealCards();
+  };
+
+  // Poll for player bet (dealer side) - check localStorage
+  useEffect(() => {
+    if (!isDealer || !gameId || gameState !== GAME_STATES.PLAYING) return;
+
+    // Check if there's a pending player bet we need to match
+    const checkPlayerBet = () => {
+      const stored = localStorage.getItem(`game_${gameId}_player_bet`);
+      if (stored) {
+        try {
+          const betData = JSON.parse(stored);
+          if (betData.amount && !playerBetAmount) {
+            console.log("[Game] Dealer detected player bet:", betData.amount);
+            setPlayerBetAmount(betData.amount);
+            setGameState(GAME_STATES.WAITING_DEALER_BET);
+          }
+        } catch (e) {
+          console.error("Failed to parse player bet data:", e);
+        }
+      }
+    };
+
+    checkPlayerBet();
+    const interval = setInterval(checkPlayerBet, 2000); // Poll every 2 seconds
+    return () => clearInterval(interval);
+  }, [isDealer, gameId, gameState, playerBetAmount]);
 
   // Handle payout when game ends
   const handlePayout = async () => {
@@ -867,9 +1027,14 @@ export default function GamePage() {
     try {
       setLoading(true);
 
-      // Calculate payout: 2x for win, 1x for push (refund)
-      const payoutAmount = isWinner ? currentBet * 2 : currentBet;
-      console.log("[Game] Requesting payout:", payoutAmount, "SOL");
+      // Calculate payout based on game mode:
+      // - Multiplayer (dual betting): Winner gets total pot (2x bet = player bet + dealer bet)
+      // - Single player: Winner gets 2x their bet from house
+      // For multiplayer with matched bets: totalPot = 2 * currentBet (since dealer matched)
+      // Winner takes all: 2x bet for win, 1x bet for push (refund)
+      const totalPot = currentBet * 2; // Total pot = player bet + dealer matched bet
+      const payoutAmount = isWinner ? totalPot : isPush ? currentBet : 0;
+      console.log("[Game] Requesting payout:", payoutAmount, "SOL (pot:", totalPot, ")");
 
       await requestPayout(payoutAmount);
       setPayoutProcessed(true);
@@ -1211,6 +1376,91 @@ export default function GamePage() {
               )}
             </div>
           </BlurFade>
+        ) : gameState === GAME_STATES.WAITING_DEALER_BET ? (
+          /* Waiting for Dealer to Match Bet */
+          <BlurFade delay={0.1}>
+            <div className="flex flex-col items-center justify-center min-h-[60vh] gap-8 max-w-md mx-auto">
+              {isDealer ? (
+                /* Dealer View - Match the player's bet */
+                <>
+                  <div className="text-center">
+                    <h1 className="text-3xl md:text-4xl font-bold mb-2 text-yellow-400">
+                      Match the Bet
+                    </h1>
+                    <p className="text-gray-400">
+                      A player has joined and bet {playerBetAmount} SOL.
+                      <br />
+                      Match their bet to start the game!
+                    </p>
+                  </div>
+
+                  <div className="w-full p-6 rounded-xl bg-yellow-500/10 border border-yellow-500/30">
+                    <div className="text-center mb-4">
+                      <Coins className="w-12 h-12 mx-auto mb-2 text-yellow-400" />
+                      <p className="text-sm text-gray-400">Player&apos;s Bet</p>
+                      <p className="text-4xl font-bold text-yellow-400">{playerBetAmount} SOL</p>
+                    </div>
+                  </div>
+
+                  <BetSelector
+                    mode="fixed"
+                    fixedAmount={playerBetAmount}
+                    onBetPlaced={handleDealerBetPlaced}
+                    disabled={loading}
+                  />
+
+                  {error && (
+                    <div className="p-4 rounded-xl bg-red-500/10 border border-red-500/20 w-full">
+                      <p className="text-red-400 text-sm">{error}</p>
+                    </div>
+                  )}
+                </>
+              ) : (
+                /* Player View - Waiting for dealer */
+                <>
+                  <div className="text-center">
+                    <h1 className="text-3xl md:text-4xl font-bold mb-2 text-purple-400">
+                      Bet Placed!
+                    </h1>
+                    <p className="text-gray-400">
+                      Waiting for the dealer to match your bet...
+                    </p>
+                  </div>
+
+                  <div className="w-full p-6 rounded-xl bg-purple-500/10 border border-purple-500/30">
+                    <div className="text-center">
+                      <Clock className="w-12 h-12 mx-auto mb-2 text-purple-400 animate-pulse" />
+                      <p className="text-sm text-gray-400">Your Bet</p>
+                      <p className="text-4xl font-bold text-purple-400">{currentBet} SOL</p>
+                      <p className="text-sm text-gray-500 mt-2">
+                        Total pot will be {(currentBet || 0) * 2} SOL
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Important: Tell dealer the bet amount (cross-browser) */}
+                  <div className="w-full p-4 rounded-xl bg-yellow-500/10 border border-yellow-500/30">
+                    <div className="flex items-center gap-3">
+                      <MessageCircle className="w-8 h-8 text-yellow-400 flex-shrink-0" />
+                      <div>
+                        <p className="text-sm font-medium text-yellow-400">
+                          Tell the dealer:
+                        </p>
+                        <p className="text-lg font-bold text-white">
+                          &ldquo;I bet {currentBet} SOL&rdquo;
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2 text-sm text-gray-400">
+                    <div className="w-2 h-2 bg-purple-400 rounded-full animate-pulse" />
+                    <span>The dealer must match your bet to start the game</span>
+                  </div>
+                </>
+              )}
+            </div>
+          </BlurFade>
         ) : (
           /* Game Table */
           <div className="flex flex-col gap-6">
@@ -1420,6 +1670,53 @@ export default function GamePage() {
                 </motion.button>
               )}
 
+              {/* Dealer: Enter Player's Bet Amount (cross-browser sync) */}
+              {isDealer && gameState === GAME_STATES.PLAYING && !cardsDealt && gameData?.player && !playerBetAmount && (
+                <BlurFade delay={0.1}>
+                  <div className="w-full max-w-md p-6 rounded-xl bg-yellow-500/10 border border-yellow-500/30 mb-4">
+                    <div className="text-center mb-4">
+                      <Coins className="w-12 h-12 mx-auto mb-2 text-yellow-400" />
+                      <h3 className="text-lg font-semibold text-yellow-400">
+                        Player Joined!
+                      </h3>
+                      <p className="text-sm text-gray-400 mt-2">
+                        Ask the player how much they bet, then enter it below to match.
+                      </p>
+                    </div>
+                    <div className="flex gap-2">
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0.01"
+                        placeholder="e.g., 0.1"
+                        value={manualBetInput}
+                        onChange={(e) => setManualBetInput(e.target.value)}
+                        className="flex-1 px-4 py-3 rounded-lg bg-black/50 border border-white/20 text-white placeholder:text-gray-500 focus:border-yellow-400 focus:outline-none"
+                      />
+                      <motion.button
+                        whileTap={{ scale: 0.95 }}
+                        onClick={() => {
+                          const amount = parseFloat(manualBetInput);
+                          if (amount > 0) {
+                            setPlayerBetAmount(amount);
+                            setGameState(GAME_STATES.WAITING_DEALER_BET);
+                          }
+                        }}
+                        disabled={!manualBetInput || parseFloat(manualBetInput) <= 0}
+                        className={cn(
+                          "px-6 py-3 rounded-lg font-semibold",
+                          "bg-yellow-600 hover:bg-yellow-500",
+                          "disabled:opacity-50 disabled:cursor-not-allowed",
+                          "transition-colors"
+                        )}
+                      >
+                        Match Bet
+                      </motion.button>
+                    </div>
+                  </div>
+                </BlurFade>
+              )}
+
               {/* Dealer: Deal Cards (only after player joins) */}
               {isDealer && gameState === GAME_STATES.PLAYING && !cardsDealt && (
                 <motion.button
@@ -1525,7 +1822,11 @@ export default function GamePage() {
               {isGameOver && (
                 <div className="flex flex-wrap justify-center gap-4">
                   {/* Payout button (only for winner/push with active bet) */}
-                  {currentBet && !payoutProcessed && (gameState === GAME_STATES.PLAYER_WON || gameState === GAME_STATES.PUSH) && (
+                  {/* Show claim button only to the actual winner based on role */}
+                  {currentBet && !payoutProcessed && (
+                    (!isDealer && (gameState === GAME_STATES.PLAYER_WON || gameState === GAME_STATES.PUSH)) ||
+                    (isDealer && (gameState === GAME_STATES.DEALER_WON || gameState === GAME_STATES.PUSH))
+                  ) && (
                     <motion.button
                       whileTap={{ scale: 0.95 }}
                       whileHover={{ scale: 1.02 }}
@@ -1547,7 +1848,7 @@ export default function GamePage() {
                       ) : (
                         <Gift className="w-5 h-5" />
                       )}
-                      Claim {gameState === GAME_STATES.PLAYER_WON ? currentBet * 2 : currentBet} SOL
+                      Claim {(gameState === GAME_STATES.PLAYER_WON || gameState === GAME_STATES.DEALER_WON) ? currentBet * 2 : currentBet} SOL
                     </motion.button>
                   )}
 
