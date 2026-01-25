@@ -73,7 +73,14 @@
       "Bash(git fetch:*)",
       "Bash(git rebase:*)",
       "Bash(git stash:*)",
-      "mcp__sequential-thinking__sequentialthinking"
+      "mcp__sequential-thinking__sequentialthinking",
+      "Bash(find:*)",
+      "Bash(cat:*)",
+      "Bash(npm ls:*)",
+      "Bash(grep:*)",
+      "Skill(confident-executor)",
+      "Bash(git -C /Users/ckayz/Documents/GitHub/solanaprivacyhack status --short)",
+      "Bash(git -C /Users/ckayz/Documents/GitHub/solanaprivacyhack branch:*)"
     ]
   },
   "outputStyle": "Explanatory"

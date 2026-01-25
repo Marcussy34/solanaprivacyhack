@@ -254,6 +254,7 @@ export default function GamePage() {
   const [currentBet, setCurrentBet] = useState(null);
   const [betTxSignature, setBetTxSignature] = useState(null);
   const [payoutProcessed, setPayoutProcessed] = useState(false);
+  const [requiredDepositAmount, setRequiredDepositAmount] = useState(null); // For joining rooms
 
   // Game state
   const [gameState, setGameState] = useState(GAME_STATES.IDLE);
@@ -410,7 +411,12 @@ export default function GamePage() {
   };
 
   // Game code helpers
+  // NEW FORMAT: gameId:dealerPubkey:depositAmount
   const getGameCode = () => {
+    if (gameId && dealerPubkey && currentBet) {
+      return `${gameId}:${dealerPubkey}:${currentBet}`;
+    }
+    // Fallback for games without deposit (backward compat)
     if (gameId && dealerPubkey) {
       return `${gameId}:${dealerPubkey}`;
     }
@@ -426,15 +432,30 @@ export default function GamePage() {
     }
   };
 
+  // Parse game code - supports old (2 parts) and new (3 parts) format
   const parseGameCode = (code) => {
     const parts = code.trim().split(":");
-    if (parts.length !== 2) {
-      throw new Error("Invalid game code format. Expected: gameId:dealerPubkey");
+
+    if (parts.length < 2 || parts.length > 3) {
+      throw new Error("Invalid game code format. Expected: gameId:dealerAddress or gameId:dealerAddress:depositAmount");
     }
-    return {
+
+    const result = {
       gameId: parseInt(parts[0]),
       dealerPubkey: parts[1],
+      depositAmount: null,
     };
+
+    // Parse deposit amount if present (new format)
+    if (parts.length === 3) {
+      const amount = parseFloat(parts[2]);
+      if (isNaN(amount) || amount <= 0) {
+        throw new Error("Invalid deposit amount in game code");
+      }
+      result.depositAmount = amount;
+    }
+
+    return result;
   };
 
   // Game actions
@@ -797,18 +818,21 @@ export default function GamePage() {
     setBetTxSignature(null);
     setPayoutProcessed(false);
     setPendingJoinCode(null);
+    setRequiredDepositAmount(null);
+    setBettingIntent(null);
     zkResetGame();
   };
 
-  // Handle transitioning to betting phase (dealer wants to create game)
-  // UPDATED: Dealer (Host) creates game WITHOUT betting.
-  // Player (Client) bets BEFORE joining.
-  // Single Player Demo does both.
-  const [bettingIntent, setBettingIntent] = useState(null); // 'join', 'single_player'
+  // Handle transitioning to betting phase
+  // UPDATED: Dealer (Host) sets custom deposit amount, then creates game.
+  // Player (Client) must match deposit to join.
+  // Single Player Demo uses preset amounts.
+  const [bettingIntent, setBettingIntent] = useState(null); // 'host', 'join', 'single_player'
 
-  const handleStartHostGame = async () => {
-    // Host just creates the game, no bet
-    await handleCreateGame();
+  const handleStartHostGame = () => {
+    // Host goes to betting with custom input mode
+    setBettingIntent('host');
+    setGameState(GAME_STATES.BETTING);
   };
 
   const handleStartJoinBetting = () => {
@@ -817,9 +841,25 @@ export default function GamePage() {
       setError("Please enter a Game Code");
       return;
     }
-    setPendingJoinCode(code); // Keep pendingJoinCode for handleJoinGame to use
-    setBettingIntent('join');
-    setGameState(GAME_STATES.BETTING);
+
+    try {
+      // Parse game code to extract deposit amount
+      const parsed = parseGameCode(code);
+
+      // Set required deposit if present in code
+      if (parsed.depositAmount) {
+        setRequiredDepositAmount(parsed.depositAmount);
+      } else {
+        // Legacy code without deposit - allow preset selection
+        setRequiredDepositAmount(null);
+      }
+
+      setPendingJoinCode(code);
+      setBettingIntent('join');
+      setGameState(GAME_STATES.BETTING);
+    } catch (err) {
+      setError(err.message);
+    }
   };
 
   const handleStartSinglePlayerBetting = () => {
@@ -834,7 +874,11 @@ export default function GamePage() {
     setBetTxSignature(betInfo.txSignature);
 
     // After bet is placed, proceed based on intent
-    if (bettingIntent === 'single_player') {
+    if (bettingIntent === 'host') {
+        // Dealer deposited - now create the game
+        console.log("[Game] Host deposited, creating game...");
+        await handleCreateGame();
+    } else if (bettingIntent === 'single_player') {
         await handleCreateGame();
     } else if (bettingIntent === 'join') {
         // Use pendingJoinCode set in handleStartJoinBetting
@@ -1176,25 +1220,48 @@ export default function GamePage() {
             </div>
           </BlurFade>
         ) : gameState === GAME_STATES.BETTING ? (
-          /* Betting State - Player places private bet before joining */
+          /* Betting State - Different modes for host/join/single_player */
           <BlurFade delay={0.1}>
             <div className="flex flex-col items-center justify-center min-h-[60vh] gap-8 max-w-md mx-auto">
               <div className="text-center">
                 <h1 className="text-3xl md:text-4xl font-bold mb-2">
-                  Place Your Bet
+                  {bettingIntent === 'host'
+                    ? 'Set Room Deposit'
+                    : requiredDepositAmount
+                      ? 'Match Room Deposit'
+                      : 'Place Your Bet'}
                 </h1>
                 <p className="text-gray-400">
-                  Place your private bet before joining the game
+                  {bettingIntent === 'host'
+                    ? 'Enter the deposit amount players must match to join your room'
+                    : requiredDepositAmount
+                      ? `This room requires exactly ${requiredDepositAmount} SOL to join`
+                      : 'Place your private bet before joining the game'}
                 </p>
               </div>
 
               <BetSelector
                 onBetPlaced={handleBetPlaced}
                 disabled={loading}
+                mode={
+                  bettingIntent === 'host'
+                    ? 'custom'
+                    : requiredDepositAmount
+                      ? 'fixed'
+                      : 'preset'
+                }
+                fixedAmount={requiredDepositAmount}
+                minAmount={0.01}
+                maxAmount={10.0}
               />
 
               <button
-                onClick={() => { setPendingJoinCode(null); setGameState(GAME_STATES.IDLE); }}
+                onClick={() => {
+                  setPendingJoinCode(null);
+                  setRequiredDepositAmount(null);
+                  setBettingIntent(null);
+                  setGameState(GAME_STATES.IDLE);
+                }}
                 className="text-sm text-gray-400 hover:text-white underline"
               >
                 Cancel
@@ -1309,6 +1376,12 @@ export default function GamePage() {
                     )}
                   </button>
                 </div>
+                {currentBet && (
+                  <p className="mt-2 text-xs text-yellow-400 flex items-center gap-1">
+                    <Coins className="w-3 h-3" />
+                    Players must deposit {currentBet} SOL to join this room
+                  </p>
+                )}
               </div>
             )}
 
