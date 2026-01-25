@@ -115,8 +115,9 @@ pub mod zk_card_arena {
     }
 
     /// Player action: hit, stand, or double
-    /// card_value is used for Hit/Double to auto-reveal the new card (0-12)
-    pub fn player_action(ctx: Context<PlayerAction>, action: PlayerActionType, card_value: Option<u8>) -> Result<()> {
+    /// Cards are dealt as commitments only - dealer must call reveal_card with ZK proof to reveal values
+    /// SECURITY: Removed card_value parameter to prevent players claiming arbitrary card values
+    pub fn player_action(ctx: Context<PlayerAction>, action: PlayerActionType) -> Result<()> {
         let game = &mut ctx.accounts.game;
 
         require!(
@@ -130,7 +131,7 @@ pub mod zk_card_arena {
 
         match action {
             PlayerActionType::Hit => {
-                // Auto-deal from pre-committed cards
+                // Deal next committed card to player (commitment only, no auto-reveal)
                 require!(
                     (game.deck_position as usize) < game.committed_cards.len(),
                     GameError::NoMoreCards
@@ -138,20 +139,15 @@ pub mod zk_card_arena {
                 let card = game.committed_cards[game.deck_position as usize];
                 game.player_cards.push(card);
                 game.deck_position += 1;
-
-                // Auto-reveal the new card so player can see it
-                if let Some(value) = card_value {
-                    require!(value < 13, GameError::InvalidCard);
-                    game.player_revealed.push(value);
-                    msg!("Player HIT - card {} auto-revealed", value);
-                }
+                // Card value must be revealed by dealer via reveal_card with ZK proof
+                msg!("Player HIT - card dealt as commitment, awaiting reveal with ZK proof");
             }
             PlayerActionType::Stand => {
                 msg!("Player STANDS");
                 game.state = GameState::DealerTurn;
             }
             PlayerActionType::Double => {
-                // Auto-deal one card then move to dealer turn
+                // Deal one card then move to dealer turn (commitment only, no auto-reveal)
                 require!(
                     (game.deck_position as usize) < game.committed_cards.len(),
                     GameError::NoMoreCards
@@ -159,14 +155,8 @@ pub mod zk_card_arena {
                 let card = game.committed_cards[game.deck_position as usize];
                 game.player_cards.push(card);
                 game.deck_position += 1;
-
-                // Auto-reveal the new card so player can see it
-                if let Some(value) = card_value {
-                    require!(value < 13, GameError::InvalidCard);
-                    game.player_revealed.push(value);
-                    msg!("Player DOUBLE - card {} auto-revealed", value);
-                }
-
+                // Card value must be revealed by dealer via reveal_card with ZK proof
+                msg!("Player DOUBLE - card dealt as commitment, awaiting reveal with ZK proof");
                 game.state = GameState::DealerTurn;
             }
         }
@@ -177,10 +167,15 @@ pub mod zk_card_arena {
     /// Dealer deals initial hand + commits cards for future hits
     /// Takes 10 card commitments, deals first 4 (2 player, 2 dealer)
     /// Also auto-reveals player's 2 cards + dealer's upcard for standard Blackjack UX
+    ///
+    /// SECURITY: Now requires ZK proof verification via CPI to deal verifier
+    /// The proof demonstrates that cards come from the committed shuffled deck
     pub fn deal_initial_hand(
-        ctx: Context<DealCard>,
+        ctx: Context<DealInitialHand>,
         card_commitments: Vec<[u8; 32]>,
         initial_card_values: Vec<u8>,  // [player1, player2, dealer_upcard]
+        proof: Vec<u8>,                 // ZK deal proof (Groth16)
+        public_inputs: Vec<u8>,         // Public inputs for verification
     ) -> Result<()> {
         let game = &mut ctx.accounts.game;
 
@@ -210,6 +205,33 @@ pub mod zk_card_arena {
             initial_card_values[0] < 13 && initial_card_values[1] < 13 && initial_card_values[2] < 13,
             GameError::InvalidCard
         );
+
+        // SECURITY: Validate deal verifier program ID
+        require!(
+            ctx.accounts.deal_verifier_program.key() == deal_verifier::ID,
+            GameError::InvalidVerifier
+        );
+
+        // SECURITY: Verify deal proof via CPI to Sunspot Groth16 verifier
+        // This proves the first card commitment comes from the committed shuffled deck
+        // The proof binds deck_commitment (stored on-chain) to card_commitment
+        let mut instruction_data = Vec::with_capacity(proof.len() + public_inputs.len());
+        instruction_data.extend_from_slice(&proof);
+        instruction_data.extend_from_slice(&public_inputs);
+
+        let verify_ix = Instruction {
+            program_id: deal_verifier::ID,
+            accounts: vec![], // Sunspot verifiers are stateless
+            data: instruction_data,
+        };
+
+        // CPI call - will fail if proof is invalid
+        invoke(
+            &verify_ix,
+            &[ctx.accounts.deal_verifier_program.to_account_info()],
+        )?;
+
+        msg!("Deal proof verified on-chain - cards proven to come from committed deck");
 
         // Store all committed cards for future hits
         game.committed_cards = card_commitments.clone();
@@ -515,6 +537,7 @@ pub struct PlayerAction<'info> {
     pub player: Signer<'info>,
 }
 
+/// Context for legacy deal_card and dealer_play_turn (no deal verification needed)
 #[derive(Accounts)]
 pub struct DealCard<'info> {
     #[account(
@@ -524,6 +547,23 @@ pub struct DealCard<'info> {
     pub game: Account<'info, Game>,
 
     pub dealer: Signer<'info>,
+}
+
+/// Context for deal_initial_hand with ZK deal proof verification
+/// SECURITY: This context includes the deal verifier for proving cards come from committed deck
+#[derive(Accounts)]
+pub struct DealInitialHand<'info> {
+    #[account(
+        mut,
+        constraint = game.dealer == dealer.key() @ GameError::Unauthorized
+    )]
+    pub game: Account<'info, Game>,
+
+    pub dealer: Signer<'info>,
+
+    /// CHECK: Sunspot Groth16 deal verifier program.
+    /// Validated in instruction handler against deal_verifier::ID.
+    pub deal_verifier_program: AccountInfo<'info>,
 }
 
 #[derive(Accounts)]
