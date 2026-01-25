@@ -2,22 +2,24 @@ use anchor_lang::prelude::*;
 use anchor_lang::solana_program::instruction::Instruction;
 use anchor_lang::solana_program::program::invoke;
 
-declare_id!("8Da8a3Q9GLYuxYLXPtxKiAedZZbx5DUQCuG8TPY1dLnx");
+declare_id!("22BfrTbAzVmwENnyfzk6rFtPaNvCmaATbeWaJKKoqkK4");
 
-/// Sunspot Groth16 verifier program IDs (deployed to devnet)
+/// Sunspot Groth16 verifier program IDs (deployed to devnet by FBbtn... wallet)
 mod shuffle_verifier {
     use super::*;
-    declare_id!("6sju9HLJTFfESLn49wAR2hqiC6mnu3MrP2K9WDbkjCL2");
+    declare_id!("EbqLX5ryQAuch2zueoNoXyV9B8okvpRPLCgxYgZLf8g");
 }
 
 mod deal_verifier {
     use super::*;
-    declare_id!("Epoxbrv1Pc2XeYR2xsKsqm3Gy1j2MbkBx4yHfkg8yuSC");
+    // Updated Jan 26 2026 - new VK/PK matching pair
+    declare_id!("7p8MDtniW4WgE8LpT2R2t35CSG3YbkWGCjWixPuq6AbL");
 }
 
 mod reveal_verifier {
     use super::*;
-    declare_id!("HrETBH5nTa3DTVjBFWMdytLtuX9GsFwiAGkkyQAXnMt9");
+    // Updated Jan 26 2026 - new VK/PK matching pair
+    declare_id!("7PMUYpFvo2pKjTH2r6YJ2MZC4Tb72SS9hmfu8QzW41NW");
 }
 
 #[program]

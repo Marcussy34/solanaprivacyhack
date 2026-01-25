@@ -1,15 +1,22 @@
 import { useCallback, useMemo } from "react";
-import { useConnection, useWallet } from "@solana/wallet-adapter-react";
-import { PublicKey, SystemProgram, ComputeBudgetProgram } from "@solana/web3.js";
+import { useWallet } from "@solana/wallet-adapter-react";
+import { PublicKey, SystemProgram, ComputeBudgetProgram, Connection } from "@solana/web3.js";
 import { Program, AnchorProvider, BN } from "@coral-xyz/anchor";
 
-// Program ID from deployed contract
-const PROGRAM_ID = new PublicKey("8Da8a3Q9GLYuxYLXPtxKiAedZZbx5DUQCuG8TPY1dLnx");
+// Dedicated DEVNET connection for game programs
+// (Mainnet connection from WalletProvider is used for ShadowWire payments)
+const DEVNET_RPC = process.env.NEXT_PUBLIC_DEVNET_RPC_ENDPOINT || "https://api.devnet.solana.com";
+const devnetConnection = new Connection(DEVNET_RPC, "confirmed");
 
-// Sunspot Groth16 verifier program IDs (deployed to devnet)
-const SHUFFLE_VERIFIER_PROGRAM_ID = new PublicKey("6sju9HLJTFfESLn49wAR2hqiC6mnu3MrP2K9WDbkjCL2");
-const DEAL_VERIFIER_PROGRAM_ID = new PublicKey("Epoxbrv1Pc2XeYR2xsKsqm3Gy1j2MbkBx4yHfkg8yuSC");
-const REVEAL_VERIFIER_PROGRAM_ID = new PublicKey("HrETBH5nTa3DTVjBFWMdytLtuX9GsFwiAGkkyQAXnMt9");
+// Program ID from deployed contract (deployed by FBbtn... wallet on Jan 25)
+const PROGRAM_ID = new PublicKey("22BfrTbAzVmwENnyfzk6rFtPaNvCmaATbeWaJKKoqkK4");
+
+// Sunspot Groth16 verifier program IDs (deployed to devnet by FBbtn... wallet)
+const SHUFFLE_VERIFIER_PROGRAM_ID = new PublicKey("EbqLX5ryQAuch2zueoNoXyV9B8okvpRPLCgxYgZLf8g");
+// Updated Jan 26 2026 - new VK/PK matching pair
+const DEAL_VERIFIER_PROGRAM_ID = new PublicKey("7p8MDtniW4WgE8LpT2R2t35CSG3YbkWGCjWixPuq6AbL");
+// Updated Jan 26 2026 - new VK/PK matching pair
+const REVEAL_VERIFIER_PROGRAM_ID = new PublicKey("7PMUYpFvo2pKjTH2r6YJ2MZC4Tb72SS9hmfu8QzW41NW");
 
 // IDL imported directly (smaller than full IDL, just what we need)
 const IDL = {
@@ -192,16 +199,18 @@ function parseGameState(state) {
 }
 
 export function useGameProgram() {
-  const { connection } = useConnection();
+  // Use dedicated devnet connection for game programs
+  // (WalletProvider connection is mainnet for ShadowWire)
+  const connection = devnetConnection;
   const wallet = useWallet();
 
-  // Create Anchor provider and program
+  // Create Anchor provider and program using devnet connection
   const provider = useMemo(() => {
     if (!wallet.publicKey || !wallet.signTransaction) return null;
     return new AnchorProvider(connection, wallet, {
       commitment: "confirmed",
     });
-  }, [connection, wallet]);
+  }, [wallet]); // Note: connection is now a module-level constant
 
   const program = useMemo(() => {
     if (!provider) return null;
@@ -636,7 +645,7 @@ export function useGameProgram() {
         connection.removeAccountChangeListener(subscriptionId);
       };
     },
-    [program, connection, getGamePda]
+    [program, getGamePda] // connection is now module-level devnetConnection
   );
 
   return {
