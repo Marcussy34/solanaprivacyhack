@@ -1,7 +1,8 @@
-import { useCallback, useMemo } from "react";
-import { useConnection, useWallet } from "@solana/wallet-adapter-react";
+import { useCallback, useMemo, useState, useEffect } from "react";
+import { useWallet } from "@solana/wallet-adapter-react";
 import { PublicKey, SystemProgram, ComputeBudgetProgram } from "@solana/web3.js";
 import { Program, AnchorProvider, BN } from "@coral-xyz/anchor";
+import { getDevnetConnection } from "../lib/connections";
 
 // Program ID from deployed contract
 const PROGRAM_ID = new PublicKey("8Da8a3Q9GLYuxYLXPtxKiAedZZbx5DUQCuG8TPY1dLnx");
@@ -192,16 +193,21 @@ function parseGameState(state) {
 }
 
 export function useGameProgram() {
-  const { connection } = useConnection();
   const wallet = useWallet();
 
-  // Create Anchor provider and program
+  // Get devnet connection for game program (separate from mainnet wallet connection)
+  // This enables dual-network architecture: mainnet for ShadowWire, devnet for game
+  const devnetConnection = useMemo(() => {
+    return getDevnetConnection();
+  }, []);
+
+  // Create Anchor provider and program using DEVNET connection
   const provider = useMemo(() => {
     if (!wallet.publicKey || !wallet.signTransaction) return null;
-    return new AnchorProvider(connection, wallet, {
+    return new AnchorProvider(devnetConnection, wallet, {
       commitment: "confirmed",
     });
-  }, [connection, wallet]);
+  }, [devnetConnection, wallet]);
 
   const program = useMemo(() => {
     if (!provider) return null;
@@ -589,7 +595,7 @@ export function useGameProgram() {
     [program, getGamePda]
   );
 
-  // Subscribe to game account changes
+  // Subscribe to game account changes (uses devnet connection)
   // Requires dealer's pubkey to derive PDA
   const subscribeToGame = useCallback(
     (gameId, dealerPubkey, callback) => {
@@ -598,7 +604,7 @@ export function useGameProgram() {
       const dealer = new PublicKey(dealerPubkey);
       const gamePda = getGamePda(gameId, dealer);
 
-      const subscriptionId = connection.onAccountChange(
+      const subscriptionId = devnetConnection.onAccountChange(
         gamePda,
         async (accountInfo) => {
           try {
@@ -633,10 +639,10 @@ export function useGameProgram() {
 
       // Return unsubscribe function
       return () => {
-        connection.removeAccountChangeListener(subscriptionId);
+        devnetConnection.removeAccountChangeListener(subscriptionId);
       };
     },
-    [program, connection, getGamePda]
+    [program, devnetConnection, getGamePda]
   );
 
   return {
