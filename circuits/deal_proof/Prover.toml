@@ -1,6 +1,0 @@
-seed = "14282610610535223423"
-shuffled_deck = [1, 7, 4, 2, 8, 5, 3, 11, 10, 6, 12, 0, 9]
-blinding_factor = "4576787452429264495"
-deck_commitment = "0x295f8ea7a6336118cded96d37a007f67391f4f4007903dc46d7153d64f342f43"
-card_commitment = "0x1b9e55e1a2c2781eff2b7d03672b0f895e8d36bbcdb0e3f193feac0d832bf32e"
-card_position = "0"
