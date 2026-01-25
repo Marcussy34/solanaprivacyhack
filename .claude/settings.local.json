@@ -73,7 +73,10 @@
       "Bash(git fetch:*)",
       "Bash(git rebase:*)",
       "Bash(git stash:*)",
-      "mcp__sequential-thinking__sequentialthinking"
+      "mcp__sequential-thinking__sequentialthinking",
+      "Bash(gh pr list:*)",
+      "Bash(git checkout:*)",
+      "Bash(git merge:*)"
     ]
   },
   "outputStyle": "Explanatory"
