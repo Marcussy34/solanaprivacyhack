@@ -236,6 +236,7 @@ export default function GamePage() {
     shuffledDeck,
     deckCommitment: zkDeckCommitment,
     computeCardCommitmentAtPosition,
+    dealCardAtPosition,               // Full Groth16 deal proof generation
     fieldTo32Bytes,
     resetGame: zkResetGame,
     shuffleProofData,
@@ -545,10 +546,17 @@ export default function GamePage() {
     setError(null);
 
     try {
-      // Compute 10 real card commitments via Poseidon hash (~1s each, ~10s total)
-      console.log("[Game] Computing 10 card commitments...");
-      const commitments = [];
-      for (let i = 0; i < 10; i++) {
+      // SECURITY FIX: Generate full Groth16 deal proof for position 0
+      // This proves the first card comes from the committed shuffled deck
+      console.log("[Game] Generating deal proof for position 0 (takes ~30-60s)...");
+      const dealProofData = await dealCardAtPosition(0);
+      console.log("[Game] Deal proof generated for position 0");
+
+      // Compute remaining card commitments (positions 1-9) without full proofs
+      // Position 0's commitment was already computed by dealCardAtPosition
+      console.log("[Game] Computing remaining card commitments (positions 1-9)...");
+      const commitments = [fieldTo32Bytes(dealProofData.cardCommitment)];
+      for (let i = 1; i < 10; i++) {
         const result = await computeCardCommitmentAtPosition(i);
         commitments.push(fieldTo32Bytes(result.cardCommitment));
       }
@@ -564,19 +572,27 @@ export default function GamePage() {
       ];
       console.log("[Game] Initial card values:", initialCardValues);
 
-      await dealInitialHand(gameId, dealerPubkey, commitments, initialCardValues);
+      // Submit with ZK deal proof for on-chain verification
+      await dealInitialHand(
+        gameId,
+        dealerPubkey,
+        commitments,
+        initialCardValues,
+        dealProofData.proof,        // Groth16 proof bytes
+        dealProofData.publicInputs  // Public inputs for verifier
+      );
     } catch (err) {
       console.error("Deal cards error:", err);
-      
+
       let errorMessage = err.message || "Failed to deal cards";
-      
+
       // Handle common wallet errors
       if (err.name === "WalletSignTransactionError" || errorMessage.includes("Unexpected error")) {
         errorMessage = "Wallet transaction failed. Please try again and keep your wallet open.";
       } else if (errorMessage.includes("User rejected")) {
         errorMessage = "Transaction rejected by user.";
       }
-      
+
       setError(errorMessage);
     }
 
@@ -590,16 +606,10 @@ export default function GamePage() {
     setError(null);
 
     try {
-      if (shuffledDeck) {
-        // Same-session: instant reveal path
-        const cardValue = shuffledDeck[gameData?.deckPosition || 4];
-        console.log("[Game] Hit - card value:", cardValue, "from position:", gameData?.deckPosition);
-        await playerAction(gameId, "hit", dealerPubkey, cardValue);
-      } else {
-        // Remote player: pass null, dealer will auto-reveal
-        console.log("[Game] Hit (remote) - requesting card at position:", gameData?.deckPosition);
-        await playerAction(gameId, "hit", dealerPubkey, null);
-      }
+      // SECURITY FIX: Card is dealt as commitment only
+      // Dealer's auto-reveal mechanism will reveal the card with ZK proof verification
+      console.log("[Game] Hit - requesting card at position:", gameData?.deckPosition);
+      await playerAction(gameId, "hit", dealerPubkey);
     } catch (err) {
       console.error("Hit error:", err);
       setError(err.message || "Failed to hit");
@@ -631,16 +641,10 @@ export default function GamePage() {
     setError(null);
 
     try {
-      if (shuffledDeck) {
-        // Same-session: instant reveal path
-        const cardValue = shuffledDeck[gameData?.deckPosition || 4];
-        console.log("[Game] Double - card value:", cardValue, "from position:", gameData?.deckPosition);
-        await playerAction(gameId, "double", dealerPubkey, cardValue);
-      } else {
-        // Remote player: pass null, dealer will auto-reveal
-        console.log("[Game] Double (remote) - requesting card at position:", gameData?.deckPosition);
-        await playerAction(gameId, "double", dealerPubkey, null);
-      }
+      // SECURITY FIX: Card is dealt as commitment only
+      // Dealer's auto-reveal mechanism will reveal the card with ZK proof verification
+      console.log("[Game] Double - requesting card at position:", gameData?.deckPosition);
+      await playerAction(gameId, "double", dealerPubkey);
     } catch (err) {
       console.error("Double error:", err);
       setError(err.message || "Failed to double");
