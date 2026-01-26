@@ -361,8 +361,12 @@ pub mod zk_card_arena {
     /// SECURITY FIX: Now requires ZK reveal proofs for each card to prevent dealer cheating.
     /// Each card value must be verified via CPI to the reveal verifier before being accepted.
     ///
+    /// INCREMENTAL SUPPORT: Can be called multiple times with one card per call to avoid
+    /// Solana's 1232 byte transaction size limit. Each Groth16 proof is ~388 bytes, so
+    /// 2+ proofs in one transaction exceeds the limit.
+    ///
     /// Parameters:
-    /// - dealer_card_values: [hole_card, hit1, hit2, ...] - values for cards dealer will reveal
+    /// - dealer_card_values: [card1, card2, ...] - values for cards dealer will reveal this call
     /// - proofs: One Groth16 reveal proof per card value (parallel arrays)
     /// - public_inputs_list: Public inputs for each proof (parallel arrays)
     pub fn dealer_play_turn(
@@ -402,51 +406,63 @@ pub mod zk_card_arena {
 
         let mut value_index: usize = 0;
 
-        // 1. Reveal dealer's hole card (the second card that was hidden)
-        // SECURITY: Verify ZK proof before accepting the card value
-        require!(dealer_card_values[value_index] < 13, GameError::InvalidCard);
+        // Check if hole card needs revealing (dealer_revealed has 1 card = upcard only)
+        // If dealer_revealed.len() == 1, we need to reveal hole card first
+        // If dealer_revealed.len() >= 2, hole card already revealed in previous call
+        let hole_card_revealed = game.dealer_revealed.len() >= 2;
 
-        // Verify hole card reveal proof via CPI
-        let mut instruction_data = Vec::with_capacity(
-            proofs[value_index].len() + public_inputs_list[value_index].len()
-        );
-        instruction_data.extend_from_slice(&proofs[value_index]);
-        instruction_data.extend_from_slice(&public_inputs_list[value_index]);
+        if !hole_card_revealed {
+            // 1. Reveal dealer's hole card (the second card that was hidden)
+            // SECURITY: Verify ZK proof before accepting the card value
+            require!(dealer_card_values[value_index] < 13, GameError::InvalidCard);
 
-        let verify_ix = Instruction {
-            program_id: reveal_verifier::ID,
-            accounts: vec![], // Sunspot verifiers are stateless
-            data: instruction_data,
-        };
+            // Verify hole card reveal proof via CPI
+            let mut instruction_data = Vec::with_capacity(
+                proofs[value_index].len() + public_inputs_list[value_index].len()
+            );
+            instruction_data.extend_from_slice(&proofs[value_index]);
+            instruction_data.extend_from_slice(&public_inputs_list[value_index]);
 
-        invoke(
-            &verify_ix,
-            &[ctx.accounts.reveal_verifier_program.to_account_info()],
-        )?;
+            let verify_ix = Instruction {
+                program_id: reveal_verifier::ID,
+                accounts: vec![], // Sunspot verifiers are stateless
+                data: instruction_data,
+            };
 
-        msg!("ZK proof verified for dealer hole card: {}", dealer_card_values[value_index]);
-        game.dealer_revealed.push(dealer_card_values[value_index]);
-        value_index += 1;
+            invoke(
+                &verify_ix,
+                &[ctx.accounts.reveal_verifier_program.to_account_info()],
+            )?;
 
-        // 2. Calculate dealer's current hand and hit until 17+
+            msg!("ZK proof verified for dealer hole card: {}", dealer_card_values[value_index]);
+            game.dealer_revealed.push(dealer_card_values[value_index]);
+            value_index += 1;
+        }
+
+        // 2. Calculate dealer's current hand and hit until 17+ or we run out of provided cards
         loop {
             let dealer_total = calculate_hand_value(&game.dealer_revealed);
             msg!("Dealer total: {}", dealer_total);
 
             if dealer_total >= 17 {
-                // Dealer stands on 17+
+                // Dealer stands on 17+ - finalize the game
                 msg!("Dealer stands on {}", dealer_total);
-                break;
+                determine_winner(game)?;
+                return Ok(());
             }
 
-            // Dealer must hit - get next card from committed_cards
+            // Dealer must hit - check if we have more cards in this transaction
+            if value_index >= dealer_card_values.len() {
+                // No more cards provided in this call - return success, stay in DealerTurn state
+                // Frontend should call again with next card(s)
+                msg!("Dealer needs to hit but no more cards in this transaction. Call again with next card.");
+                return Ok(());
+            }
+
+            // Get next card from committed_cards
             require!(
                 (game.deck_position as usize) < game.committed_cards.len(),
                 GameError::NoMoreCards
-            );
-            require!(
-                value_index < dealer_card_values.len(),
-                GameError::InvalidCard
             );
             require!(
                 dealer_card_values[value_index] < 13,
@@ -480,11 +496,6 @@ pub mod zk_card_arena {
 
             value_index += 1;
         }
-
-        // 3. Determine winner
-        determine_winner(game)?;
-
-        Ok(())
     }
 }
 
