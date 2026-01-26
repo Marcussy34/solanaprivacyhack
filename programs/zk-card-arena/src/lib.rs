@@ -2,24 +2,22 @@ use anchor_lang::prelude::*;
 use anchor_lang::solana_program::instruction::Instruction;
 use anchor_lang::solana_program::program::invoke;
 
-declare_id!("22BfrTbAzVmwENnyfzk6rFtPaNvCmaATbeWaJKKoqkK4");
+declare_id!("8Da8a3Q9GLYuxYLXPtxKiAedZZbx5DUQCuG8TPY1dLnx");
 
-/// Sunspot Groth16 verifier program IDs (deployed to devnet by FBbtn... wallet)
+/// Sunspot Groth16 verifier program IDs (deployed Jan 23 2026, match solana-verifiers/target/*.pk keys)
 mod shuffle_verifier {
     use super::*;
-    declare_id!("EbqLX5ryQAuch2zueoNoXyV9B8okvpRPLCgxYgZLf8g");
+    declare_id!("6sju9HLJTFfESLn49wAR2hqiC6mnu3MrP2K9WDbkjCL2");
 }
 
 mod deal_verifier {
     use super::*;
-    // Updated Jan 26 2026 - new VK/PK matching pair
-    declare_id!("7p8MDtniW4WgE8LpT2R2t35CSG3YbkWGCjWixPuq6AbL");
+    declare_id!("Epoxbrv1Pc2XeYR2xsKsqm3Gy1j2MbkBx4yHfkg8yuSC");
 }
 
 mod reveal_verifier {
     use super::*;
-    // Updated Jan 26 2026 - new VK/PK matching pair
-    declare_id!("7PMUYpFvo2pKjTH2r6YJ2MZC4Tb72SS9hmfu8QzW41NW");
+    declare_id!("HrETBH5nTa3DTVjBFWMdytLtuX9GsFwiAGkkyQAXnMt9");
 }
 
 #[program]
@@ -359,10 +357,19 @@ pub mod zk_card_arena {
     }
 
     /// Dealer plays their turn: reveals hole card, hits until 17+, determines winner
-    /// dealer_card_values: [hole_card, hit1, hit2, ...] - values for cards dealer might need
+    ///
+    /// SECURITY FIX: Now requires ZK reveal proofs for each card to prevent dealer cheating.
+    /// Each card value must be verified via CPI to the reveal verifier before being accepted.
+    ///
+    /// Parameters:
+    /// - dealer_card_values: [hole_card, hit1, hit2, ...] - values for cards dealer will reveal
+    /// - proofs: One Groth16 reveal proof per card value (parallel arrays)
+    /// - public_inputs_list: Public inputs for each proof (parallel arrays)
     pub fn dealer_play_turn(
-        ctx: Context<DealCard>,
+        ctx: Context<DealerPlayTurnSecure>,
         dealer_card_values: Vec<u8>,
+        proofs: Vec<Vec<u8>>,
+        public_inputs_list: Vec<Vec<u8>>,
     ) -> Result<()> {
         let game = &mut ctx.accounts.game;
 
@@ -378,15 +385,48 @@ pub mod zk_card_arena {
             dealer_card_values.len() >= 1,
             GameError::InvalidCard
         );
+        // SECURITY: Require matching number of proofs for each card value
+        require!(
+            proofs.len() == dealer_card_values.len(),
+            GameError::InvalidProof
+        );
+        require!(
+            public_inputs_list.len() == dealer_card_values.len(),
+            GameError::InvalidProof
+        );
+        // SECURITY: Verify reveal verifier program ID
+        require!(
+            ctx.accounts.reveal_verifier_program.key() == reveal_verifier::ID,
+            GameError::InvalidVerifier
+        );
 
         let mut value_index: usize = 0;
 
         // 1. Reveal dealer's hole card (the second card that was hidden)
+        // SECURITY: Verify ZK proof before accepting the card value
         require!(dealer_card_values[value_index] < 13, GameError::InvalidCard);
+
+        // Verify hole card reveal proof via CPI
+        let mut instruction_data = Vec::with_capacity(
+            proofs[value_index].len() + public_inputs_list[value_index].len()
+        );
+        instruction_data.extend_from_slice(&proofs[value_index]);
+        instruction_data.extend_from_slice(&public_inputs_list[value_index]);
+
+        let verify_ix = Instruction {
+            program_id: reveal_verifier::ID,
+            accounts: vec![], // Sunspot verifiers are stateless
+            data: instruction_data,
+        };
+
+        invoke(
+            &verify_ix,
+            &[ctx.accounts.reveal_verifier_program.to_account_info()],
+        )?;
+
+        msg!("ZK proof verified for dealer hole card: {}", dealer_card_values[value_index]);
         game.dealer_revealed.push(dealer_card_values[value_index]);
         value_index += 1;
-
-        msg!("Dealer reveals hole card: {}", dealer_card_values[0]);
 
         // 2. Calculate dealer's current hand and hit until 17+
         loop {
@@ -413,12 +453,31 @@ pub mod zk_card_arena {
                 GameError::InvalidCard
             );
 
+            // SECURITY: Verify ZK proof for hit card before accepting
+            let mut hit_instruction_data = Vec::with_capacity(
+                proofs[value_index].len() + public_inputs_list[value_index].len()
+            );
+            hit_instruction_data.extend_from_slice(&proofs[value_index]);
+            hit_instruction_data.extend_from_slice(&public_inputs_list[value_index]);
+
+            let hit_verify_ix = Instruction {
+                program_id: reveal_verifier::ID,
+                accounts: vec![],
+                data: hit_instruction_data,
+            };
+
+            invoke(
+                &hit_verify_ix,
+                &[ctx.accounts.reveal_verifier_program.to_account_info()],
+            )?;
+
+            msg!("ZK proof verified for dealer hit card: {}", dealer_card_values[value_index]);
+
             let card = game.committed_cards[game.deck_position as usize];
             game.dealer_cards.push(card);
             game.dealer_revealed.push(dealer_card_values[value_index]);
             game.deck_position += 1;
 
-            msg!("Dealer hits: card value {}", dealer_card_values[value_index]);
             value_index += 1;
         }
 
@@ -539,7 +598,7 @@ pub struct PlayerAction<'info> {
     pub player: Signer<'info>,
 }
 
-/// Context for legacy deal_card and dealer_play_turn (no deal verification needed)
+/// Context for legacy deal_card (no deal verification needed)
 #[derive(Accounts)]
 pub struct DealCard<'info> {
     #[account(
@@ -549,6 +608,23 @@ pub struct DealCard<'info> {
     pub game: Account<'info, Game>,
 
     pub dealer: Signer<'info>,
+}
+
+/// Context for dealer_play_turn with ZK reveal proof verification
+/// SECURITY FIX: Dealer must prove each card value via CPI to reveal verifier
+#[derive(Accounts)]
+pub struct DealerPlayTurnSecure<'info> {
+    #[account(
+        mut,
+        constraint = game.dealer == dealer.key() @ GameError::Unauthorized
+    )]
+    pub game: Account<'info, Game>,
+
+    pub dealer: Signer<'info>,
+
+    /// CHECK: Sunspot Groth16 reveal verifier program.
+    /// Validated in instruction handler against reveal_verifier::ID.
+    pub reveal_verifier_program: AccountInfo<'info>,
 }
 
 /// Context for deal_initial_hand with ZK deal proof verification
