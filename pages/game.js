@@ -811,8 +811,15 @@ export default function GamePage() {
 
       // Step 1: Generate reveal proof for hole card (deck position 3)
       console.log("[Game] Generating ZK reveal proof for hole card (position 3)...");
+      console.log("[Game] shuffledDeck:", shuffledDeck);
+      console.log("[Game] shuffledDeck.length:", shuffledDeck?.length);
       const holeCardProof = await generateRevealProof(3);
       const holeCardValue = shuffledDeck[3];
+
+      // VALIDATION: Ensure card values are in valid range (0-12)
+      if (typeof holeCardValue !== 'number' || holeCardValue < 0 || holeCardValue >= 13) {
+        throw new Error(`Invalid hole card value: ${holeCardValue} (type: ${typeof holeCardValue}). Expected 0-12.`);
+      }
 
       // Step 2: Simulate dealer hit logic locally to determine needed cards
       // Start with dealer's revealed upcard (from gameData) + hole card
@@ -829,6 +836,11 @@ export default function GamePage() {
       let hitPosition = gameData?.deckPosition || 4;
       while (dealerTotal < 17 && hitPosition < shuffledDeck.length) {
         const hitCardValue = shuffledDeck[hitPosition];
+
+        // VALIDATION: Ensure hit card values are in valid range (0-12)
+        if (typeof hitCardValue !== 'number' || hitCardValue < 0 || hitCardValue >= 13) {
+          throw new Error(`Invalid hit card value at position ${hitPosition}: ${hitCardValue} (type: ${typeof hitCardValue}). Expected 0-12.`);
+        }
 
         console.log(`[Game] Generating ZK reveal proof for hit card (position ${hitPosition}, value ${hitCardValue})...`);
         const hitProof = await generateRevealProof(hitPosition);
@@ -847,6 +859,15 @@ export default function GamePage() {
 
       console.log(`[Game] Dealer turn - final hand: [${simulatedHand.join(', ')}], total: ${dealerTotal}`);
       console.log(`[Game] Submitting ${cardValues.length} card(s) with ZK proofs to chain...`);
+
+      // FINAL VALIDATION: Check all card values before submission
+      for (let i = 0; i < cardValues.length; i++) {
+        const cv = cardValues[i];
+        if (typeof cv !== 'number' || cv < 0 || cv >= 13 || !Number.isInteger(cv)) {
+          throw new Error(`INVALID CARD VALUE at index ${i}: ${cv} (type: ${typeof cv}). All values must be integers 0-12.`);
+        }
+      }
+      console.log(`[Game] Card values validated: [${cardValues.join(', ')}] - all in range 0-12 ✓`);
 
       // Step 4: Submit to chain with proofs
       // Use sequential submission if 2+ cards to avoid Solana's 1232 byte tx size limit

@@ -280,10 +280,13 @@ export function useShadowPay() {
             console.log('[ShadowWire] Checking pool balance...');
             const poolBalance = await client.getBalance(publicKey.toString(), 'SOL');
             console.log('[ShadowWire] Pool balance response:', JSON.stringify(poolBalance));
-            console.log('[ShadowWire] Pool available:', poolBalance?.available, 'Amount needed:', amount);
+
+            // Convert lamports to SOL for comparison (SDK returns lamports, amount is in SOL)
+            const availableSOL = (poolBalance?.available || 0) / LAMPORTS_PER_SOL;
+            console.log('[ShadowWire] Pool available:', availableSOL, 'SOL, Amount needed:', amount, 'SOL');
 
             // Step 2: If pool balance is insufficient, deposit first
-            const needsDeposit = !poolBalance || !poolBalance.available || poolBalance.available < amount;
+            const needsDeposit = availableSOL < amount;
             console.log('[ShadowWire] Needs deposit?', needsDeposit);
 
             if (needsDeposit) {
