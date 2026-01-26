@@ -25,8 +25,8 @@ class SceneErrorBoundary extends React.Component {
 const SceneContent = () => {
   const { viewport } = useThree();
 
-  // Load a vibrant image for the cloth texture
-  const darkCardBg = useLoader(THREE.TextureLoader, 'https://images.unsplash.com/photo-1599351431202-1e0f0137899a?q=80&w=988&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D', (loader) => {
+  // Load the generated Umbra card texture
+  const darkCardBg = useLoader(THREE.TextureLoader, '/umbra-card.png', (loader) => {
     loader.setCrossOrigin('anonymous');
   });
 
@@ -49,7 +49,7 @@ const SceneContent = () => {
       <ambientLight intensity={0.8} />
       <directionalLight position={[5, 10, 7]} intensity={2.0} />
       {/* Colorful lights to enhance the cloth wrinkles */}
-      <pointLight position={[-5, 2, 5]} intensity={1.5} color="#FF6600" />
+      <pointLight position={[-5, 2, 5]} intensity={1.5} color="#936DFF" />
       <pointLight position={[5, -2, 5]} intensity={1.0} color="#00FFFF" />
       
       <group position={[0, 0, 0]}>
