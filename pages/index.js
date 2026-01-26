@@ -10,8 +10,8 @@ export default function Home() {
   return (
     <>
       <Head>
-        <title>UMBRA | ZK Blackjack</title>
-        <meta name="description" content="Provably fair blackjack on Solana using Zero-Knowledge Proofs (Noir) and ShadowWire privacy." />
+        <title>UMBRA | ZK Casino</title>
+        <meta name="description" content="Provably fair casino on Solana using Zero-Knowledge Proofs (Noir) and ShadowWire privacy." />
         {/* Google Fonts for the Umbra theme */}
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
@@ -36,7 +36,7 @@ export default function Home() {
           {/* Left: 3D Scene Wrapper */}
           <div className="w-full md:w-1/2 h-[50vh] md:h-screen relative border-b-8 md:border-b-0 md:border-r-8 border-[#936DFF]">
               <div className="absolute top-4 left-4 z-10 text-[#936DFF] font-display uppercase tracking-widest text-sm opacity-50 pointer-events-none">
-                  Provably Fair System — 2024
+                  Provably Fair System
               </div>
               {/* The Scene component will fit this container */}
               <Scene />

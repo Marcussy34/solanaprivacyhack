@@ -109,8 +109,8 @@ const PaperMaterial = shaderMaterial(
         vec3 pos = position;
 
         // --- DEEP FOLD PHYSICS ---
-        float foldFrequency = 1.5;
-        float foldAmplitude = 0.15;
+        float foldFrequency = 1.0; // Reduced frequency for broader, stiffer folds
+        float foldAmplitude = 0.04; // Significantly reduced amplitude for rigidity
         
         // Primary Fold (Diagonal)
         float n1 = snoise(uv * foldFrequency + vec2(0.0, uTime * 0.02));
@@ -123,13 +123,13 @@ const PaperMaterial = shaderMaterial(
         crease2 = pow(crease2, 4.0);
 
         // Micro crinkles
-        float grain = snoise(uv * 15.0) * 0.02;
+        float grain = snoise(uv * 15.0) * 0.01; // Reduced grain
 
-        float elevation = (crease1 * foldAmplitude) + (crease2 * 0.08) + grain;
+        float elevation = (crease1 * foldAmplitude) + (crease2 * 0.02) + grain;
         
         // Interactive Press from mouse
         float dist = distance(uv, uMouse);
-        float press = smoothstep(0.4, 0.0, dist) * 0.08;
+        float press = smoothstep(0.4, 0.0, dist) * 0.05; // Reduced press depth
         elevation -= press;
 
         pos.z += elevation;
@@ -173,7 +173,8 @@ const PaperMaterial = shaderMaterial(
         // Highlights on ridges
         float highlight = smoothstep(0.1, 0.25, vElevation) * 0.1;
 
-        color *= (0.4 + diff * 0.6);
+        // Increased ambient light for brightness (0.7 -> 0.9)
+        color *= (0.9 + diff * 0.6);
         color *= (0.5 + ao * 0.5);
         color += highlight;
 
@@ -234,6 +235,10 @@ export const ClothCard = ({
     }
 
     if (meshRef.current) {
+        // Floating animation
+        const time = state.clock.getElapsedTime();
+        meshRef.current.position.y = Math.sin(time * 0.5) * 0.1; // Gentle float
+
         let targetRotX = state.mouse.y * 0.15;
         let targetRotY = state.mouse.x * 0.15;
 
