@@ -80,7 +80,8 @@
       "Bash(git ls-tree:*)",
       "Bash(git check-ignore:*)",
       "Bash(git pull:*)",
-      "Bash(solana-keygen pubkey:*)"
+      "Bash(solana-keygen pubkey:*)",
+      "Bash(pip3 install:*)"
     ]
   },
   "outputStyle": "Explanatory"
