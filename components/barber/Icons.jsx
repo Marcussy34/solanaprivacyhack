@@ -37,11 +37,14 @@ export const OvalNumber = ({ num }) => (
 );
 
 // Stacked "BARBER" text logo
+// The Symbol (The Diamond)
 export const LogoStack = ({ className }) => (
-  <div className={`flex flex-col leading-[0.75] text-[10px] tracking-tighter font-display font-bold ${className}`}>
-    <span>BARBER</span>
-    <span>BARBER</span>
-    <span>BARBER</span>
+  <div className={`relative flex items-center justify-center ${className}`}>
+    {/* Purple Diamond */}
+    <div className="w-8 h-8 bg-[#936DFF] transform rotate-45 flex items-center justify-center">
+        {/* Inner Black Square (Cutout effect) */}
+        <div className="w-4 h-4 bg-[#05010A]"></div>
+    </div>
   </div>
 );
 

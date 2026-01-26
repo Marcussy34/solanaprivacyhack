@@ -19,8 +19,8 @@ const Particles = () => {
     uniforms: {
         uTime: { value: 0 },
         uMouse: { value: new THREE.Vector3(0, 0, 0) },
-        uColor: { value: new THREE.Color('#FF6600') },
-        uHoverColor: { value: new THREE.Color('#00FFFF') } // Cyan color burst
+        uColor: { value: new THREE.Color('#936DFF') },
+        uHoverColor: { value: new THREE.Color('#C049FF') } // Magenta color burst
     },
     vertexShader: `
         uniform float uTime;
@@ -100,7 +100,7 @@ const Particles = () => {
   useEffect(() => {
     const loader = new FontLoader();
     loader.load(fontUrl, (font) => {
-        const denseGeo = new TextGeometry('PRECISION', {
+        const denseGeo = new TextGeometry('PRIVACY', {
              font: font,
              size: 7.5,
              depth: 0.5,
@@ -155,7 +155,7 @@ const Particles = () => {
     
     // RESPONSIVE SCALING
     if (pointsRef.current && geometry) {
-        const baseWidth = 45;
+        const baseWidth = 35; // Adjusted for shorter word "PRIVACY"
         const targetScale = (viewport.width * 0.85) / baseWidth;
         const finalScale = Math.min(1.0, targetScale);
         
@@ -173,7 +173,7 @@ const Particles = () => {
 // Main ParticleText component
 export const ParticleText = () => {
   return (
-    <div className="w-full h-full bg-[#1F0B05]">
+    <div className="w-full h-full bg-[#05010A]">
         <Canvas camera={{ position: [0, 0, 20], fov: 45 }}>
             <ambientLight intensity={0.5} />
             <Particles />
