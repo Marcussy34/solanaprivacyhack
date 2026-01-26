@@ -62,6 +62,7 @@ const PaperMaterial = shaderMaterial(
   {
     uTime: 0,
     uTexture: null,
+    uBackTexture: null,
     uHover: 0,
     uMouse: new THREE.Vector2(0.5, 0.5),
     uResolution: new THREE.Vector2(1, 1),
@@ -149,6 +150,7 @@ const PaperMaterial = shaderMaterial(
   // FRAGMENT SHADER
   `
     uniform sampler2D uTexture;
+    uniform sampler2D uBackTexture;
     uniform float uHover;
     uniform float uTime;
     
@@ -157,7 +159,14 @@ const PaperMaterial = shaderMaterial(
     varying vec3 vNormal;
 
     void main() {
-        vec3 color = texture2D(uTexture, vUv).rgb;
+        vec3 color;
+        if (gl_FrontFacing) {
+            color = texture2D(uTexture, vUv).rgb;
+        } else {
+            // Flip UV x for back face to prevent mirroring
+            vec2 backUv = vec2(1.0 - vUv.x, vUv.y);
+            color = texture2D(uBackTexture, backUv).rgb;
+        }
 
         // --- PAPER GRAIN & NOISE ---
         float grain = (fract(sin(dot(vUv, vec2(12.9898,78.233)*2.0)) * 43758.5453) - 0.5) * 0.05;
@@ -165,7 +174,9 @@ const PaperMaterial = shaderMaterial(
 
         // --- PHYSICAL SHADING ---
         vec3 lightDir = normalize(vec3(1.0, 1.0, 2.0));
-        float diff = max(dot(vNormal, lightDir), 0.0);
+        // Flip normal for back face lighting
+        vec3 normal = gl_FrontFacing ? vNormal : -vNormal;
+        float diff = max(dot(normal, lightDir), 0.0);
         
         // Ambient Occlusion in valleys
         float ao = smoothstep(-0.05, 0.2, vElevation);
@@ -188,6 +199,7 @@ extend({ PaperMaterial });
 // Main ClothCard component
 export const ClothCard = ({ 
   texture, 
+  backTexture,
   position = [0,0,0], 
   scale = [1,1,1]
 }) => {
@@ -201,27 +213,6 @@ export const ClothCard = ({
       return () => {
           audioCtxRef.current?.close();
       }
-  }, []);
-
-  // GYROSCOPE support for mobile
-  const orientationRef = useRef({ beta: 0, gamma: 0 });
-  useEffect(() => {
-    const handleOrientation = (event) => {
-        let { beta, gamma } = event; 
-        if (beta === null || gamma === null) return;
-        beta = Math.min(Math.max(beta - 45, -20), 20) / 20;
-        gamma = Math.min(Math.max(gamma, -20), 20) / 20;
-        orientationRef.current = { beta, gamma };
-    };
-
-    if (window.DeviceOrientationEvent) {
-        window.addEventListener('deviceorientation', handleOrientation);
-    }
-    return () => {
-        if (window.DeviceOrientationEvent) {
-            window.removeEventListener('deviceorientation', handleOrientation);
-        }
-    }
   }, []);
 
   useFrame((state, delta) => {
@@ -238,25 +229,13 @@ export const ClothCard = ({
         // Floating animation
         const time = state.clock.getElapsedTime();
         meshRef.current.position.y = Math.sin(time * 0.5) * 0.1; // Gentle float
-
-        let targetRotX = state.mouse.y * 0.15;
-        let targetRotY = state.mouse.x * 0.15;
-
-        const { beta, gamma } = orientationRef.current;
-        if (Math.abs(beta) > 0.01 || Math.abs(gamma) > 0.01) {
-             targetRotX += beta * 0.2;
-             targetRotY += gamma * 0.2;
-        }
-
-        meshRef.current.rotation.x = THREE.MathUtils.lerp(meshRef.current.rotation.x, targetRotX, delta * 3);
-        meshRef.current.rotation.y = THREE.MathUtils.lerp(meshRef.current.rotation.y, targetRotY, delta * 3);
     }
   });
 
   const handlePointerOver = () => {
       setHover(true);
       playHoverRustle(audioCtxRef.current); 
-      document.body.style.cursor = 'pointer'; 
+      document.body.style.cursor = 'grab'; 
   };
 
   const handlePointerOut = () => {
@@ -281,7 +260,13 @@ export const ClothCard = ({
     >
       {/* High segment count for smooth fold geometry */}
       <planeGeometry args={[1, 1, 128, 128]} />
-      <paperMaterial ref={materialRef} uTexture={texture} transparent side={THREE.DoubleSide} />
+      <paperMaterial 
+        ref={materialRef} 
+        uTexture={texture} 
+        uBackTexture={backTexture || texture} // Fallback to front texture if no back provided
+        transparent 
+        side={THREE.DoubleSide} 
+      />
     </mesh>
   );
 };
