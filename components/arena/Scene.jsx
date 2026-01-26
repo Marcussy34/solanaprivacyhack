@@ -1,6 +1,6 @@
 import React, { useMemo, Suspense } from 'react';
 import { Canvas, useLoader, useThree } from '@react-three/fiber';
-import { Environment, Float, Text } from '@react-three/drei';
+import { Environment, Float, Text, OrbitControls } from '@react-three/drei';
 import * as THREE from 'three';
 import { ClothCard } from './ClothCard';
 import { createColorfulCardTexture } from '../../lib/arena/textureGenerator';
@@ -25,8 +25,8 @@ class SceneErrorBoundary extends React.Component {
 const SceneContent = () => {
   const { viewport } = useThree();
 
-  // Load the generated Umbra card texture
-  const darkCardBg = useLoader(THREE.TextureLoader, '/umbra-card.png', (loader) => {
+  // Load the generated Umbra card texture AND the back texture
+  const [darkCardBg, backTexture] = useLoader(THREE.TextureLoader, ['/umbra-card.png', '/umbra_back.jpg'], (loader) => {
     loader.setCrossOrigin('anonymous');
   });
 
@@ -52,7 +52,7 @@ const SceneContent = () => {
       <pointLight position={[-5, 2, 5]} intensity={1.5} color="#936DFF" />
       <pointLight position={[5, -2, 5]} intensity={1.0} color="#00FFFF" />
       
-      <group position={[0, 0, 0]} rotation={[0, 0.1, 0.15]}>
+      <group position={[0, 0, 0]} rotation={[0, 0.5, 0.15]}>
          <Float 
             speed={1.5} 
             rotationIntensity={0.1} 
@@ -61,6 +61,7 @@ const SceneContent = () => {
          >
             <ClothCard 
                 texture={texture} 
+                backTexture={backTexture}
                 position={[0, 0, 0]} 
                 scale={[FINAL_WIDTH, FINAL_HEIGHT, 1]} 
             />
@@ -68,6 +69,7 @@ const SceneContent = () => {
       </group>
       
       <Environment preset="night" />
+      <OrbitControls enableZoom={false} enablePan={false} minPolarAngle={Math.PI / 3} maxPolarAngle={Math.PI / 1.5} autoRotate autoRotateSpeed={2.0} />
     </>
   );
 };
