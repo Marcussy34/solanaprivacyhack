@@ -3,14 +3,14 @@ import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { Environment } from '@react-three/drei';
 import * as THREE from 'three';
 
-// --- REALISTIC RAZOR GEOMETRY ---
-// Creates a safety razor shape with cutouts
-const createRazorGeometry = () => {
+// --- REALISTIC CARD GEOMETRY ---
+// Creates a simple rounded card shape
+const createCardGeometry = () => {
     const shape = new THREE.Shape();
-    // Standard safety razor dimensions ratio roughly 2:1
-    const w = 1.1; 
-    const h = 0.5;
-    const r = 0.03; 
+    // Standard poker card ratio 2.5 : 3.5
+    const w = 1.0; 
+    const h = 1.4;
+    const r = 0.05; 
 
     // Outer contour with rounded corners
     shape.moveTo(-w/2 + r, -h/2);
@@ -23,48 +23,33 @@ const createRazorGeometry = () => {
     shape.lineTo(-w/2, -h/2 + r);
     shape.quadraticCurveTo(-w/2, -h/2, -w/2 + r, -h/2);
 
-    // Central Cutout (circle + slot)
-    const hole = new THREE.Path();
-    hole.moveTo(0.1, 0);
-    hole.absarc(0, 0, 0.1, 0, Math.PI * 2, false);
-    
-    const slotW = 0.7;
-    const slotH = 0.06;
-    hole.moveTo(-slotW/2, -slotH/2);
-    hole.lineTo(slotW/2, -slotH/2);
-    hole.lineTo(slotW/2, slotH/2);
-    hole.lineTo(-slotW/2, slotH/2);
-    hole.lineTo(-slotW/2, -slotH/2);
-
-    shape.holes.push(hole);
-
     // Extrude to give depth
     const geometry = new THREE.ExtrudeGeometry(shape, {
-        depth: 0.005, 
+        depth: 0.01, 
         bevelEnabled: true,
         bevelSegments: 2,
-        bevelSize: 0.008, 
-        bevelThickness: 0.008
+        bevelSize: 0.01, 
+        bevelThickness: 0.01
     });
     geometry.center();
     return geometry;
 };
 
-// Instanced mesh of falling/floating razors
-const HeroRazors = ({ count = 60 }) => {
+// Instanced mesh of falling/floating cards
+const HeroCards = ({ count = 60 }) => {
   const meshRef = useRef(null);
   const { viewport, mouse, camera } = useThree();
-  const geometry = useMemo(() => createRazorGeometry(), []);
+  const geometry = useMemo(() => createCardGeometry(), []);
   
-  // Metallic material for razor blades
+  // Metallic/Holographic material for cards
   const material = useMemo(() => new THREE.MeshStandardMaterial({
-    color: '#ffffff', 
-    metalness: 0.9,   
-    roughness: 0.15,
-    envMapIntensity: 1.5,
+    color: '#936DFF', 
+    metalness: 0.8,   
+    roughness: 0.2,
+    envMapIntensity: 2.0,
   }), []);
 
-  // Pre-calculate properties for each razor instance
+  // Pre-calculate properties for each card instance
   const particles = useMemo(() => {
     const data = [];
     for (let i = 0; i < count; i++) {
@@ -90,7 +75,7 @@ const HeroRazors = ({ count = 60 }) => {
                 Math.random() * Math.PI
             ),
             // FIXED SCALE: Uniform size
-            scale: 1.2 
+            scale: 0.8 
         });
     }
     return data;
@@ -172,6 +157,9 @@ export const HeroOverlay = () => {
   return (
     <div className="absolute inset-0 pointer-events-none z-50">
       <Canvas 
+        eventSource={typeof document !== 'undefined' ? document.body : undefined}
+        eventPrefix="client"
+        style={{ pointerEvents: 'none' }}
         camera={{ position: [0, 0, 15], fov: 35 }} 
         gl={{ alpha: true, antialias: true }} 
         dpr={[1, 2]}
@@ -182,10 +170,10 @@ export const HeroOverlay = () => {
         
         {/* Multiple directional lights for metallic reflections */}
         <directionalLight position={[10, 5, 5]} intensity={2.0} color="#ffffff" />
-        <directionalLight position={[-10, 5, 2]} intensity={1.5} color="#FFDDBB" />
-        <directionalLight position={[0, -10, 5]} intensity={1.0} color="#FF6600" />
+        <directionalLight position={[-10, 5, 2]} intensity={1.5} color="#C049FF" />
+        <directionalLight position={[0, -10, 5]} intensity={1.0} color="#936DFF" />
         
-        <HeroRazors />
+        <HeroCards />
       </Canvas>
     </div>
   );
