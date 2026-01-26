@@ -184,3 +184,42 @@ body {
 .perspective-1000 {
   perspective: 1000px;
 }
+
+/* ========================================
+   UMBRA LANDING PAGE STYLES
+   ======================================== */
+
+/* Umbra theme CSS variables */
+:root {
+  --color-umbra-black: #05010A;      /* Deep Space Black */
+  --color-umbra-purple: #936DFF;     /* Electric Purple */
+  --color-umbra-magenta: #C049FF;    /* Vivid Magenta */
+  --color-umbra-white: #FFFFFF;      /* Pure White */
+  --color-umbra-lavender: #B8B8CC;   /* Muted Lavender */
+  
+  --font-display: 'Antonio', 'Oswald', sans-serif;
+  --font-body: 'Roboto Condensed', sans-serif;
+}
+
+/* Display font class */
+.font-display {
+  font-family: var(--font-display);
+}
+
+/* Body font class */
+.font-body {
+  font-family: var(--font-body);
+}
+
+/* Custom Scrollbar for Umbra theme */
+.barber-theme::-webkit-scrollbar {
+  width: 8px;
+}
+
+.barber-theme::-webkit-scrollbar-track {
+  background: var(--color-umbra-black);
+}
+
+.barber-theme::-webkit-scrollbar-thumb {
+  background: var(--color-umbra-purple);
+}
