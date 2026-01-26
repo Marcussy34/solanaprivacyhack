@@ -21,8 +21,9 @@ This document chronicles the debugging journey from initial "Transaction Simulat
 9. [Issue 8: Dealer Turn Had No ZK Verification (CRITICAL)](#issue-8-dealer-turn-had-no-zk-verification-critical)
 10. [Issue 9: Program ID Mismatch After Deployment](#issue-9-program-id-mismatch-after-deployment)
 11. [Issue 10: Verifier IDs Pointing to Wrong Programs](#issue-10-verifier-ids-pointing-to-wrong-programs)
-12. [Summary of All Verifier Deployments](#summary-of-all-verifier-deployments)
-13. [Lessons Learned](#lessons-learned)
+12. [Issue 11: Transaction Too Large - Dealer Turn with Multiple Cards](#issue-11-transaction-too-large---dealer-turn-with-multiple-cards)
+13. [Summary of All Verifier Deployments](#summary-of-all-verifier-deployments)
+14. [Lessons Learned](#lessons-learned)
 
 ---
 
@@ -507,6 +508,167 @@ mod reveal_verifier {
 
 ---
 
+## Issue 11: Transaction Too Large - Dealer Turn with Multiple Cards
+
+### Symptom
+```
+WalletSignTransactionError: Transaction too large: 1243 > 1232
+```
+
+Dealer turn fails when dealer needs to hit (reveal 2+ cards). Game stuck in `dealerTurn` state.
+
+### Root Cause
+Solana transactions have a **hard limit of 1232 bytes**. Each Groth16 proof is ~388 bytes plus ~100 bytes of public inputs. When dealer needs to reveal 2+ cards:
+
+```
+Transaction breakdown:
+├── Proof 1:        388 bytes
+├── Public inputs 1: ~100 bytes
+├── Proof 2:        388 bytes
+├── Public inputs 2: ~100 bytes
+├── Accounts:       ~200 bytes
+├── Instruction:    ~70 bytes
+└── Signatures:     ~64 bytes
+    ────────────────────────
+    TOTAL:          ~1310 bytes > 1232 limit ❌
+```
+
+The on-chain `dealer_play_turn` instruction was designed to receive ALL cards and proofs in a single atomic transaction, making it impossible to reveal 2+ cards.
+
+### Solution
+Two-part fix:
+
+**1. On-Chain Program Update** (`lib.rs`):
+Modified `dealer_play_turn` to support **incremental reveals** across multiple transactions:
+
+```rust
+pub fn dealer_play_turn(
+    ctx: Context<DealerPlayTurnSecure>,
+    dealer_card_values: Vec<u8>,
+    proofs: Vec<Vec<u8>>,
+    public_inputs_list: Vec<Vec<u8>>,
+) -> Result<()> {
+    // Check if hole card already revealed (from previous call)
+    let hole_card_revealed = game.dealer_revealed.len() >= 2;
+
+    if !hole_card_revealed {
+        // Reveal hole card with ZK proof
+        verify_and_reveal_hole_card(...)?;
+    }
+
+    // Hit loop - process as many cards as provided
+    loop {
+        let dealer_total = calculate_hand_value(&game.dealer_revealed);
+
+        if dealer_total >= 17 {
+            // Finalize game
+            determine_winner(game)?;
+            return Ok(());
+        }
+
+        // Check if we have more cards in THIS transaction
+        if value_index >= dealer_card_values.len() {
+            // No more cards - return SUCCESS, stay in DealerTurn
+            // Frontend will call again with next card
+            msg!("Dealer needs hit but no more cards in this tx");
+            return Ok(());
+        }
+
+        // Verify and reveal hit card
+        verify_and_reveal_hit_card(...)?;
+    }
+}
+```
+
+**2. Frontend Sequential Submission** (`useGameProgram.js`):
+Added `dealerPlayTurnSequential` function that submits cards one at a time:
+
+```javascript
+const dealerPlayTurnSequential = async (
+  gameId, dealerPubkey, cardValues, proofs, publicInputsList, onProgress
+) => {
+  for (let i = 0; i < cardValues.length; i++) {
+    // Submit ONE card per transaction
+    await program.methods
+      .dealerPlayTurn(
+        [cardValues[i]],      // Single card
+        [proofs[i]],          // Single proof
+        [publicInputsList[i]] // Single public input
+      )
+      .accounts({...})
+      .rpc();
+
+    onProgress?.(i + 1, cardValues.length, tx);
+  }
+};
+```
+
+**3. Game Logic Update** (`game.js`):
+Use sequential submission when 2+ cards:
+
+```javascript
+if (cardValues.length >= 2) {
+  console.log("[Game] Using sequential submission...");
+  await dealerPlayTurnSequential(gameId, dealerPubkey, cardValues, proofs, publicInputsList);
+} else {
+  await dealerPlayTurn(gameId, dealerPubkey, cardValues, proofs, publicInputsList);
+}
+```
+
+### Transaction Flow After Fix
+
+```
+Dealer has upcard=8, hole=4, needs hit → gets 9, total=21
+
+Transaction 1: Hole Card
+┌─────────────────────────────────────────┐
+│ Input: [hole=4], [proof1]               │
+│ Size: ~788 bytes ✓                      │
+│ On-chain:                               │
+│   - Verify proof via CPI                │
+│   - dealer_revealed: [8] → [8, 4]       │
+│   - Total = 12, needs hit               │
+│   - No more cards → return SUCCESS      │
+│   - State: still DealerTurn             │
+└─────────────────────────────────────────┘
+              ↓
+Transaction 2: Hit Card
+┌─────────────────────────────────────────┐
+│ Input: [hit=9], [proof2]                │
+│ Size: ~788 bytes ✓                      │
+│ On-chain:                               │
+│   - Hole card already revealed (skip)   │
+│   - Verify proof via CPI                │
+│   - dealer_revealed: [8,4] → [8,4,9]    │
+│   - Total = 21, stands                  │
+│   - determine_winner() → DealerWon      │
+│   - State: DealerWon                    │
+└─────────────────────────────────────────┘
+```
+
+### Files Changed
+- `programs/zk-card-arena/src/lib.rs` - Modified `dealer_play_turn` to support incremental reveals
+- `hooks/useGameProgram.js` - Added `dealerPlayTurnSequential` function
+- `pages/game.js` - Uses sequential submission when cardValues.length >= 2
+
+### Console Output After Fix
+```
+[Game] Dealer turn - final hand: [8, 4, 9], total: 21
+[Game] Submitting 2 card(s) with ZK proofs to chain...
+[Game] Using sequential submission for 2 cards (avoiding tx size limit)...
+[DealerPlayTurnSequential] Submitting 2 cards one at a time...
+[DealerPlayTurnSequential] Submitting card 1/2: value=4
+[DealerPlayTurnSequential] Card 1/2 submitted: 29nEh4oNTYqG...
+[DealerPlayTurnSequential] Submitting card 2/2: value=9
+[DealerPlayTurnSequential] Card 2/2 submitted: 4U6vbuUe6smn...
+Game update: {state: 'playerWon', ...}
+```
+
+### Key Insight
+Solana's 1232 byte transaction limit is a fundamental constraint. For ZK applications with large proofs (~388 bytes each), design instructions to accept **incremental inputs** rather than requiring all data atomically. This pattern applies to any ZK verification where multiple proofs might be needed.
+
+---
+
 ## Summary of All Verifier Deployments
 
 ### Final Deployed Program IDs (Devnet)
@@ -595,6 +757,27 @@ When deploying program updates:
 2. Then build and deploy
 3. Never deploy first, update source second (causes DeclaredProgramIdMismatch)
 
+### 10. Design for Solana's 1232 Byte Transaction Limit
+Groth16 proofs are ~388 bytes each. With 2+ proofs, you'll exceed the 1232 byte limit:
+- **Don't design atomic multi-proof instructions** that require all proofs at once
+- **Support incremental reveals** - let the instruction be called multiple times
+- **Track state on-chain** - know which proofs have been submitted
+- **Finalize on last proof** - only call determine_winner() when done
+
+```rust
+// BAD: Requires all proofs atomically (fails with 2+ proofs)
+pub fn reveal_all_cards(values: Vec<u8>, proofs: Vec<Vec<u8>>) { ... }
+
+// GOOD: Supports incremental submission
+pub fn reveal_card(value: u8, proof: Vec<u8>) {
+    // Check if this is the last card needed
+    if all_cards_revealed() {
+        determine_winner()?;
+    }
+    Ok(())  // Stay in current state if more cards needed
+}
+```
+
 ---
 
 ## Quick Reference: Fixing VK/PK Mismatch
@@ -669,5 +852,5 @@ pub fn secure_instruction(
 ---
 
 *Document created: January 26, 2026*
-*Last updated: January 26, 2026 (Issues 8-10 added)*
+*Last updated: January 26, 2026 (Issue 11 added - Transaction size limit fix)*
 *ZK Card Arena - Solana Privacy Hackathon*
