@@ -255,7 +255,7 @@ export function useShadowPay() {
       // For demo: Direct transfer shows instant, verifiable on-chain proof.
       //
       // To enable ShadowWire: set USE_SHADOWWIRE_POOL = true below
-      const USE_SHADOWWIRE_POOL = false;  // Set to true to enable pool-based privacy
+      const USE_SHADOWWIRE_POOL = true;   // ENABLED - Pool-based privacy payments (mainnet)
 
       if (SHADOWWIRE_ENABLED && USE_SHADOWWIRE_POOL) {
         const client = await getShadowWireClient();
@@ -279,10 +279,14 @@ export function useShadowPay() {
             // Step 1: Check ShadowWire pool balance
             console.log('[ShadowWire] Checking pool balance...');
             const poolBalance = await client.getBalance(publicKey.toString(), 'SOL');
-            console.log('[ShadowWire] Pool balance:', poolBalance);
+            console.log('[ShadowWire] Pool balance response:', JSON.stringify(poolBalance));
+            console.log('[ShadowWire] Pool available:', poolBalance?.available, 'Amount needed:', amount);
 
             // Step 2: If pool balance is insufficient, deposit first
-            if (!poolBalance || poolBalance.available < amount) {
+            const needsDeposit = !poolBalance || !poolBalance.available || poolBalance.available < amount;
+            console.log('[ShadowWire] Needs deposit?', needsDeposit);
+
+            if (needsDeposit) {
               console.log('[ShadowWire] Insufficient pool balance, depositing first...');
               setStatus(PaymentStatus.DEPOSITING);
 
@@ -321,14 +325,26 @@ export function useShadowPay() {
 
             setStatus(PaymentStatus.VERIFYING);
             console.log('[ShadowWire] Transfer submitted:', payment);
+            console.log('[ShadowWire] Response keys:', Object.keys(payment));
 
-            txSignature = payment.signature || payment.txSignature || payment.tx || payment.hash;
+            // SDK returns tx_signature (snake_case), not signature/txSignature (camelCase)
+            txSignature = payment.tx_signature || payment.signature || payment.txSignature || payment.tx || payment.hash;
             paymentMethod = 'shadowwire';
+
+            // Strip TX1:/TX2: prefix if present (ShadowWire compound signature format)
+            if (txSignature && txSignature.includes(':')) {
+              console.log('[ShadowWire] Stripping prefix from signature:', txSignature.substring(0, 10) + '...');
+              txSignature = txSignature.split(':')[1] || txSignature;
+            }
 
             if (txSignature) {
               setStatus(PaymentStatus.SETTLING);
               await connection.confirmTransaction(txSignature, 'confirmed');
               console.log('[ShadowWire] Private transfer confirmed:', txSignature);
+            } else if (payment.success) {
+              // Transfer succeeded but no on-chain tx (internal pool transfer)
+              txSignature = 'shadowwire-pool-' + Date.now();
+              console.log('[ShadowWire] Pool transfer completed (internal, no on-chain tx)');
             }
 
           } catch (shadowErr) {

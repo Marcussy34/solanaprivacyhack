@@ -1412,6 +1412,7 @@ export default function GamePage() {
               <BetSelector
                 onBetPlaced={handleBetPlaced}
                 disabled={loading}
+                defaultPaymentMode="shadowwire"
               />
 
               <button
@@ -1459,6 +1460,7 @@ export default function GamePage() {
                     fixedAmount={playerBetAmount}
                     onBetPlaced={handleDealerBetPlaced}
                     disabled={loading}
+                    defaultPaymentMode="shadowwire"
                   />
 
                   {error && (
