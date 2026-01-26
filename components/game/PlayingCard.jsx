@@ -7,8 +7,8 @@ const VALUES = ["A", "2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K"
 const SUITS = {
   hearts: { symbol: "♥", color: "text-red-500" },
   diamonds: { symbol: "♦", color: "text-red-500" },
-  clubs: { symbol: "♣", color: "text-white" },
-  spades: { symbol: "♠", color: "text-white" },
+  clubs: { symbol: "♣", color: "text-black" },
+  spades: { symbol: "♠", color: "text-black" },
 };
 
 // Convert card value (0-12) to display
@@ -87,16 +87,16 @@ export function PlayingCard({
         {/* Card Front */}
         <div
           className={cn(
-            "absolute inset-0 rounded-xl border-2 border-white/20",
-            "bg-gradient-to-br from-white to-gray-100",
+            "absolute inset-0 rounded-xl border-2 border-[#936DFF]",
+            "bg-white",
             "flex flex-col items-center justify-between p-2",
-            "shadow-lg shadow-black/50",
+            "shadow-lg shadow-[#936DFF]/20",
             "backface-hidden"
           )}
         >
           {/* Top left */}
           <div className={cn("self-start flex flex-col items-center leading-none", suitInfo.color)}>
-            <span className="text-lg md:text-xl font-bold">{display}</span>
+            <span className="text-lg md:text-xl font-bold font-display">{display}</span>
             <span className="text-sm md:text-base">{suitInfo.symbol}</span>
           </div>
 
@@ -107,7 +107,7 @@ export function PlayingCard({
 
           {/* Bottom right (rotated) */}
           <div className={cn("self-end flex flex-col items-center leading-none rotate-180", suitInfo.color)}>
-            <span className="text-lg md:text-xl font-bold">{display}</span>
+            <span className="text-lg md:text-xl font-bold font-display">{display}</span>
             <span className="text-sm md:text-base">{suitInfo.symbol}</span>
           </div>
         </div>
@@ -115,17 +115,17 @@ export function PlayingCard({
         {/* Card Back */}
         <div
           className={cn(
-            "absolute inset-0 rounded-xl border-2 border-purple-500/50",
-            "bg-gradient-to-br from-purple-900 via-purple-800 to-purple-900",
+            "absolute inset-0 rounded-xl border-2 border-[#936DFF]",
+            "bg-[#05010A]",
             "flex items-center justify-center",
-            "shadow-lg shadow-purple-500/30",
+            "shadow-lg shadow-[#936DFF]/30",
             "backface-hidden"
           )}
           style={{ transform: "rotateY(180deg)" }}
         >
           {/* Pattern on back */}
-          <div className="w-14 h-20 md:w-16 md:h-24 rounded-lg border-2 border-purple-400/30 bg-purple-700/50 flex items-center justify-center">
-            <div className="text-purple-300/50 text-2xl md:text-3xl font-bold">ZK</div>
+          <div className="w-14 h-20 md:w-16 md:h-24 rounded-lg border border-[#936DFF]/30 bg-[#936DFF]/10 flex items-center justify-center">
+            <div className="text-[#936DFF] text-2xl md:text-3xl font-bold font-display">ZK</div>
           </div>
         </div>
       </motion.div>
@@ -149,17 +149,17 @@ export function HiddenCard({ className, delay = 0, isRevealing = false }) {
       whileHover={{ y: -4 }}
       className={cn(
         "w-20 h-28 md:w-24 md:h-32 rounded-xl",
-        "border-2 border-purple-500/50",
-        "bg-gradient-to-br from-purple-900 via-purple-800 to-purple-900",
+        "border-2 border-[#936DFF]",
+        "bg-[#05010A]",
         "flex items-center justify-center",
-        "shadow-lg shadow-purple-500/30",
+        "shadow-lg shadow-[#936DFF]/30",
         "transition-shadow duration-300",
-        "hover:shadow-xl hover:shadow-purple-500/40",
+        "hover:shadow-xl hover:shadow-[#936DFF]/40",
         className
       )}
     >
-      <div className="w-14 h-20 md:w-16 md:h-24 rounded-lg border-2 border-purple-400/30 bg-purple-700/50 flex items-center justify-center">
-        <div className="text-purple-300/50 text-2xl md:text-3xl font-bold">ZK</div>
+      <div className="w-14 h-20 md:w-16 md:h-24 rounded-lg border border-[#936DFF]/30 bg-[#936DFF]/10 flex items-center justify-center">
+        <div className="text-[#936DFF] text-2xl md:text-3xl font-bold font-display">ZK</div>
       </div>
     </motion.div>
   );
@@ -175,14 +175,14 @@ export function PendingCard({ className, delay = 0 }) {
       className={cn(
         "w-20 h-28 md:w-24 md:h-32 rounded-xl",
         "border-2 border-yellow-500/50",
-        "bg-gradient-to-br from-yellow-900/30 via-purple-800 to-purple-900",
+        "bg-[#05010A]",
         "flex items-center justify-center",
         "shadow-lg shadow-yellow-500/20",
         "animate-pulse",
         className
       )}
     >
-      <div className="w-14 h-20 md:w-16 md:h-24 rounded-lg border-2 border-yellow-400/30 bg-purple-700/50 flex items-center justify-center">
+      <div className="w-14 h-20 md:w-16 md:h-24 rounded-lg border border-yellow-400/30 bg-yellow-500/10 flex items-center justify-center">
         <Loader2 className="w-6 h-6 text-yellow-400 animate-spin" />
       </div>
     </motion.div>
@@ -208,8 +208,8 @@ export function CardSlot({ className, isPulsing = true }) {
       }}
       className={cn(
         "w-20 h-28 md:w-24 md:h-32 rounded-xl",
-        "border-2 border-dashed border-white/10",
-        "bg-white/5",
+        "border-2 border-dashed border-[#936DFF]/30",
+        "bg-[#05010A]",
         className
       )}
     />
