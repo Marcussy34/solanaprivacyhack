@@ -212,14 +212,14 @@ body {
 }
 
 /* Custom Scrollbar for Umbra theme */
-.barber-theme::-webkit-scrollbar {
+.arena-theme::-webkit-scrollbar {
   width: 8px;
 }
 
-.barber-theme::-webkit-scrollbar-track {
+.arena-theme::-webkit-scrollbar-track {
   background: var(--color-umbra-black);
 }
 
-.barber-theme::-webkit-scrollbar-thumb {
+.arena-theme::-webkit-scrollbar-thumb {
   background: var(--color-umbra-purple);
 }

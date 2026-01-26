@@ -1,10 +1,10 @@
 import React from 'react';
 import Head from 'next/head';
-import { Poster } from '../components/barber/Poster';
-import { HeroOverlay } from '../components/barber/HeroOverlay';
-import { Scene } from '../components/barber/Scene';
-import { ServiceMenu } from '../components/barber/ServiceMenu';
-import { ParticleText } from '../components/barber/ParticleText';
+import { Poster } from '../components/arena/Poster';
+import { HeroOverlay } from '../components/arena/HeroOverlay';
+import { Scene } from '../components/arena/Scene';
+import { ServiceMenu } from '../components/arena/ServiceMenu';
+import { ParticleText } from '../components/arena/ParticleText';
 
 export default function Home() {
   return (
@@ -18,7 +18,7 @@ export default function Home() {
         <link href="https://fonts.googleapis.com/css2?family=Antonio:wght@400;500;600;700&family=Oswald:wght@400;500;600;700&family=Roboto+Condensed:ital,wght@0,300;0,400;0,700;1,300;1,400;1,700&display=swap" rel="stylesheet" />
       </Head>
 
-      <div className="bg-[#05010A] min-h-screen text-[#FFFFFF] w-full overflow-x-hidden barber-theme">
+      <div className="bg-[#05010A] min-h-screen text-[#FFFFFF] w-full overflow-x-hidden arena-theme">
         
         {/* SECTION 1: THE FLAT POSTER + CARD OVERLAY */}
         <section className="w-full h-screen flex items-center justify-center p-2 sm:p-4 box-border bg-[#05010A] relative z-10">

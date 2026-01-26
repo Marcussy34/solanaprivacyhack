@@ -10,7 +10,7 @@ import { useGameProgram } from "../hooks/useGameProgram";
 import { useZKGame } from "../hooks/useZKGame";
 import { useShadowPay } from "../hooks/useShadowPay";
 import { cn } from "../lib/utils";
-import { ArrowLeft, LogoStack } from "../components/barber/Icons";
+import { ArrowLeft, LogoStack } from "../components/arena/Icons";
 import { useTransition } from "../components/ui/PageTransition";
 import {
   Loader2,
