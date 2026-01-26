@@ -9,14 +9,12 @@ const DEVNET_RPC = process.env.NEXT_PUBLIC_DEVNET_RPC_ENDPOINT || "https://api.d
 const devnetConnection = new Connection(DEVNET_RPC, "confirmed");
 
 // Program ID from deployed contract (deployed by FBbtn... wallet on Jan 25)
-const PROGRAM_ID = new PublicKey("22BfrTbAzVmwENnyfzk6rFtPaNvCmaATbeWaJKKoqkK4");
+const PROGRAM_ID = new PublicKey("8Da8a3Q9GLYuxYLXPtxKiAedZZbx5DUQCuG8TPY1dLnx");
 
-// Sunspot Groth16 verifier program IDs (deployed to devnet by FBbtn... wallet)
-const SHUFFLE_VERIFIER_PROGRAM_ID = new PublicKey("EbqLX5ryQAuch2zueoNoXyV9B8okvpRPLCgxYgZLf8g");
-// Updated Jan 26 2026 - new VK/PK matching pair
-const DEAL_VERIFIER_PROGRAM_ID = new PublicKey("7p8MDtniW4WgE8LpT2R2t35CSG3YbkWGCjWixPuq6AbL");
-// Updated Jan 26 2026 - new VK/PK matching pair
-const REVEAL_VERIFIER_PROGRAM_ID = new PublicKey("7PMUYpFvo2pKjTH2r6YJ2MZC4Tb72SS9hmfu8QzW41NW");
+// Sunspot Groth16 verifier program IDs (deployed Jan 23 2026, match solana-verifiers/target/*.pk keys)
+const SHUFFLE_VERIFIER_PROGRAM_ID = new PublicKey("6sju9HLJTFfESLn49wAR2hqiC6mnu3MrP2K9WDbkjCL2");
+const DEAL_VERIFIER_PROGRAM_ID = new PublicKey("Epoxbrv1Pc2XeYR2xsKsqm3Gy1j2MbkBx4yHfkg8yuSC");
+const REVEAL_VERIFIER_PROGRAM_ID = new PublicKey("HrETBH5nTa3DTVjBFWMdytLtuX9GsFwiAGkkyQAXnMt9");
 
 // IDL imported directly (smaller than full IDL, just what we need)
 const IDL = {
@@ -114,9 +112,14 @@ const IDL = {
       accounts: [
         { name: "game", isMut: true, isSigner: false },
         { name: "dealer", isMut: false, isSigner: true },
+        // SECURITY FIX: Added reveal verifier for ZK proof verification
+        { name: "revealVerifierProgram", isMut: false, isSigner: false },
       ],
       args: [
         { name: "dealerCardValues", type: { vec: "u8" } },
+        // SECURITY FIX: Added proof parameters for each card reveal
+        { name: "proofs", type: { vec: "bytes" } },
+        { name: "publicInputsList", type: { vec: "bytes" } },
       ],
     },
   ],
@@ -524,9 +527,14 @@ export function useGameProgram() {
   );
 
   // Dealer plays their turn: reveals hole card, auto-hits until 17+, determines winner
-  // explicitCardValues required (from shuffled deck)
+  // SECURITY FIX: Now requires ZK reveal proofs for each card value
+  //
+  // Parameters:
+  // - explicitCardValues: Array of card values [hole_card, hit1, hit2, ...]
+  // - proofs: Array of Groth16 proof byte arrays, one per card value
+  // - publicInputsList: Array of public input byte arrays, one per card value
   const dealerPlayTurn = useCallback(
-    async (gameId, dealerPubkey = null, explicitCardValues = null) => {
+    async (gameId, dealerPubkey = null, explicitCardValues = null, proofs = null, publicInputsList = null) => {
       if (!program || !wallet.publicKey) {
         throw new Error("Wallet not connected");
       }
@@ -537,14 +545,36 @@ export function useGameProgram() {
       if (!explicitCardValues) {
         throw new Error("Card values required for dealer turn - shuffled deck not available");
       }
+      // SECURITY FIX: Require ZK proofs for each card
+      if (!proofs || !publicInputsList) {
+        throw new Error("ZK proofs required for dealer turn - cannot reveal cards without proof");
+      }
+      if (proofs.length !== explicitCardValues.length || publicInputsList.length !== explicitCardValues.length) {
+        throw new Error("Proof count must match card count - need one proof per card");
+      }
+
       const dealerCardValues = explicitCardValues;
 
+      // Convert proofs to Buffer format for Anchor serialization
+      const proofsBuffers = proofs.map(p =>
+        Buffer.from(p instanceof Uint8Array ? p : new Uint8Array(p))
+      );
+      const publicInputsBuffers = publicInputsList.map(pi =>
+        Buffer.from(pi instanceof Uint8Array ? pi : new Uint8Array(pi))
+      );
+
       const tx = await program.methods
-        .dealerPlayTurn(dealerCardValues)
+        .dealerPlayTurn(dealerCardValues, proofsBuffers, publicInputsBuffers)
         .accounts({
           game: gamePda,
           dealer: wallet.publicKey,
+          revealVerifierProgram: REVEAL_VERIFIER_PROGRAM_ID,
         })
+        .preInstructions([
+          // SECURITY FIX: Multiple CPI calls require higher compute budget
+          // Each reveal verification ~500k CU, up to 5 cards possible
+          ComputeBudgetProgram.setComputeUnitLimit({ units: 1_400_000 }),
+        ])
         .rpc();
 
       return { tx };
