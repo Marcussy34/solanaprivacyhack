@@ -533,6 +533,8 @@ export function useGameProgram() {
   // - explicitCardValues: Array of card values [hole_card, hit1, hit2, ...]
   // - proofs: Array of Groth16 proof byte arrays, one per card value
   // - publicInputsList: Array of public input byte arrays, one per card value
+  //
+  // NOTE: If multiple cards cause "Transaction too large" error, use dealerPlayTurnSequential instead
   const dealerPlayTurn = useCallback(
     async (gameId, dealerPubkey = null, explicitCardValues = null, proofs = null, publicInputsList = null) => {
       if (!program || !wallet.publicKey) {
@@ -578,6 +580,90 @@ export function useGameProgram() {
         .rpc();
 
       return { tx };
+    },
+    [program, wallet.publicKey, getGamePda]
+  );
+
+  // Sequential version of dealerPlayTurn - submits ONE card at a time to avoid transaction size limits
+  // Solana has a 1232 byte tx limit; each Groth16 proof is ~388 bytes, so 2+ proofs exceed the limit
+  //
+  // This function calls dealerPlayTurn multiple times, each with a single card.
+  // The on-chain program must support incremental reveals (checking if game should continue or finalize).
+  //
+  // Parameters:
+  // - explicitCardValues: Array of card values [hole_card, hit1, hit2, ...]
+  // - proofs: Array of Groth16 proof byte arrays, one per card value
+  // - publicInputsList: Array of public input byte arrays, one per card value
+  // - onProgress: Optional callback(cardIndex, totalCards, txSignature) for UI updates
+  const dealerPlayTurnSequential = useCallback(
+    async (gameId, dealerPubkey = null, explicitCardValues = null, proofs = null, publicInputsList = null, onProgress = null) => {
+      if (!program || !wallet.publicKey) {
+        throw new Error("Wallet not connected");
+      }
+
+      const dealer = dealerPubkey ? new PublicKey(dealerPubkey) : wallet.publicKey;
+      const gamePda = getGamePda(gameId, dealer);
+
+      if (!explicitCardValues) {
+        throw new Error("Card values required for dealer turn - shuffled deck not available");
+      }
+      if (!proofs || !publicInputsList) {
+        throw new Error("ZK proofs required for dealer turn - cannot reveal cards without proof");
+      }
+      if (proofs.length !== explicitCardValues.length || publicInputsList.length !== explicitCardValues.length) {
+        throw new Error("Proof count must match card count - need one proof per card");
+      }
+
+      const totalCards = explicitCardValues.length;
+      const txSignatures = [];
+
+      console.log(`[DealerPlayTurnSequential] Submitting ${totalCards} cards one at a time...`);
+
+      // Submit each card as a separate transaction to stay under size limit
+      for (let i = 0; i < totalCards; i++) {
+        const cardValue = explicitCardValues[i];
+        const proof = proofs[i];
+        const publicInputs = publicInputsList[i];
+
+        // Convert to Buffer format for Anchor
+        const proofBuffer = Buffer.from(proof instanceof Uint8Array ? proof : new Uint8Array(proof));
+        const publicInputsBuffer = Buffer.from(publicInputs instanceof Uint8Array ? publicInputs : new Uint8Array(publicInputs));
+
+        console.log(`[DealerPlayTurnSequential] Submitting card ${i + 1}/${totalCards}: value=${cardValue}`);
+
+        try {
+          const tx = await program.methods
+            .dealerPlayTurn([cardValue], [proofBuffer], [publicInputsBuffer])
+            .accounts({
+              game: gamePda,
+              dealer: wallet.publicKey,
+              revealVerifierProgram: REVEAL_VERIFIER_PROGRAM_ID,
+            })
+            .preInstructions([
+              // Single proof verification needs ~600k CU
+              ComputeBudgetProgram.setComputeUnitLimit({ units: 800_000 }),
+            ])
+            .rpc();
+
+          txSignatures.push(tx);
+          console.log(`[DealerPlayTurnSequential] Card ${i + 1}/${totalCards} submitted: ${tx}`);
+
+          // Call progress callback if provided
+          if (onProgress) {
+            onProgress(i + 1, totalCards, tx);
+          }
+        } catch (err) {
+          // If we get an "invalid state" error after first card, game might have already finalized
+          // This can happen if dealer busts or reaches 17+ before all cards submitted
+          if (err.message?.includes("Invalid game state") || err.message?.includes("InvalidState")) {
+            console.log(`[DealerPlayTurnSequential] Game finalized after card ${i + 1} - no more cards needed`);
+            break;
+          }
+          throw err;
+        }
+      }
+
+      return { txSignatures, lastTx: txSignatures[txSignatures.length - 1] };
     },
     [program, wallet.publicKey, getGamePda]
   );
@@ -692,6 +778,7 @@ export function useGameProgram() {
     revealCard,
     revealAllCards,
     dealerPlayTurn,
+    dealerPlayTurnSequential, // Use when dealerPlayTurn hits tx size limit
 
     // Queries
     fetchGame,
