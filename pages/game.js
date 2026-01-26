@@ -802,19 +802,53 @@ export default function GamePage() {
     setError(null);
 
     try {
-      // Build real dealer card values from shuffled deck:
-      // [0] = hole card (position 3 in deck), [1..5] = potential hit cards
+      // SECURITY FIX: Generate ZK reveal proofs for each dealer card
+      // This prevents dealer from claiming arbitrary card values
       if (!shuffledDeck) {
         throw new Error("Shuffled deck not available - dealer must be in same session for demo");
       }
-      const deckPos = gameData?.deckPosition || 4;
-      const dealerCardValues = [
-        shuffledDeck[3],  // Hole card
-        ...shuffledDeck.slice(deckPos, deckPos + 5),  // Up to 5 hit cards
-      ];
-      console.log("[Game] Dealer turn - hole card:", shuffledDeck[3], "hit cards from pos:", deckPos);
 
-      await dealerPlayTurn(gameId, dealerPubkey, dealerCardValues);
+      // Step 1: Generate reveal proof for hole card (deck position 3)
+      console.log("[Game] Generating ZK reveal proof for hole card (position 3)...");
+      const holeCardProof = await generateRevealProof(3);
+      const holeCardValue = shuffledDeck[3];
+
+      // Step 2: Simulate dealer hit logic locally to determine needed cards
+      // Start with dealer's revealed upcard (from gameData) + hole card
+      const dealerUpcard = dealerRevealed[0];  // Already revealed upcard
+      let simulatedHand = [dealerUpcard, holeCardValue];
+      let dealerTotal = calculateHandValue(simulatedHand);
+
+      // Collect card values and proofs
+      const cardValues = [holeCardValue];
+      const proofs = [holeCardProof.proof];
+      const publicInputsList = [holeCardProof.publicInputs];
+
+      // Step 3: Generate proofs for each hit card needed (until 17+)
+      let hitPosition = gameData?.deckPosition || 4;
+      while (dealerTotal < 17 && hitPosition < shuffledDeck.length) {
+        const hitCardValue = shuffledDeck[hitPosition];
+
+        console.log(`[Game] Generating ZK reveal proof for hit card (position ${hitPosition}, value ${hitCardValue})...`);
+        const hitProof = await generateRevealProof(hitPosition);
+
+        cardValues.push(hitCardValue);
+        proofs.push(hitProof.proof);
+        publicInputsList.push(hitProof.publicInputs);
+
+        // Update simulated hand for next iteration
+        simulatedHand.push(hitCardValue);
+        dealerTotal = calculateHandValue(simulatedHand);
+        hitPosition++;
+
+        console.log(`[Game] Dealer hit: ${hitCardValue}, new total: ${dealerTotal}`);
+      }
+
+      console.log(`[Game] Dealer turn - final hand: [${simulatedHand.join(', ')}], total: ${dealerTotal}`);
+      console.log(`[Game] Submitting ${cardValues.length} card(s) with ZK proofs to chain...`);
+
+      // Step 4: Submit to chain with all proofs
+      await dealerPlayTurn(gameId, dealerPubkey, cardValues, proofs, publicInputsList);
 
       // Refetch game state to show result
       const data = await fetchGame(gameId, dealerPubkey);
