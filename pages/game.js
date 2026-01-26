@@ -239,6 +239,7 @@ export default function GamePage() {
     revealCard,
     revealAllCards,
     dealerPlayTurn,
+    dealerPlayTurnSequential, // Use for 2+ cards to avoid tx size limit
     fetchGame,
     subscribeToGame,
     connected: programConnected,
@@ -847,8 +848,25 @@ export default function GamePage() {
       console.log(`[Game] Dealer turn - final hand: [${simulatedHand.join(', ')}], total: ${dealerTotal}`);
       console.log(`[Game] Submitting ${cardValues.length} card(s) with ZK proofs to chain...`);
 
-      // Step 4: Submit to chain with all proofs
-      await dealerPlayTurn(gameId, dealerPubkey, cardValues, proofs, publicInputsList);
+      // Step 4: Submit to chain with proofs
+      // Use sequential submission if 2+ cards to avoid Solana's 1232 byte tx size limit
+      // Each Groth16 proof is ~388 bytes, so 2+ proofs exceed the limit in a single tx
+      if (cardValues.length >= 2) {
+        console.log(`[Game] Using sequential submission for ${cardValues.length} cards (avoiding tx size limit)...`);
+        await dealerPlayTurnSequential(
+          gameId,
+          dealerPubkey,
+          cardValues,
+          proofs,
+          publicInputsList,
+          (cardNum, total, txSig) => {
+            console.log(`[Game] Card ${cardNum}/${total} submitted: ${txSig}`);
+          }
+        );
+      } else {
+        // Single card can fit in one transaction
+        await dealerPlayTurn(gameId, dealerPubkey, cardValues, proofs, publicInputsList);
+      }
 
       // Refetch game state to show result
       const data = await fetchGame(gameId, dealerPubkey);
