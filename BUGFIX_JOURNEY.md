@@ -18,8 +18,11 @@ This document chronicles the debugging journey from initial "Transaction Simulat
 6. [Issue 5: Deal Verifier VK/PK Mismatch](#issue-5-deal-verifier-vkpk-mismatch)
 7. [Issue 6: Reveal Verifier VK/PK Mismatch](#issue-6-reveal-verifier-vkpk-mismatch)
 8. [Issue 7: Claim Button Showing to Wrong User](#issue-7-claim-button-showing-to-wrong-user)
-9. [Summary of All Verifier Deployments](#summary-of-all-verifier-deployments)
-10. [Lessons Learned](#lessons-learned)
+9. [Issue 8: Dealer Turn Had No ZK Verification (CRITICAL)](#issue-8-dealer-turn-had-no-zk-verification-critical)
+10. [Issue 9: Program ID Mismatch After Deployment](#issue-9-program-id-mismatch-after-deployment)
+11. [Issue 10: Verifier IDs Pointing to Wrong Programs](#issue-10-verifier-ids-pointing-to-wrong-programs)
+12. [Summary of All Verifier Deployments](#summary-of-all-verifier-deployments)
+13. [Lessons Learned](#lessons-learned)
 
 ---
 
@@ -332,16 +335,188 @@ Add role check - only winner sees button:
 
 ---
 
+## Issue 8: Dealer Turn Had No ZK Verification (CRITICAL)
+
+### Symptom
+Security audit revealed that the dealer could claim ANY card values during their turn without cryptographic proof - a critical vulnerability allowing dealer cheating.
+
+### Root Cause
+The `dealer_play_turn` instruction in `lib.rs` accepted `dealer_card_values` directly without ZK proof verification:
+
+```rust
+// VULNERABLE CODE - No proof required!
+pub fn dealer_play_turn(
+    ctx: Context<DealCard>,
+    dealer_card_values: Vec<u8>,  // Dealer could claim ANY values
+) -> Result<()> {
+    // ... directly used dealer_card_values without verification
+}
+```
+
+A malicious dealer could always claim 21, making the game unfair.
+
+### Solution
+Added ZK reveal proof verification for EVERY card the dealer reveals:
+
+**1. New Context Struct** (`lib.rs`):
+```rust
+#[derive(Accounts)]
+pub struct DealerPlayTurnSecure<'info> {
+    #[account(mut, constraint = game.dealer == dealer.key())]
+    pub game: Account<'info, Game>,
+    pub dealer: Signer<'info>,
+    /// CHECK: Sunspot reveal verifier for ZK proof verification
+    pub reveal_verifier_program: AccountInfo<'info>,
+}
+```
+
+**2. Updated Instruction** (`lib.rs`):
+```rust
+pub fn dealer_play_turn(
+    ctx: Context<DealerPlayTurnSecure>,
+    dealer_card_values: Vec<u8>,
+    proofs: Vec<Vec<u8>>,           // One proof per card
+    public_inputs_list: Vec<Vec<u8>>, // One public input set per card
+) -> Result<()> {
+    // Verify each card with CPI to reveal verifier
+    for each card {
+        invoke(verify_ix, &[reveal_verifier_program])?;
+    }
+}
+```
+
+**3. Frontend Proof Generation** (`game.js`):
+```javascript
+const handleDealerPlayTurn = async () => {
+  // Generate reveal proof for hole card
+  const holeCardProof = await generateRevealProof(3);
+
+  // Simulate dealer logic to determine hit cards
+  while (dealerTotal < 17) {
+    const hitProof = await generateRevealProof(hitPosition);
+    proofs.push(hitProof);
+  }
+
+  // Submit with all proofs
+  await dealerPlayTurn(gameId, dealerPubkey, cardValues, proofs, publicInputsList);
+};
+```
+
+### Files Changed
+- `programs/zk-card-arena/src/lib.rs` - Added `DealerPlayTurnSecure` context, modified `dealer_play_turn` to verify proofs via CPI
+- `hooks/useGameProgram.js` - Updated IDL and `dealerPlayTurn` function to accept proof arrays
+- `pages/game.js` - `handleDealerPlayTurn` now generates ZK proofs for each card
+
+### Security Impact
+| Before | After |
+|--------|-------|
+| Dealer could claim any cards | Each card cryptographically verified |
+| No proof required | CPI to reveal verifier for every card |
+| ❌ VULNERABLE | ✅ SECURE |
+
+---
+
+## Issue 9: Program ID Mismatch After Deployment
+
+### Symptom
+```
+AnchorError: Error Code: DeclaredProgramIdMismatch. Error Number: 4100.
+Error Message: The declared program id does not match the actual program id.
+```
+
+Game creation failed immediately after deploying updated program.
+
+### Root Cause
+The `declare_id!` macro embeds the program ID into the compiled binary. We deployed the program **before** updating the source code's `declare_id!`, so:
+
+```
+On-chain binary:  declare_id!("22BfrTbAzVmwENnyfzk6rFtPaNvCmaATbeWaJKKoqkK4")
+Deployment keypair: 8Da8a3Q9GLYuxYLXPtxKiAedZZbx5DUQCuG8TPY1dLnx
+```
+
+When Anchor validates transactions, it checks the declared ID matches the account being called.
+
+### Solution
+Update source code with correct program ID, rebuild, and redeploy:
+
+```bash
+# 1. Update declare_id in lib.rs
+declare_id!("8Da8a3Q9GLYuxYLXPtxKiAedZZbx5DUQCuG8TPY1dLnx");
+
+# 2. Update PROGRAM_ID in useGameProgram.js
+const PROGRAM_ID = new PublicKey("8Da8a3Q9GLYuxYLXPtxKiAedZZbx5DUQCuG8TPY1dLnx");
+
+# 3. Update Anchor.toml
+zk_card_arena = "8Da8a3Q9GLYuxYLXPtxKiAedZZbx5DUQCuG8TPY1dLnx"
+
+# 4. Rebuild and redeploy
+anchor build && anchor deploy --provider.cluster devnet
+```
+
+### Files Changed
+- `programs/zk-card-arena/src/lib.rs` line 5
+- `hooks/useGameProgram.js` line 12
+- `Anchor.toml` line 9
+
+---
+
+## Issue 10: Verifier IDs Pointing to Wrong Programs
+
+### Symptom
+```
+Transaction simulation failed: Error processing Instruction 1: invalid instruction data
+Program EbqLX5ryQAuch2zueoNoXyV9B8okvpRPLCgxYgZLf8g failed
+Program log: Proof verification failed
+```
+
+Shuffle verification failed even though proof was generated correctly.
+
+### Root Cause
+The code had been updated to use **different verifier IDs** than the ones deployed with matching PK/VK keys:
+
+| Verifier | In Code (Wrong) | In DEPLOYED_PROGRAM_IDS.md (Correct) |
+|----------|-----------------|--------------------------------------|
+| Shuffle | `EbqLX5ry...` | `6sju9HLJ...` |
+| Deal | `7p8MDtni...` | `Epoxbrv1...` |
+| Reveal | `7PMUYpFv...` | `HrETBH5n...` |
+
+The proving keys in `solana-verifiers/target/` were generated on Jan 23 and match the verifiers in `DEPLOYED_PROGRAM_IDS.md`. Someone had updated the code to point to different verifiers (Jan 26) that don't match these keys.
+
+### Solution
+Restore verifier IDs to match the deployed keys:
+
+```rust
+// lib.rs - Use Jan 23 deployed verifiers that match solana-verifiers/target/*.pk
+mod shuffle_verifier {
+    declare_id!("6sju9HLJTFfESLn49wAR2hqiC6mnu3MrP2K9WDbkjCL2");
+}
+mod deal_verifier {
+    declare_id!("Epoxbrv1Pc2XeYR2xsKsqm3Gy1j2MbkBx4yHfkg8yuSC");
+}
+mod reveal_verifier {
+    declare_id!("HrETBH5nTa3DTVjBFWMdytLtuX9GsFwiAGkkyQAXnMt9");
+}
+```
+
+### Files Changed
+- `programs/zk-card-arena/src/lib.rs` lines 8-23 - Reverted to correct verifier IDs
+- `hooks/useGameProgram.js` lines 14-16 - Reverted to correct verifier IDs
+
+### Key Insight
+**Always check that verifier program IDs match the proving keys being used.** The PK files in `solana-verifiers/target/` must correspond to the VK embedded in the on-chain verifier program.
+
+---
+
 ## Summary of All Verifier Deployments
 
 ### Final Deployed Program IDs (Devnet)
 
 | Program | Address | Last Updated |
 |---------|---------|--------------|
-| ZK Card Arena (Anchor) | `22BfrTbAzVmwENnyfzk6rFtPaNvCmaATbeWaJKKoqkK4` | Jan 26, 2026 |
-| Shuffle Verifier | `EbqLX5ryQAuch2zueoNoXyV9B8okvpRPLCgxYgZLf8g` | Jan 24, 2026 |
-| Deal Verifier | `7p8MDtniW4WgE8LpT2R2t35CSG3YbkWGCjWixPuq6AbL` | Jan 26, 2026 |
-| Reveal Verifier | `7PMUYpFvo2pKjTH2r6YJ2MZC4Tb72SS9hmfu8QzW41NW` | Jan 26, 2026 |
+| ZK Card Arena (Anchor) | `8Da8a3Q9GLYuxYLXPtxKiAedZZbx5DUQCuG8TPY1dLnx` | Jan 26, 2026 |
+| Shuffle Verifier | `6sju9HLJTFfESLn49wAR2hqiC6mnu3MrP2K9WDbkjCL2` | Jan 23, 2026 |
+| Deal Verifier | `Epoxbrv1Pc2XeYR2xsKsqm3Gy1j2MbkBx4yHfkg8yuSC` | Jan 23, 2026 |
+| Reveal Verifier | `HrETBH5nTa3DTVjBFWMdytLtuX9GsFwiAGkkyQAXnMt9` | Jan 23, 2026 |
 
 ### PK/VK File Locations
 
@@ -408,6 +583,18 @@ Program deployment costs ~2.26 SOL. Keep devnet wallet funded:
 - Use https://faucet.solana.com
 - Or `solana airdrop 2 --url devnet` (has rate limits)
 
+### 8. Security Audit Before Production
+Always audit for missing ZK verification:
+- Check ALL instructions that accept user-provided values
+- Every card value should require a ZK proof
+- Use `grep -n "card_value\|cardValue"` to find potential vulnerabilities
+
+### 9. Update Source Before Deploy
+When deploying program updates:
+1. Update `declare_id!` in source FIRST
+2. Then build and deploy
+3. Never deploy first, update source second (causes DeclaredProgramIdMismatch)
+
 ---
 
 ## Quick Reference: Fixing VK/PK Mismatch
@@ -436,11 +623,51 @@ cp circuits/target/<circuit_name>.pk solana-verifiers/target/<circuit_name>.pk
 
 # 6. Rebuild and redeploy Anchor program
 anchor build
-solana program deploy target/deploy/zk_card_arena.so \
-  --program-id 22BfrTbAzVmwENnyfzk6rFtPaNvCmaATbeWaJKKoqkK4 --url devnet
+anchor deploy --provider.cluster devnet
+```
+
+---
+
+## Quick Reference: Adding ZK Verification to Instructions
+
+When an instruction accepts values without ZK proof:
+
+```rust
+// 1. Create secure context with verifier account
+#[derive(Accounts)]
+pub struct SecureInstruction<'info> {
+    #[account(mut)]
+    pub game: Account<'info, Game>,
+    pub dealer: Signer<'info>,
+    /// CHECK: Validated against verifier::ID in handler
+    pub reveal_verifier_program: AccountInfo<'info>,
+}
+
+// 2. Add proof parameters to instruction
+pub fn secure_instruction(
+    ctx: Context<SecureInstruction>,
+    values: Vec<u8>,
+    proofs: Vec<Vec<u8>>,
+    public_inputs_list: Vec<Vec<u8>>,
+) -> Result<()> {
+    // 3. Verify proof for each value
+    for i in 0..values.len() {
+        let mut instruction_data = Vec::new();
+        instruction_data.extend_from_slice(&proofs[i]);
+        instruction_data.extend_from_slice(&public_inputs_list[i]);
+
+        invoke(&Instruction {
+            program_id: reveal_verifier::ID,
+            accounts: vec![],
+            data: instruction_data,
+        }, &[ctx.accounts.reveal_verifier_program.to_account_info()])?;
+    }
+    Ok(())
+}
 ```
 
 ---
 
 *Document created: January 26, 2026*
+*Last updated: January 26, 2026 (Issues 8-10 added)*
 *ZK Card Arena - Solana Privacy Hackathon*
