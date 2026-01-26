@@ -36,7 +36,7 @@ export const Poster = () => {
             
             {/* Sub-label */}
             <p className="font-display font-bold text-[10px] sm:text-xs md:text-sm tracking-[0.2em] uppercase mb-2 md:mb-4 text-[#C049FF]">
-                Provably Fair Blackjack
+                Provably Fair Casino
             </p>
 
             {/* Huge Headline */}

@@ -83,7 +83,7 @@ export const ServiceMenu = () => {
         {/* Footer Note */}
         <div className="w-full max-w-6xl mt-10 md:mt-16 text-center md:text-left font-body uppercase tracking-widest text-xs md:text-sm opacity-80 border-t-2 border-[#936DFF] pt-4 md:pt-6 flex flex-col md:flex-row justify-between gap-2 text-[#B8B8CC]">
              <span>Provably Fair Gaming on Solana</span>
-             <span>Umbra Casino • 2024</span>
+             <span>Umbra</span>
         </div>
 
     </div>

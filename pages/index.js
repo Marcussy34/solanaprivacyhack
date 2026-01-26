@@ -10,7 +10,7 @@ export default function Home() {
   return (
     <>
       <Head>
-        <title>UMBRA | ZK Casino</title>
+        <title>Provably Fair Casino | ZK Blackjack</title>
         <meta name="description" content="Provably fair casino on Solana using Zero-Knowledge Proofs (Noir) and ShadowWire privacy." />
         {/* Google Fonts for the Umbra theme */}
         <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -94,8 +94,8 @@ export default function Home() {
         <section className="w-full bg-[#936DFF] relative overflow-hidden flex flex-col sm:flex-row h-auto min-h-[40vh] border-t-8 border-[#05010A]">
           
           {/* LEFT: Text Content */}
-          <div className="flex-grow flex items-end pl-4 sm:pl-8 pb-4 sm:pb-0 z-10">
-               <h1 className="font-display font-bold text-[22vw] sm:text-[20vw] leading-[0.75] tracking-tighter uppercase text-[#05010A] transform translate-y-[2vw]">
+          <div className="flex-grow flex items-center justify-center pl-4 sm:pl-8 z-10">
+               <h1 className="font-display font-bold text-[18vw] sm:text-[16vw] leading-[0.85] tracking-tighter uppercase text-[#05010A]">
                   UMBRA
               </h1>
           </div>

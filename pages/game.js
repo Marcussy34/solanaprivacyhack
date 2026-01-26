@@ -1272,7 +1272,7 @@ export default function GamePage() {
           
           <div className="flex gap-8 sm:gap-16 font-display text-[10px] sm:text-xs tracking-[0.2em] text-[#936DFF] opacity-60 uppercase">
               <span>ZK</span>
-              <span className="text-[#FFFFFF] opacity-100 text-sm">UMBRA</span>
+              <span className="text-[#FFFFFF] opacity-100 text-sm">PROVABLY FAIR</span>
               <span>SOL</span>
           </div>
           
