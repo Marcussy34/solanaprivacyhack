@@ -184,3 +184,38 @@ body {
 .perspective-1000 {
   perspective: 1000px;
 }
+
+/* ========================================
+   BARBER LANDING PAGE STYLES
+   ======================================== */
+
+/* Barber theme CSS variables */
+:root {
+  --color-barber-primary: #FF6600; /* Vibrant Orange */
+  --color-barber-dark: #1F0B05; /* Deep Brown/Black */
+  --font-display: 'Antonio', 'Oswald', sans-serif;
+  --font-body: 'Roboto Condensed', sans-serif;
+}
+
+/* Display font class */
+.font-display {
+  font-family: var(--font-display);
+}
+
+/* Body font class */
+.font-body {
+  font-family: var(--font-body);
+}
+
+/* Custom Scrollbar for barber theme */
+.barber-theme::-webkit-scrollbar {
+  width: 8px;
+}
+
+.barber-theme::-webkit-scrollbar-track {
+  background: #111;
+}
+
+.barber-theme::-webkit-scrollbar-thumb {
+  background: var(--color-barber-primary);
+}
