@@ -1,10 +1,10 @@
-# ZK Card Arena
+# Umbra
 
 **Provably Fair Blackjack on Solana with Zero-Knowledge Proofs**
 
 **Decentralized, trustless casino gaming powered by Noir ZK circuits and ShadowWire privacy**
 
-Check out the live demo of **ZK Card Arena**: 👉 [Click here to try it out](http://localhost:3000)
+Check out the live demo of **Umbra**: 👉 [Click here to try it out](http://localhost:3000)
 
 > **🔒 Privacy-First:** This application uses Zero-Knowledge Proofs to ensure fairness without revealing the deck, and ShadowWire for private transactions.
 
@@ -13,7 +13,7 @@ Check out the live demo of **ZK Card Arena**: 👉 [Click here to try it out](ht
 ZK Card Arena is built as a decentralized application (dApp) on Solana, optimized for trustless gameplay. The interface provides a seamless, casino-like experience where every shuffle, deal, and reveal is cryptographically proven.
 
 <p align="center">
-  <img src="/public/game-screenshot.png" alt="ZK Card Arena Gameplay" width="700">
+  <img src="/public/game-screenshot.png" alt="Umbra Gameplay" width="700">
 </p>
 
 ## Grand Vision vs. Hackathon Scope 🔭
@@ -32,13 +32,13 @@ We noticed that online gambling is still plagued by a fundamental problem: **Tru
 
 > *"What if you could play Blackjack where the deck is encrypted, and even the dealer doesn't know the order of cards until they are dealt?"*
 
-That question sparked ZK Card Arena. By combining **Zero-Knowledge Proofs (Noir)** with **Solana's speed** and **ShadowWire's privacy**, we created a platform where:
+That question sparked Umbra. By combining **Zero-Knowledge Proofs (Noir)** with **Solana's speed** and **ShadowWire's privacy**, we created a platform where:
 - The deck is shuffled locally by the dealer.
 - A ZK proof guarantees the shuffle is fair *without revealing the cards*.
 - Cards are dealt as encrypted commitments.
 - Values are only revealed when needed (e.g., after a player hits), preventing both parties from cheating.
 
-This exploration led us to build ZK Card Arena as a **Solana dApp** that:
+This exploration led us to build Umbra as a **Solana dApp** that:
 
 - **Proves fairness mathematically** using Noir circuits (Groth16)
 - **Encrypts the deck** with Poseidon hashing
@@ -82,7 +82,7 @@ Clone the repository and start the development server:
 
 ```bash
 git clone <repo-url>
-cd solanaprivacyhack
+cd umbra
 npm install
 npm run dev
 ```
@@ -264,7 +264,7 @@ We are targeting the following tracks in the **Solana Privacy Hack**:
 ## Project Structure 📁
 
 ```
-solanaprivacyhack/
+umbra/
 ├── programs/               # Anchor smart contracts
 │   └── zk-card-arena/      # Main game logic
 ├── circuits/               # Noir ZK circuits

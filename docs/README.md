@@ -1,4 +1,4 @@
-# ZK Card Arena Documentation
+# Umbra Documentation
 
 > **Provably fair Blackjack on Solana using Zero-Knowledge Proofs + Privacy-Preserving Payments**
 

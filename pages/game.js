@@ -1242,7 +1242,7 @@ export default function GamePage() {
             href="/"
             className="text-xl font-bold bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent"
           >
-            ZK Card Arena
+            Umbra
           </a>
           <div className="flex items-center gap-3">
             <span className="text-xs px-2 py-1 rounded bg-yellow-500/20 text-yellow-400">
