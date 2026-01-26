@@ -6,9 +6,14 @@
  * 2. 'custom' - Enter any custom amount (for dealers creating rooms)
  * 3. 'fixed' - Display-only amount that must be matched (for players joining)
  *
+ * Payment Modes:
+ * - 'test' - Skip payment entirely for quick testing (default for hackathon)
+ * - 'shadowwire' - Real private payment via ShadowPay
+ *
  * @author Marcus (ZK Engineer)
  * @created Jan 24, 2026
  * @updated Jan 25, 2026 - Added custom/fixed modes for room deposit matching
+ * @updated Jan 26, 2026 - Simplified to Test Mode vs ShadowWire toggle for hackathon
  */
 
 import { useState, useEffect } from "react";
@@ -27,8 +32,11 @@ import {
   Edit3,
 } from "lucide-react";
 
-// Preset bet amounts in SOL (minimum 0.1 SOL due to ShadowWire anti-spam)
-const BET_OPTIONS = [0.1, 0.25, 0.5, 1.0];
+// Preset bet amounts in SOL
+// Test mode uses lower amounts (devnet SOL is free via airdrop)
+// ShadowWire uses higher amounts with privacy (minimum 0.1 SOL anti-spam)
+const TEST_BET_OPTIONS = [0.01, 0.05, 0.1, 0.25];
+const SHADOWWIRE_BET_OPTIONS = [0.1, 0.25, 0.5, 1.0];
 
 // ShadowWire minimum transaction amount (anti-spam protection)
 const SHADOWWIRE_MIN_AMOUNT = 0.1;
@@ -102,6 +110,7 @@ function PaymentProgress({ status }) {
  * @param {number} fixedAmount - For 'fixed' mode, the amount player must pay
  * @param {number} minAmount - Minimum for custom input (default: 0.01)
  * @param {number} maxAmount - Maximum for custom input (default: 10.0)
+ * @param {string} defaultPaymentMode - 'test' | 'shadowwire' (default: 'test')
  */
 export function BetSelector({
   onBetPlaced,
@@ -110,15 +119,8 @@ export function BetSelector({
   fixedAmount = null,
   minAmount = 0.01,
   maxAmount = 10.0,
+  defaultPaymentMode = "test",
 }) {
-  const [selectedBet, setSelectedBet] = useState(BET_OPTIONS[0]);
-  const [showDeposit, setShowDeposit] = useState(false);
-  const [depositAmount, setDepositAmount] = useState("");
-
-  // Custom amount state (for 'custom' mode)
-  const [customAmount, setCustomAmount] = useState("");
-  const [inputError, setInputError] = useState(null);
-
   const {
     connected,
     isClientReady,
@@ -136,10 +138,37 @@ export function BetSelector({
     IS_MAINNET,
   } = useShadowPay();
 
-  // Enforce ShadowWire minimum (0.1 SOL) when on mainnet
-  const effectiveMinAmount = IS_MAINNET && SHADOWWIRE_ENABLED
+  // Payment mode state: 'test' skips payment, 'shadowwire' uses real privacy payments
+  const [paymentMode, setPaymentMode] = useState(defaultPaymentMode);
+
+  // Derive bet options based on payment mode
+  // Test mode uses lower amounts (devnet SOL is free), ShadowWire uses higher amounts
+  const betOptions = paymentMode === 'shadowwire' ? SHADOWWIRE_BET_OPTIONS : TEST_BET_OPTIONS;
+
+  // Selected bet amount - defaults to first option of current network
+  const [selectedBet, setSelectedBet] = useState(() => betOptions[0]);
+
+  const [showDeposit, setShowDeposit] = useState(false);
+  const [depositAmount, setDepositAmount] = useState("");
+
+  // Custom amount state (for 'custom' mode)
+  const [customAmount, setCustomAmount] = useState("");
+  const [inputError, setInputError] = useState(null);
+
+  // Handle payment mode change - updates mode and resets bet to first option
+  const handlePaymentModeChange = (newMode) => {
+    if (newMode === paymentMode) return;
+    setPaymentMode(newMode);
+    // Reset bet to first option of new mode's bet amounts
+    const newBetOptions = newMode === 'shadowwire' ? SHADOWWIRE_BET_OPTIONS : TEST_BET_OPTIONS;
+    setSelectedBet(newBetOptions[0]);
+  };
+
+  // Enforce ShadowWire minimum (0.1 SOL) when using real payments
+  // Test mode allows very low amounts for testing
+  const effectiveMinAmount = paymentMode === 'shadowwire' && SHADOWWIRE_ENABLED
     ? Math.max(minAmount, SHADOWWIRE_MIN_AMOUNT)
-    : minAmount;
+    : 0.001; // Very low for test mode
 
   // Fetch balance on mount and when connected
   useEffect(() => {
@@ -166,7 +195,7 @@ export function BetSelector({
     const amount = parseFloat(value);
     if (isNaN(amount)) return "Please enter a valid number";
     if (amount < effectiveMinAmount) {
-      const reason = IS_MAINNET && SHADOWWIRE_ENABLED ? " (ShadowWire minimum)" : "";
+      const reason = paymentMode === 'shadowwire' && SHADOWWIRE_ENABLED ? " (ShadowWire minimum)" : "";
       return `Minimum is ${effectiveMinAmount} SOL${reason}`;
     }
     if (amount > maxAmount) return `Maximum is ${maxAmount} SOL`;
@@ -208,18 +237,32 @@ export function BetSelector({
       clearError();
       setInputError(null);
 
-      // Generate a unique resource URL for this bet
-      const resourceUrl = `${window.location.origin}/game?bet=${Date.now()}`;
+      let result;
 
-      // Make the private payment
-      const result = await pay(HOUSE_WALLET, betAmount, resourceUrl);
+      if (paymentMode === 'test') {
+        // TEST MODE: Skip payment entirely, simulate success immediately
+        console.log('[BetSelector] Test mode - skipping payment');
+        result = {
+          txSignature: 'test-mode-' + Date.now(),
+          paymentId: 'test-mode-' + Date.now(),
+          amount: betAmount,
+          method: 'test',
+          simulated: true,
+        };
+      } else {
+        // SHADOWWIRE MODE: Real private payment via ShadowPay
+        const resourceUrl = `${window.location.origin}/game?bet=${Date.now()}`;
+        result = await pay(HOUSE_WALLET, betAmount, resourceUrl);
+      }
 
-      // Notify parent component
+      // Notify parent component with bet details including payment mode
       if (onBetPlaced) {
         onBetPlaced({
           amount: betAmount,
           txSignature: result.txSignature,
           paymentId: result.paymentId,
+          mode: paymentMode, // Track which payment mode was used
+          simulated: result.simulated || false,
         });
       }
     } catch (err) {
@@ -266,8 +309,8 @@ export function BetSelector({
 
   return (
     <div className="space-y-4">
-      {/* Escrow Balance Display - Only show in preset mode (for players choosing bet amount) */}
-      {mode === "preset" && (
+      {/* Escrow Balance Display - Only show in preset mode with ShadowWire */}
+      {mode === "preset" && paymentMode === 'shadowwire' && (
         <div className="flex items-center justify-between p-4 rounded-xl bg-white/5 border border-white/10">
           <div className="flex items-center gap-2">
             <Lock className="w-5 h-5 text-purple-400" />
@@ -292,9 +335,9 @@ export function BetSelector({
         </div>
       )}
 
-      {/* Deposit Panel (collapsible) - Only in preset mode */}
+      {/* Deposit Panel (collapsible) - Only in preset mode with ShadowWire */}
       <AnimatePresence>
-        {mode === "preset" && showDeposit && (
+        {mode === "preset" && paymentMode === 'shadowwire' && showDeposit && (
           <motion.div
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: "auto", opacity: 1 }}
@@ -344,6 +387,44 @@ export function BetSelector({
         )}
       </AnimatePresence>
 
+      {/* Payment Mode Toggle - Test Mode vs ShadowWire */}
+      {mode === "preset" && (
+        <div className="p-1 rounded-xl bg-black/30 border border-white/10">
+          <div className="flex gap-1">
+            <button
+              onClick={() => handlePaymentModeChange('test')}
+              disabled={disabled || isLoading}
+              className={cn(
+                "flex-1 flex items-center justify-center gap-2 py-2.5 px-4 rounded-lg text-sm font-medium transition-all",
+                paymentMode === 'test'
+                  ? "bg-blue-600 text-white shadow-lg shadow-blue-500/20"
+                  : "text-gray-400 hover:text-white hover:bg-white/5",
+                "disabled:opacity-50 disabled:cursor-not-allowed"
+              )}
+            >
+              <span className="text-base">🧪</span>
+              <span>Test Mode</span>
+              <span className="text-xs opacity-70">(Skip Payment)</span>
+            </button>
+            <button
+              onClick={() => handlePaymentModeChange('shadowwire')}
+              disabled={disabled || isLoading}
+              className={cn(
+                "flex-1 flex items-center justify-center gap-2 py-2.5 px-4 rounded-lg text-sm font-medium transition-all",
+                paymentMode === 'shadowwire'
+                  ? "bg-purple-600 text-white shadow-lg shadow-purple-500/20"
+                  : "text-gray-400 hover:text-white hover:bg-white/5",
+                "disabled:opacity-50 disabled:cursor-not-allowed"
+              )}
+            >
+              <Shield className="w-4 h-4" />
+              <span>ShadowWire</span>
+              <span className="text-xs opacity-70">(Private)</span>
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Bet Amount Selection */}
       <div className="p-4 rounded-xl bg-white/5 border border-white/10">
         {/* Header - changes based on mode */}
@@ -366,10 +447,10 @@ export function BetSelector({
           )}
         </div>
 
-        {/* MODE: PRESET - Grid of preset buttons */}
+        {/* MODE: PRESET - Grid of preset buttons (amounts vary by network) */}
         {mode === "preset" && (
           <div className="grid grid-cols-4 gap-2 mb-4">
-            {BET_OPTIONS.map((amount) => (
+            {betOptions.map((amount) => (
               <motion.button
                 key={amount}
                 whileTap={{ scale: 0.95 }}
@@ -427,7 +508,7 @@ export function BetSelector({
             <p className="mt-2 text-xs text-gray-500">
               Players joining your room must deposit this exact amount.
             </p>
-            {IS_MAINNET && SHADOWWIRE_ENABLED && (
+            {paymentMode === 'shadowwire' && SHADOWWIRE_ENABLED && (
               <p className="mt-1 text-xs text-purple-400 flex items-center gap-1">
                 <Shield className="w-3 h-3" />
                 Minimum {SHADOWWIRE_MIN_AMOUNT} SOL (ShadowWire privacy enabled)
@@ -502,8 +583,9 @@ export function BetSelector({
           disabled={disabled || isLoading || (mode === "custom" && (!customAmount || inputError))}
           className={cn(
             "w-full flex items-center justify-center gap-3 py-4 rounded-xl",
-            "bg-gradient-to-r from-purple-600 to-pink-600",
-            "hover:from-purple-500 hover:to-pink-500",
+            paymentMode === 'test'
+              ? "bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-500 hover:to-cyan-500"
+              : "bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500",
             "text-white font-semibold text-lg",
             "transition-all duration-300",
             "disabled:opacity-50 disabled:cursor-not-allowed"
@@ -513,6 +595,12 @@ export function BetSelector({
             <>
               <Loader2 className="w-5 h-5 animate-spin" />
               <span>Processing...</span>
+            </>
+          ) : paymentMode === 'test' ? (
+            // Test mode: Skip payment, go straight to game
+            <>
+              <span>🧪</span>
+              <span>Start Game (Test Mode)</span>
             </>
           ) : mode === "custom" ? (
             <>
@@ -536,24 +624,33 @@ export function BetSelector({
           )}
         </motion.button>
 
-        {/* Privacy notice */}
+        {/* Payment Mode Status - shows different messaging based on selected mode */}
         <div className="mt-3 text-center">
-          {SHADOWWIRE_ENABLED && usingShadowWire ? (
+          {paymentMode === 'test' ? (
+            // Test mode: Payment will be skipped
+            <div className="flex items-center justify-center gap-2 text-xs text-blue-400">
+              <span className="w-2 h-2 bg-blue-400 rounded-full" />
+              <span>🧪 Test mode - payment will be skipped</span>
+            </div>
+          ) : SHADOWWIRE_ENABLED && usingShadowWire ? (
+            // ShadowWire active and SDK ready
             <div className="flex items-center justify-center gap-2 text-xs text-green-400">
               <span className="w-2 h-2 bg-green-400 rounded-full animate-pulse" />
               <Shield className="w-3 h-3" />
               <span>Private betting via ShadowWire</span>
             </div>
           ) : SHADOWWIRE_ENABLED ? (
+            // ShadowWire enabled but SDK still loading
             <div className="flex items-center justify-center gap-2 text-xs text-yellow-400">
               <span className="w-2 h-2 bg-yellow-400 rounded-full" />
               <Shield className="w-3 h-3" />
               <span>ShadowWire enabled (SDK loading...)</span>
             </div>
           ) : (
-            <p className="text-xs text-gray-500">
-              <Shield className="w-3 h-3 inline mr-1" />
-              Direct transfer mode (ShadowWire disabled)
+            // ShadowWire mode selected but not available
+            <p className="text-xs text-yellow-400">
+              <AlertCircle className="w-3 h-3 inline mr-1" />
+              ShadowWire not available - will use direct transfer
             </p>
           )}
         </div>
