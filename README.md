@@ -2,11 +2,11 @@
 
 **Provably Fair Blackjack on Solana with Zero-Knowledge Proofs**
 
-**Decentralized, trustless casino gaming powered by Noir ZK circuits and ShadowPay privacy**
+**Decentralized, trustless casino gaming powered by Noir ZK circuits and ShadowWire privacy**
 
 Check out the live demo of **ZK Card Arena**: 👉 [Click here to try it out](http://localhost:3000)
 
-> **🔒 Privacy-First:** This application uses Zero-Knowledge Proofs to ensure fairness without revealing the deck, and ShadowPay for private transactions.
+> **🔒 Privacy-First:** This application uses Zero-Knowledge Proofs to ensure fairness without revealing the deck, and ShadowWire for private transactions.
 
 ## The ZK Casino Experience 🎲
 
@@ -15,6 +15,12 @@ ZK Card Arena is built as a decentralized application (dApp) on Solana, optimize
 <p align="center">
   <img src="/public/game-screenshot.png" alt="ZK Card Arena Gameplay" width="700">
 </p>
+
+## Grand Vision vs. Hackathon Scope 🔭
+
+**The Grand Vision:** A full-suite, decentralized ZK Casino where every game (Poker, Roulette, Slots) is provably fair and privacy-preserving.
+
+**Hackathon Scope:** For the **Solana Privacy Hack**, we have implemented the core infrastructure and a fully functional **Blackjack** game to demonstrate the power of ZK shuffles and private betting.
 
 ## Inspiration: How We Came Up With This Idea 💡
 
@@ -26,7 +32,7 @@ We noticed that online gambling is still plagued by a fundamental problem: **Tru
 
 > *"What if you could play Blackjack where the deck is encrypted, and even the dealer doesn't know the order of cards until they are dealt?"*
 
-That question sparked ZK Card Arena. By combining **Zero-Knowledge Proofs (Noir)** with **Solana's speed** and **ShadowPay's privacy**, we created a platform where:
+That question sparked ZK Card Arena. By combining **Zero-Knowledge Proofs (Noir)** with **Solana's speed** and **ShadowWire's privacy**, we created a platform where:
 - The deck is shuffled locally by the dealer.
 - A ZK proof guarantees the shuffle is fair *without revealing the cards*.
 - Cards are dealt as encrypted commitments.
@@ -36,7 +42,7 @@ This exploration led us to build ZK Card Arena as a **Solana dApp** that:
 
 - **Proves fairness mathematically** using Noir circuits (Groth16)
 - **Encrypts the deck** with Poseidon hashing
-- **Enables private betting** using ShadowPay SDK
+- **Enables private betting** using ShadowWire SDK
 - **Executes game logic on-chain** with Anchor smart contracts
 - **Verifies proofs instantly** using on-chain verifiers
 - **Works seamlessly** with Phantom/Backpack wallets
@@ -58,8 +64,8 @@ This exploration led us to build ZK Card Arena as a **Solana dApp** that:
 - **Dealer Reveal**: The dealer must then reveal the card value with a ZK proof (`reveal_proof`) that matches the commitment.
 - Ensures fairness for both sides.
 
-### 4. **Private Betting (ShadowPay)**
-- Integrated with ShadowPay SDK.
+### 4. **Private Betting (ShadowWire)**
+- Integrated with ShadowWire SDK.
 - Players can place bets without exposing their wallet balance or transaction history on-chain.
 - Winnings are settled privately.
 
@@ -89,8 +95,8 @@ Create a `.env.local` file in the root directory:
 # Solana RPC
 NEXT_PUBLIC_RPC_URL=https://api.devnet.solana.com
 
-# Optional: For ShadowPay Integration
-NEXT_PUBLIC_SHADOWPAY_API=...
+# Optional: For ShadowWire Integration
+NEXT_PUBLIC_SHADOWWIRE_API=...
 ```
 
 ### Smart Contract Deployment
@@ -165,7 +171,7 @@ anchor deploy
 - **Rust** - Smart contract language
 
 ### Privacy & Security
-- **ShadowPay SDK** - Confidential token transfers
+- **ShadowWire SDK** - Confidential token transfers (Bulletproofs)
 - **Poseidon Hash** - ZK-friendly hashing algorithm
 
 ## Smart Contracts 📜
@@ -217,9 +223,20 @@ Proof: "I am revealing a card value that matches the commitment hash you hold."
 2.  **Dealer Reveal**: The dealer's client observes the request and submits a **Reveal Transaction** with a ZK proof.
     *   *Why?* This prevents the player from seeing the card before committing to the action, and prevents the dealer from changing the card after the action.
 
-### ShadowPay Integration
+### ShadowWire Integration
 - **Private Bets**: Players can deposit tokens into a privacy pool.
 - **Confidential Settlements**: Winnings are transferred without revealing the amount or recipient on the public ledger.
+
+## Hackathon Tracks & Bounties 🏆
+
+We are targeting the following tracks in the **Solana Privacy Hack**:
+
+| Track | Prize | Goal | Implementation |
+| :--- | :--- | :--- | :--- |
+| **Open Track** (Solana Foundation) | **$18,000** | Build a privacy-preserving application on Solana. | We built a full-stack dApp that uses ZK proofs to hide card values and **ShadowWire** to hide transaction amounts. It solves a real-world problem (trust in casinos) using privacy tech. |
+| **Aztec / Noir** (ZK Circuits) | **$10,000** | Use Noir to build a ZK application. | We wrote **3 custom Noir circuits** (`shuffle`, `deal`, `reveal`) and deployed **3 Groth16 verifiers** on-chain using Sunspot. The entire game logic relies on these circuits for fairness. |
+| **Radr Labs** (ShadowWire) | **$15,000** | Private Transfers with ShadowWire (Hide transaction amounts using Bulletproofs). | We integrated the **ShadowWire SDK** to enable private betting. Players deposit funds, and transaction amounts are hidden using **Bulletproofs** (ZK proofs) while remaining verifiable on-chain. We utilize **Client-Side Proof Generation (WASM)** for maximum privacy. |
+
 
 ## Important Files 📍
 
