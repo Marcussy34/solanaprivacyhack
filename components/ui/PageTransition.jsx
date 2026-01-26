@@ -1,19 +1,23 @@
 import { motion } from 'framer-motion';
+import { DotLottiePlayer } from '@dotlottie/react-player';
+import '@dotlottie/react-player/dist/index.css';
+import { createContext, useContext, useState, useEffect } from 'react';
+import { useRouter } from 'next/router';
+
+const TransitionContext = createContext();
+
+export const useTransition = () => useContext(TransitionContext);
 
 const curtainVariants = {
-  initial: {
-    scaleY: 1, // Start fully covering (for the new page)
-  },
-  animate: {
-    scaleY: 0, // Reveal the page
+  hidden: {
+    y: "100%", // Revealed (curtain at bottom)
     transition: {
       duration: 0.8,
       ease: [0.22, 1, 0.36, 1],
-      delay: 0.8, // Wait for "loading"
     },
   },
-  exit: {
-    scaleY: 1, // Cover the page
+  visible: {
+    y: "0%", // Covered (curtain fills screen)
     transition: {
       duration: 0.5,
       ease: [0.22, 1, 0.36, 1],
@@ -22,64 +26,81 @@ const curtainVariants = {
 };
 
 const loaderVariants = {
-  initial: { opacity: 0 },
-  animate: { 
-    opacity: 1,
-    transition: { duration: 0.2, delay: 0.1 } // Show quickly after curtain covers
-  },
-  exit: { 
+  hidden: { 
     opacity: 0,
     transition: { duration: 0.2 }
+  },
+  visible: { 
+    opacity: 1,
+    transition: { duration: 0.2, delay: 0.1 }
   }
 };
 
-const contentVariants = {
-  initial: { opacity: 0 },
-  animate: {
-    opacity: 1,
-    transition: {
-      duration: 0.2,
-      delay: 0.1, // Become visible while curtain is still covering
-    },
-  },
-  exit: {
-    opacity: 1, // Keep content visible while curtain covers
-  },
+const TransitionCurtain = ({ isTransitioning }) => {
+  return (
+    <motion.div
+      className="fixed inset-0 bg-[#936DFF] z-[100] flex items-center justify-center"
+      initial="visible" 
+      animate={isTransitioning ? "visible" : "hidden"}
+      variants={curtainVariants}
+    >
+      <motion.div 
+          variants={loaderVariants}
+          className="flex flex-col items-center justify-center"
+      >
+          <div className="w-32 h-32 mb-2" style={{ filter: 'brightness(0)' }}>
+              <DotLottiePlayer
+                  src="/Insider-loading.lottie"
+                  autoplay
+                  loop
+              />
+          </div>
+      </motion.div>
+    </motion.div>
+  );
 };
 
-export const PageTransition = ({ children }) => {
-  return (
-    <>
-      {/* The Curtain */}
-      <motion.div
-        className="fixed inset-0 bg-[#936DFF] z-[100] flex items-center justify-center origin-bottom"
-        initial="initial"
-        animate="animate"
-        exit="exit"
-        variants={curtainVariants}
-        style={{ pointerEvents: 'none' }}
-      >
-        {/* Loading Indicator (Only visible when curtain is up) */}
-        <motion.div 
-            variants={loaderVariants}
-            className="flex flex-col items-center justify-center"
-        >
-            <div className="w-12 h-12 border-4 border-[#05010A] border-t-transparent rounded-full animate-spin mb-4"></div>
-            <span className="font-display font-bold text-[#05010A] tracking-widest uppercase text-xl">
-                LOADING
-            </span>
-        </motion.div>
-      </motion.div>
+export const TransitionProvider = ({ children }) => {
+  const router = useRouter();
+  const [isTransitioning, setIsTransitioning] = useState(true); 
 
-      {/* Page Content */}
-      <motion.div
-        initial="initial"
-        animate="animate"
-        exit="exit"
-        variants={contentVariants}
-      >
-        {children}
-      </motion.div>
-    </>
+  // Initial load reveal
+  useEffect(() => {
+     const timer = setTimeout(() => setIsTransitioning(false), 500);
+     return () => clearTimeout(timer);
+  }, []);
+
+  const navigate = (url) => {
+    setIsTransitioning(true);
+    // Wait for curtain animation (500ms) before changing route
+    setTimeout(() => {
+      router.push(url);
+    }, 500);
+  };
+
+  // Handle standard route changes (back button etc)
+  useEffect(() => {
+    const handleStart = () => setIsTransitioning(true);
+    const handleComplete = () => {
+        // Keep curtain down for a moment to show "Loading" state
+        setTimeout(() => setIsTransitioning(false), 1000); 
+    };
+
+    router.events.on('routeChangeStart', handleStart);
+    router.events.on('routeChangeComplete', handleComplete);
+    router.events.on('routeChangeError', handleComplete);
+
+    return () => {
+      router.events.off('routeChangeStart', handleStart);
+      router.events.off('routeChangeComplete', handleComplete);
+      router.events.off('routeChangeError', handleComplete);
+    };
+  }, [router]);
+
+  return (
+    <TransitionContext.Provider value={{ navigate }}>
+      <TransitionCurtain isTransitioning={isTransitioning} />
+      {children}
+    </TransitionContext.Provider>
   );
 };
