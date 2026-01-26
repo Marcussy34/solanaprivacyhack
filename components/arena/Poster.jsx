@@ -1,6 +1,6 @@
 import React from 'react';
 import { useTransition } from '../ui/PageTransition';
-import { COLORS, SERVICES } from '../../lib/barber/constants';
+import { COLORS, SERVICES } from '../../lib/arena/constants';
 import { ArrowLeft, ArrowCircleRight, CloseIcon, OvalNumber, LogoStack } from './Icons';
 
 export const Poster = () => {

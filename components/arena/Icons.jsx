@@ -36,7 +36,7 @@ export const OvalNumber = ({ num }) => (
   </span>
 );
 
-// Stacked "BARBER" text logo
+// Stacked logo icon for ZK Card Arena
 // The Symbol (The Diamond)
 export const LogoStack = ({ className }) => (
   <div className={`relative flex items-center justify-center ${className}`}>

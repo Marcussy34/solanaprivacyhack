@@ -3,7 +3,7 @@ import { Canvas, useLoader, useThree } from '@react-three/fiber';
 import { Environment, Float, Text } from '@react-three/drei';
 import * as THREE from 'three';
 import { ClothCard } from './ClothCard';
-import { createColorfulCardTexture } from '../../lib/barber/textureGenerator';
+import { createColorfulCardTexture } from '../../lib/arena/textureGenerator';
 
 // Error boundary for 3D scene failures
 class SceneErrorBoundary extends React.Component {
@@ -52,7 +52,7 @@ const SceneContent = () => {
       <pointLight position={[-5, 2, 5]} intensity={1.5} color="#936DFF" />
       <pointLight position={[5, -2, 5]} intensity={1.0} color="#00FFFF" />
       
-      <group position={[0, 0, 0]}>
+      <group position={[0, 0, 0]} rotation={[0, 0.1, 0.15]}>
          <Float 
             speed={1.5} 
             rotationIntensity={0.1} 
