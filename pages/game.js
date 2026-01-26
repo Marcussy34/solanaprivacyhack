@@ -10,6 +10,8 @@ import { useGameProgram } from "../hooks/useGameProgram";
 import { useZKGame } from "../hooks/useZKGame";
 import { useShadowPay } from "../hooks/useShadowPay";
 import { cn } from "../lib/utils";
+import { ArrowLeft, LogoStack } from "../components/barber/Icons";
+import { useTransition } from "../components/ui/PageTransition";
 import {
   Loader2,
   Play,
@@ -229,6 +231,7 @@ function TurnIndicator({ gameState, isDealer, cardsDealt, playerJoined }) {
 }
 
 export default function GamePage() {
+  const { navigate } = useTransition();
   const { publicKey, connected, connecting, wallet } = useWallet();
   const {
     createGame,
@@ -1255,27 +1258,32 @@ export default function GamePage() {
   ].includes(gameState);
 
   return (
-    <div className="min-h-screen bg-black text-white">
-      {/* Header */}
-      <header className="border-b border-white/10 p-4">
-        <div className="max-w-6xl mx-auto flex justify-between items-center">
-          <a
-            href="/"
-            className="text-xl font-bold bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent"
+    <div className="min-h-screen bg-[#05010A] text-[#FFFFFF] font-body selection:bg-[#936DFF] selection:text-white overflow-x-hidden">
+      
+      {/* --- TOP BAR --- */}
+      <div className="fixed top-0 left-0 w-full flex justify-between items-center px-4 sm:px-6 md:px-8 py-4 sm:py-6 z-50 bg-[#05010A]/80 backdrop-blur-md border-b border-[#936DFF]/20">
+          <button 
+            onClick={() => navigate('/')}
+            className="group flex items-center gap-2 text-[#936DFF] hover:text-white transition-colors"
           >
-            Umbra
-          </a>
-          <div className="flex items-center gap-3">
-            <span className="text-xs px-2 py-1 rounded bg-yellow-500/20 text-yellow-400">
-              Devnet
-            </span>
-            <WalletMultiButton className="!bg-purple-600 hover:!bg-purple-700 !rounded-lg" />
+            <ArrowLeft className="w-5 h-5" />
+            <span className="font-display text-xs tracking-[0.2em] uppercase opacity-80 group-hover:opacity-100">Back</span>
+          </button>
+          
+          <div className="flex gap-8 sm:gap-16 font-display text-[10px] sm:text-xs tracking-[0.2em] text-[#936DFF] opacity-60 uppercase">
+              <span>ZK</span>
+              <span className="text-[#FFFFFF] opacity-100 text-sm">UMBRA</span>
+              <span>SOL</span>
           </div>
-        </div>
-      </header>
+          
+          <LogoStack className="w-6 h-6 text-[#936DFF]" />
+      </div>
 
-      {/* Main Content */}
-      <main className="max-w-6xl mx-auto p-4 md:p-8">
+      <div className="pt-24 px-4 sm:px-6 md:px-8 max-w-7xl mx-auto pb-12">
+        {/* Wallet Connection Header */}
+        <div className="flex justify-end mb-8">
+            <WalletMultiButton className="!bg-[#936DFF]/10 !border !border-[#936DFF] !text-[#936DFF] hover:!bg-[#936DFF] hover:!text-white !font-display !uppercase !tracking-widest !text-xs !h-10 !rounded-none transition-all duration-300" />
+        </div>
         {!connected ? (
           /* Not Connected State */
           <BlurFade delay={0.1}>
@@ -1324,89 +1332,65 @@ export default function GamePage() {
           /* Lobby State */
           <BlurFade delay={0.1}>
             <div className="flex flex-col items-center justify-center min-h-[60vh] gap-8">
-              <h1 className="text-3xl md:text-4xl font-bold text-center">
+              <h1 className="font-display font-bold text-3xl md:text-5xl uppercase tracking-tighter text-[#FFFFFF] text-center">
                 Ready to Play?
               </h1>
-              <p className="text-gray-400 text-center">
+              <p className="font-body text-[#B8B8CC] text-center tracking-widest uppercase text-xs">
                 Connected: {publicKey?.toBase58().slice(0, 4)}...
                 {publicKey?.toBase58().slice(-4)}
               </p>
 
-              <div className="flex flex-col md:flex-row gap-6">
-                {/* Create Game (Dealer) - no betting, goes straight to game creation */}
-                <motion.button
-                  whileTap={{ scale: 0.95 }}
-                  whileHover={{ scale: 1.02 }}
+              <div className="flex flex-col md:flex-row gap-6 items-stretch">
+                {/* Create Game (Dealer) */}
+                <button
                   onClick={handleStartHostGame}
                   disabled={loading}
-                  className={cn(
-                    "flex items-center gap-3 px-8 py-4 rounded-xl",
-                    "bg-gradient-to-r from-purple-600 to-pink-600",
-                    "hover:from-purple-500 hover:to-pink-500",
-                    "transition-colors duration-300",
-                    "disabled:opacity-50 disabled:cursor-not-allowed"
-                  )}
+                  className="group relative px-6 py-4 border-2 border-[#936DFF] overflow-hidden min-w-[200px]"
                 >
-                  <Play className="w-6 h-6" />
-                  <div className="flex flex-col items-start">
-                    <span className="text-lg font-semibold">Host Game</span>
-                    <span className="text-xs opacity-80">Be the Dealer</span>
-                  </div>
-                </motion.button>
+                  <span className="relative z-10 flex flex-col items-center gap-2">
+                    <Play className="w-6 h-6 text-[#FFFFFF] group-hover:text-[#05010A] transition-colors duration-300" />
+                    <span className="font-display font-bold text-lg uppercase tracking-widest text-[#FFFFFF] group-hover:text-[#05010A] transition-colors duration-300">Host Game</span>
+                    <span className="font-display text-[10px] uppercase tracking-widest text-[#936DFF] group-hover:text-[#05010A] transition-colors duration-300">Be the Dealer</span>
+                  </span>
+                  <div className="absolute inset-0 bg-[#936DFF] transform -translate-x-full group-hover:translate-x-0 transition-transform duration-300 ease-in-out"></div>
+                </button>
 
                 {/* Single Player Demo */}
-                <motion.button
-                  whileTap={{ scale: 0.95 }}
-                  whileHover={{ scale: 1.02 }}
+                <button
                   onClick={handleStartSinglePlayerBetting}
                   disabled={loading}
-                  className={cn(
-                    "flex items-center gap-3 px-8 py-4 rounded-xl",
-                    "bg-white/10 border border-white/20",
-                    "hover:bg-white/20",
-                    "transition-colors duration-300",
-                    "disabled:opacity-50 disabled:cursor-not-allowed"
-                  )}
+                  className="group relative px-6 py-4 border-2 border-[#936DFF] overflow-hidden min-w-[200px]"
                 >
-                  <UserPlus className="w-6 h-6" />
-                  <div className="flex flex-col items-start">
-                    <span className="text-lg font-semibold">Single Player</span>
-                    <span className="text-xs opacity-80">Demo Mode (Bet + Play)</span>
-                  </div>
-                </motion.button>
+                  <span className="relative z-10 flex flex-col items-center gap-2">
+                    <UserPlus className="w-6 h-6 text-[#FFFFFF] group-hover:text-[#05010A] transition-colors duration-300" />
+                    <span className="font-display font-bold text-lg uppercase tracking-widest text-[#FFFFFF] group-hover:text-[#05010A] transition-colors duration-300">Single Player</span>
+                    <span className="font-display text-[10px] uppercase tracking-widest text-[#936DFF] group-hover:text-[#05010A] transition-colors duration-300">Demo Mode</span>
+                  </span>
+                  <div className="absolute inset-0 bg-[#936DFF] transform -translate-x-full group-hover:translate-x-0 transition-transform duration-300 ease-in-out"></div>
+                </button>
 
                 {/* Join Game */}
                 <div className="flex flex-col gap-2">
-                  <div className="flex gap-2">
+                  <div className="flex gap-2 h-full">
                     <input
                       type="text"
-                      placeholder="Paste Game Code"
+                      placeholder="PASTE CODE"
                       value={joinGameCode}
                       onChange={(e) => setJoinGameCode(e.target.value)}
-                      className="px-4 py-3 rounded-xl bg-white/10 border border-white/20 focus:border-purple-500 focus:outline-none w-64 font-mono text-sm"
+                      className="px-4 py-3 bg-[#05010A] border-2 border-[#936DFF] text-[#FFFFFF] placeholder:text-[#936DFF]/50 focus:outline-none focus:bg-[#936DFF]/10 w-48 font-display text-sm uppercase tracking-widest"
                     />
-                    <motion.button
-                      whileTap={{ scale: 0.95 }}
-                      whileHover={{ scale: 1.02 }}
+                    <button
                       onClick={handleStartJoinBetting}
                       disabled={loading || !joinGameCode.trim()}
-                      className={cn(
-                        "flex items-center gap-2 px-6 py-3 rounded-xl",
-                        "bg-white/10 border border-white/20",
-                        "hover:bg-white/20",
-                        "transition-colors duration-300",
-                        "disabled:opacity-50 disabled:cursor-not-allowed"
-                      )}
+                      className="group relative px-6 border-2 border-[#936DFF] overflow-hidden flex items-center justify-center"
                     >
-                      {loading ? (
-                        <Loader2 className="w-5 h-5 animate-spin" />
-                      ) : (
-                        <UserPlus className="w-5 h-5" />
-                      )}
-                      <span>Join</span>
-                    </motion.button>
+                      <span className="relative z-10 font-display font-bold text-sm uppercase tracking-widest text-[#FFFFFF] group-hover:text-[#05010A] transition-colors duration-300">
+                        {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : "JOIN"}
+                      </span>
+                      <div className="absolute inset-0 bg-[#936DFF] transform -translate-x-full group-hover:translate-x-0 transition-transform duration-300 ease-in-out"></div>
+                    </button>
                   </div>
-                  <p className="text-xs text-gray-500">Format: gameId:dealerAddress</p>
+                  <p className="font-display text-[10px] uppercase tracking-widest text-[#936DFF]/60 text-center">Format: gameId:dealerAddress</p>
                 </div>
               </div>
 
@@ -1438,7 +1422,7 @@ export default function GamePage() {
 
               <button
                 onClick={() => { setPendingJoinCode(null); setGameState(GAME_STATES.IDLE); }}
-                className="text-sm text-gray-400 hover:text-white underline"
+                className="font-display text-xs uppercase tracking-widest text-[#936DFF] hover:text-[#FFFFFF] transition-colors mt-8 border-b border-transparent hover:border-[#FFFFFF]"
               >
                 Cancel
               </button>
@@ -1458,21 +1442,22 @@ export default function GamePage() {
                 /* Dealer View - Match the player's bet */
                 <>
                   <div className="text-center">
-                    <h1 className="text-3xl md:text-4xl font-bold mb-2 text-yellow-400">
+                    <h1 className="font-display font-bold text-3xl md:text-4xl uppercase tracking-tighter text-[#FFFFFF] mb-2">
                       Match the Bet
                     </h1>
-                    <p className="text-gray-400">
-                      A player has joined and bet {playerBetAmount} SOL.
+                    <p className="font-body text-[#B8B8CC] text-sm">
+                      A player has joined and bet <span className="text-[#936DFF] font-bold">{playerBetAmount} SOL</span>.
                       <br />
                       Match their bet to start the game!
                     </p>
                   </div>
 
-                  <div className="w-full p-6 rounded-xl bg-yellow-500/10 border border-yellow-500/30">
-                    <div className="text-center mb-4">
-                      <Coins className="w-12 h-12 mx-auto mb-2 text-yellow-400" />
-                      <p className="text-sm text-gray-400">Player&apos;s Bet</p>
-                      <p className="text-4xl font-bold text-yellow-400">{playerBetAmount} SOL</p>
+                  <div className="w-full p-6 border-2 border-[#936DFF] bg-[#05010A] relative overflow-hidden">
+                    <div className="absolute inset-0 bg-[#936DFF]/5 pointer-events-none"></div>
+                    <div className="text-center mb-4 relative z-10">
+                      <Coins className="w-12 h-12 mx-auto mb-2 text-[#936DFF]" />
+                      <p className="font-display text-xs uppercase tracking-widest text-[#936DFF]/60">Player&apos;s Bet</p>
+                      <p className="font-display font-bold text-4xl text-[#FFFFFF] tracking-tighter">{playerBetAmount} SOL</p>
                     </div>
                   </div>
 
@@ -1494,20 +1479,21 @@ export default function GamePage() {
                 /* Player View - Waiting for dealer */
                 <>
                   <div className="text-center">
-                    <h1 className="text-3xl md:text-4xl font-bold mb-2 text-purple-400">
+                    <h1 className="font-display font-bold text-3xl md:text-4xl uppercase tracking-tighter text-[#FFFFFF] mb-2">
                       Bet Placed!
                     </h1>
-                    <p className="text-gray-400">
+                    <p className="font-body text-[#B8B8CC] text-sm">
                       Waiting for the dealer to match your bet...
                     </p>
                   </div>
 
-                  <div className="w-full p-6 rounded-xl bg-purple-500/10 border border-purple-500/30">
-                    <div className="text-center">
-                      <Clock className="w-12 h-12 mx-auto mb-2 text-purple-400 animate-pulse" />
-                      <p className="text-sm text-gray-400">Your Bet</p>
-                      <p className="text-4xl font-bold text-purple-400">{currentBet} SOL</p>
-                      <p className="text-sm text-gray-500 mt-2">
+                  <div className="w-full p-6 border-2 border-[#936DFF] bg-[#05010A] relative overflow-hidden">
+                    <div className="absolute inset-0 bg-[#936DFF]/5 pointer-events-none"></div>
+                    <div className="text-center relative z-10">
+                      <Clock className="w-12 h-12 mx-auto mb-2 text-[#936DFF] animate-pulse" />
+                      <p className="font-display text-xs uppercase tracking-widest text-[#936DFF]/60">Your Bet</p>
+                      <p className="font-display font-bold text-4xl text-[#FFFFFF] tracking-tighter">{currentBet} SOL</p>
+                      <p className="font-display text-[10px] uppercase tracking-widest text-[#936DFF]/40 mt-2">
                         Total pot will be {(currentBet || 0) * 2} SOL
                       </p>
                     </div>
@@ -1540,43 +1526,44 @@ export default function GamePage() {
           /* Game Table */
           <div className="flex flex-col gap-6">
             {/* Game Info Bar */}
-            <div className="flex flex-wrap justify-between items-center gap-4 p-4 rounded-xl bg-white/5 border border-white/10">
-              <div className="flex items-center gap-2">
-                <span className="text-sm text-gray-400">Game:</span>
-                <span className="font-mono text-purple-400 text-xs">
+            <div className="flex flex-wrap justify-between items-center gap-4 p-4 border border-[#936DFF] bg-[#05010A] relative overflow-hidden">
+              <div className="absolute inset-0 bg-[#936DFF]/5 pointer-events-none"></div>
+              <div className="flex items-center gap-2 relative z-10">
+                <span className="font-display text-xs uppercase tracking-widest text-[#B8B8CC]">Game:</span>
+                <span className="font-mono text-[#936DFF] text-xs">
                   {gameId}
                 </span>
                 <button
                   onClick={copyGameCode}
-                  className="p-1 hover:bg-white/10 rounded transition-colors"
+                  className="p-1 hover:bg-[#936DFF]/20 rounded transition-colors"
                   title="Copy Game Code"
                 >
                   {copied ? (
-                    <Check className="w-4 h-4 text-green-400" />
+                    <Check className="w-4 h-4 text-[#936DFF]" />
                   ) : (
-                    <Copy className="w-4 h-4 text-gray-400" />
+                    <Copy className="w-4 h-4 text-[#B8B8CC]" />
                   )}
                 </button>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 relative z-10">
                 {/* Bet Amount Display */}
                 {currentBet && (
-                  <span className="px-2 py-1 rounded-full text-xs font-medium bg-yellow-500/20 text-yellow-400 border border-yellow-500/30 flex items-center gap-1">
+                  <span className="px-2 py-1 text-[10px] font-display uppercase tracking-widest bg-[#936DFF]/10 text-[#936DFF] border border-[#936DFF] flex items-center gap-1">
                     <Coins className="w-3 h-3" />
                     {currentBet} SOL
                   </span>
                 )}
                 {zkDeckCommitment && (
-                  <span className="px-2 py-1 rounded-full text-xs font-medium bg-green-500/20 text-green-400 border border-green-500/30">
+                  <span className="px-2 py-1 text-[10px] font-display uppercase tracking-widest bg-[#936DFF]/10 text-[#936DFF] border border-[#936DFF]">
                     ZK Active
                   </span>
                 )}
                 <span
                   className={cn(
-                    "px-3 py-1 rounded-full text-sm font-medium",
+                    "px-3 py-1 text-[10px] font-display uppercase tracking-widest border",
                     isDealer
-                      ? "bg-purple-500/20 text-purple-400"
-                      : "bg-green-500/20 text-green-400"
+                      ? "bg-[#936DFF]/20 text-[#936DFF] border-[#936DFF]"
+                      : "bg-[#FFFFFF]/10 text-[#FFFFFF] border-[#FFFFFF]/20"
                   )}
                 >
                   {isDealer ? "Dealer" : "Player"}
@@ -1587,7 +1574,7 @@ export default function GamePage() {
                   href={`https://explorer.solana.com/tx/${txSignature}?cluster=devnet`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex items-center gap-1 text-xs text-purple-400 hover:text-purple-300"
+                  className="flex items-center gap-1 text-[10px] font-display uppercase tracking-widest text-[#936DFF] hover:text-[#FFFFFF] relative z-10"
                 >
                   <ExternalLink className="w-3 h-3" />
                   View TX
@@ -1642,11 +1629,14 @@ export default function GamePage() {
             )}
 
             {/* Dealer Section */}
-            <div className="flex flex-col items-center gap-4 p-6 rounded-xl bg-white/5">
-              <h2 className="text-lg font-semibold text-gray-400">
+            <div className="flex flex-col items-center gap-4 p-6 border border-[#936DFF]/30 bg-[#05010A] relative">
+              <div className="absolute top-0 left-0 px-2 py-1 bg-[#936DFF] text-[#05010A] font-display text-[10px] uppercase tracking-widest font-bold">
+                Dealer
+              </div>
+              <h2 className="font-display font-bold text-lg uppercase tracking-widest text-[#FFFFFF] mt-2">
                 Dealer's Hand
                 {gameData?.dealer && (
-                  <span className="text-xs ml-2 text-gray-500">
+                  <span className="text-[10px] ml-2 text-[#B8B8CC] font-mono tracking-normal opacity-60">
                     ({gameData.dealer.slice(0, 4)}...{gameData.dealer.slice(-4)})
                   </span>
                 )}
@@ -1687,11 +1677,14 @@ export default function GamePage() {
             </AnimatePresence>
 
             {/* Player Section */}
-            <div className="flex flex-col items-center gap-4 p-6 rounded-xl bg-white/5">
-              <h2 className="text-lg font-semibold text-gray-400">
+            <div className="flex flex-col items-center gap-4 p-6 border border-[#936DFF]/30 bg-[#05010A] relative">
+              <div className="absolute top-0 right-0 px-2 py-1 bg-[#FFFFFF] text-[#05010A] font-display text-[10px] uppercase tracking-widest font-bold">
+                You
+              </div>
+              <h2 className="font-display font-bold text-lg uppercase tracking-widest text-[#FFFFFF] mt-2">
                 Player's Hand
                 {gameData?.player && (
-                  <span className="text-xs ml-2 text-gray-500">
+                  <span className="text-[10px] ml-2 text-[#B8B8CC] font-mono tracking-normal opacity-60">
                     ({gameData.player.slice(0, 4)}...{gameData.player.slice(-4)})
                   </span>
                 )}
@@ -1728,37 +1721,34 @@ export default function GamePage() {
             <div className="flex flex-wrap justify-center gap-4 mt-4">
               {/* Dealer: Verify Shuffle (retry, only if proof data available) */}
               {isDealer && gameState === GAME_STATES.CREATED && shuffleProofData && (
-                <motion.button
-                  whileTap={{ scale: 0.95 }}
-                  whileHover={{ scale: 1.02 }}
+                <button
                   onClick={handleVerifyShuffle}
                   disabled={loading}
-                  className={cn(
-                    "flex items-center gap-2 px-6 py-3 rounded-xl",
-                    "bg-purple-600 hover:bg-purple-500",
-                    "transition-colors duration-300",
-                    "disabled:opacity-50"
-                  )}
+                  className="group relative px-6 py-3 border-2 border-[#936DFF] overflow-hidden"
                 >
-                  {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Shield className="w-5 h-5" />}
-                  Retry Verify Shuffle
-                </motion.button>
+                  <span className="relative z-10 flex items-center gap-2 font-display font-bold text-sm uppercase tracking-widest text-[#FFFFFF] group-hover:text-[#05010A] transition-colors duration-300">
+                    {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Shield className="w-5 h-5" />}
+                    Retry Verify Shuffle
+                  </span>
+                  <div className="absolute inset-0 bg-[#936DFF] transform -translate-x-full group-hover:translate-x-0 transition-transform duration-300 ease-in-out"></div>
+                </button>
               )}
 
               {/* Dealer: Enter Player's Bet Amount (cross-browser sync) */}
               {isDealer && gameState === GAME_STATES.PLAYING && !cardsDealt && gameData?.player && !playerBetAmount && (
                 <BlurFade delay={0.1}>
-                  <div className="w-full max-w-md p-6 rounded-xl bg-yellow-500/10 border border-yellow-500/30 mb-4">
-                    <div className="text-center mb-4">
-                      <Coins className="w-12 h-12 mx-auto mb-2 text-yellow-400" />
-                      <h3 className="text-lg font-semibold text-yellow-400">
+                  <div className="w-full max-w-md p-6 border border-[#936DFF] bg-[#05010A] mb-4 relative overflow-hidden">
+                    <div className="absolute inset-0 bg-[#936DFF]/5 pointer-events-none"></div>
+                    <div className="text-center mb-4 relative z-10">
+                      <Coins className="w-12 h-12 mx-auto mb-2 text-[#936DFF]" />
+                      <h3 className="font-display font-bold text-lg uppercase tracking-widest text-[#FFFFFF]">
                         Player Joined!
                       </h3>
-                      <p className="text-sm text-gray-400 mt-2">
+                      <p className="font-body text-[#B8B8CC] text-xs mt-2">
                         Ask the player how much they bet, then enter it below to match.
                       </p>
                     </div>
-                    <div className="flex gap-2">
+                    <div className="flex gap-2 relative z-10">
                       <input
                         type="number"
                         step="0.01"
@@ -1766,10 +1756,9 @@ export default function GamePage() {
                         placeholder="e.g., 0.1"
                         value={manualBetInput}
                         onChange={(e) => setManualBetInput(e.target.value)}
-                        className="flex-1 px-4 py-3 rounded-lg bg-black/50 border border-white/20 text-white placeholder:text-gray-500 focus:border-yellow-400 focus:outline-none"
+                        className="flex-1 px-4 py-3 bg-[#05010A] border border-[#936DFF] text-[#FFFFFF] placeholder:text-[#936DFF]/50 focus:outline-none focus:bg-[#936DFF]/10 font-display text-sm"
                       />
-                      <motion.button
-                        whileTap={{ scale: 0.95 }}
+                      <button
                         onClick={() => {
                           const amount = parseFloat(manualBetInput);
                           if (amount > 0) {
@@ -1778,15 +1767,13 @@ export default function GamePage() {
                           }
                         }}
                         disabled={!manualBetInput || parseFloat(manualBetInput) <= 0}
-                        className={cn(
-                          "px-6 py-3 rounded-lg font-semibold",
-                          "bg-yellow-600 hover:bg-yellow-500",
-                          "disabled:opacity-50 disabled:cursor-not-allowed",
-                          "transition-colors"
-                        )}
+                        className="group relative px-6 py-3 border border-[#936DFF] overflow-hidden"
                       >
-                        Match Bet
-                      </motion.button>
+                        <span className="relative z-10 font-display font-bold text-sm uppercase tracking-widest text-[#FFFFFF] group-hover:text-[#05010A] transition-colors duration-300">
+                          Match Bet
+                        </span>
+                        <div className="absolute inset-0 bg-[#936DFF] transform -translate-x-full group-hover:translate-x-0 transition-transform duration-300 ease-in-out"></div>
+                      </button>
                     </div>
                   </div>
                 </BlurFade>
@@ -1794,103 +1781,83 @@ export default function GamePage() {
 
               {/* Dealer: Deal Cards (only after player joins) */}
               {isDealer && gameState === GAME_STATES.PLAYING && !cardsDealt && (
-                <motion.button
-                  whileTap={{ scale: 0.95 }}
-                  whileHover={{ scale: 1.02 }}
+                <button
                   onClick={handleDealCards}
                   disabled={loading}
-                  className={cn(
-                    "flex items-center gap-2 px-6 py-3 rounded-xl",
-                    "bg-green-600 hover:bg-green-500",
-                    "transition-colors duration-300",
-                    "disabled:opacity-50"
-                  )}
+                  className="group relative px-6 py-3 border-2 border-[#936DFF] overflow-hidden"
                 >
-                  {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Play className="w-5 h-5" />}
-                  Deal Cards
-                </motion.button>
+                  <span className="relative z-10 flex items-center gap-2 font-display font-bold text-sm uppercase tracking-widest text-[#FFFFFF] group-hover:text-[#05010A] transition-colors duration-300">
+                    {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Play className="w-5 h-5" />}
+                    Deal Cards
+                  </span>
+                  <div className="absolute inset-0 bg-[#936DFF] transform -translate-x-full group-hover:translate-x-0 transition-transform duration-300 ease-in-out"></div>
+                </button>
               )}
 
               {/* Player: Hit/Stand/Double (only after cards dealt, disabled while pending reveal) */}
               {!isDealer && gameState === GAME_STATES.PLAYING && cardsDealt && playerCards.length <= playerRevealed.length && (
                 <>
-                  <motion.button
-                    whileTap={{ scale: 0.95 }}
-                    whileHover={{ scale: 1.02 }}
+                  <button
                     onClick={handleHit}
                     disabled={loading}
-                    className={cn(
-                      "flex items-center gap-2 px-6 py-3 rounded-xl",
-                      "bg-green-600 hover:bg-green-500",
-                      "transition-colors duration-300",
-                      "disabled:opacity-50"
-                    )}
+                    className="group relative px-6 py-3 border-2 border-[#936DFF] overflow-hidden"
                   >
-                    {loading ? (
-                      <Loader2 className="w-5 h-5 animate-spin" />
-                    ) : (
-                      <Hand className="w-5 h-5" />
-                    )}
-                    Hit
-                  </motion.button>
-                  <motion.button
-                    whileTap={{ scale: 0.95 }}
-                    whileHover={{ scale: 1.02 }}
+                    <span className="relative z-10 flex items-center gap-2 font-display font-bold text-sm uppercase tracking-widest text-[#FFFFFF] group-hover:text-[#05010A] transition-colors duration-300">
+                      {loading ? (
+                        <Loader2 className="w-5 h-5 animate-spin" />
+                      ) : (
+                        <Hand className="w-5 h-5" />
+                      )}
+                      Hit
+                    </span>
+                    <div className="absolute inset-0 bg-[#936DFF] transform -translate-x-full group-hover:translate-x-0 transition-transform duration-300 ease-in-out"></div>
+                  </button>
+                  <button
                     onClick={handleStand}
                     disabled={loading}
-                    className={cn(
-                      "flex items-center gap-2 px-6 py-3 rounded-xl",
-                      "bg-yellow-600 hover:bg-yellow-500",
-                      "transition-colors duration-300",
-                      "disabled:opacity-50"
-                    )}
+                    className="group relative px-6 py-3 border-2 border-[#FFFFFF] overflow-hidden"
                   >
-                    {loading ? (
-                      <Loader2 className="w-5 h-5 animate-spin" />
-                    ) : (
-                      <Square className="w-5 h-5" />
-                    )}
-                    Stand
-                  </motion.button>
-                  <motion.button
-                    whileTap={{ scale: 0.95 }}
-                    whileHover={{ scale: 1.02 }}
+                    <span className="relative z-10 flex items-center gap-2 font-display font-bold text-sm uppercase tracking-widest text-[#FFFFFF] group-hover:text-[#05010A] transition-colors duration-300">
+                      {loading ? (
+                        <Loader2 className="w-5 h-5 animate-spin" />
+                      ) : (
+                        <Square className="w-5 h-5" />
+                      )}
+                      Stand
+                    </span>
+                    <div className="absolute inset-0 bg-[#FFFFFF] transform -translate-x-full group-hover:translate-x-0 transition-transform duration-300 ease-in-out"></div>
+                  </button>
+                  <button
                     onClick={handleDouble}
                     disabled={loading || playerCards.length > 2}
-                    className={cn(
-                      "flex items-center gap-2 px-6 py-3 rounded-xl",
-                      "bg-purple-600 hover:bg-purple-500",
-                      "transition-colors duration-300",
-                      "disabled:opacity-50"
-                    )}
+                    className="group relative px-6 py-3 border-2 border-[#936DFF] overflow-hidden"
                   >
-                    {loading ? (
-                      <Loader2 className="w-5 h-5 animate-spin" />
-                    ) : (
-                      <CopyPlus className="w-5 h-5" />
-                    )}
-                    Double
-                  </motion.button>
+                    <span className="relative z-10 flex items-center gap-2 font-display font-bold text-sm uppercase tracking-widest text-[#FFFFFF] group-hover:text-[#05010A] transition-colors duration-300">
+                      {loading ? (
+                        <Loader2 className="w-5 h-5 animate-spin" />
+                      ) : (
+                        <CopyPlus className="w-5 h-5" />
+                      )}
+                      Double
+                    </span>
+                    <div className="absolute inset-0 bg-[#936DFF] transform -translate-x-full group-hover:translate-x-0 transition-transform duration-300 ease-in-out"></div>
+                  </button>
                 </>
               )}
 
               {/* Dealer: Play turn (reveal hole card, auto-hit until 17+) */}
               {isDealer && gameState === GAME_STATES.DEALER_TURN && (
-                <motion.button
-                  whileTap={{ scale: 0.95 }}
-                  whileHover={{ scale: 1.02 }}
+                <button
                   onClick={handleDealerPlayTurn}
                   disabled={loading}
-                  className={cn(
-                    "flex items-center gap-2 px-6 py-3 rounded-xl",
-                    "bg-purple-600 hover:bg-purple-500",
-                    "transition-colors duration-300",
-                    "disabled:opacity-50"
-                  )}
+                  className="group relative px-6 py-3 border-2 border-[#936DFF] overflow-hidden"
                 >
-                  {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Zap className="w-5 h-5" />}
-                  Play Dealer Turn
-                </motion.button>
+                  <span className="relative z-10 flex items-center gap-2 font-display font-bold text-sm uppercase tracking-widest text-[#FFFFFF] group-hover:text-[#05010A] transition-colors duration-300">
+                    {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Zap className="w-5 h-5" />}
+                    Play Dealer Turn
+                  </span>
+                  <div className="absolute inset-0 bg-[#936DFF] transform -translate-x-full group-hover:translate-x-0 transition-transform duration-300 ease-in-out"></div>
+                </button>
               )}
 
               {/* Game over - payout + new game */}
@@ -1929,32 +1896,22 @@ export default function GamePage() {
 
                   {/* Show payout success */}
                   {payoutProcessed && currentBet && (
-                    <motion.div
-                      initial={{ opacity: 0, y: 20 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      className="flex items-center gap-2 px-6 py-3 rounded-xl bg-green-500/20 border border-green-500/30 text-green-400"
-                    >
+                    <div className="flex items-center gap-2 px-6 py-3 border border-[#936DFF] bg-[#936DFF]/10 text-[#936DFF] font-display text-sm uppercase tracking-widest">
                       <Check className="w-5 h-5" />
                       Payout Claimed!
-                    </motion.div>
+                    </div>
                   )}
 
-                  <motion.button
-                    whileTap={{ scale: 0.95 }}
-                    whileHover={{ scale: 1.02 }}
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.5 }}
+                  <button
                     onClick={handleNewGame}
-                    className={cn(
-                      "flex items-center gap-2 px-6 py-3 rounded-xl",
-                      "bg-white/10 border border-white/20 hover:bg-white/20",
-                      "transition-colors duration-300"
-                    )}
+                    className="group relative px-6 py-3 border-2 border-[#FFFFFF] overflow-hidden"
                   >
-                    <RefreshCw className="w-5 h-5" />
-                    New Game
-                  </motion.button>
+                    <span className="relative z-10 flex items-center gap-2 font-display font-bold text-sm uppercase tracking-widest text-[#FFFFFF] group-hover:text-[#05010A] transition-colors duration-300">
+                      <RefreshCw className="w-5 h-5" />
+                      New Game
+                    </span>
+                    <div className="absolute inset-0 bg-[#FFFFFF] transform -translate-x-full group-hover:translate-x-0 transition-transform duration-300 ease-in-out"></div>
+                  </button>
                 </div>
               )}
             </div>
@@ -1972,7 +1929,7 @@ export default function GamePage() {
             )}
           </div>
         )}
-      </main>
+      </div>
     </div>
   );
 }
