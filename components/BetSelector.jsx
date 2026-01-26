@@ -66,7 +66,7 @@ function PaymentProgress({ status }) {
   const currentIndex = steps.findIndex((s) => s.key === status);
 
   return (
-    <div className="flex items-center justify-center gap-1 text-xs">
+    <div className="flex items-center justify-center gap-1 text-[10px] font-display uppercase tracking-widest">
       {steps.map((step, index) => {
         const isActive = step.key === status;
         const isComplete = index < currentIndex;
@@ -76,10 +76,10 @@ function PaymentProgress({ status }) {
           <div key={step.key} className="flex items-center">
             <div
               className={cn(
-                "flex items-center gap-1 px-2 py-1 rounded-full transition-all",
-                isActive && "bg-purple-500/20 text-purple-400",
-                isComplete && "bg-green-500/20 text-green-400",
-                isPending && "bg-white/5 text-gray-500"
+                "flex items-center gap-1 px-2 py-1 transition-all border",
+                isActive && "bg-[#936DFF]/20 text-[#936DFF] border-[#936DFF]",
+                isComplete && "bg-[#22c55e]/20 text-[#22c55e] border-[#22c55e]",
+                isPending && "bg-transparent text-[#B8B8CC] border-transparent"
               )}
             >
               {isActive && <Loader2 className="w-3 h-3 animate-spin" />}
@@ -89,8 +89,8 @@ function PaymentProgress({ status }) {
             {index < steps.length - 1 && (
               <div
                 className={cn(
-                  "w-2 h-0.5 mx-1",
-                  isComplete ? "bg-green-500/50" : "bg-white/10"
+                  "w-2 h-px mx-1",
+                  isComplete ? "bg-[#22c55e]/50" : "bg-[#FFFFFF]/10"
                 )}
               />
             )}
@@ -290,9 +290,9 @@ export function BetSelector({
   // Not connected state
   if (!connected) {
     return (
-      <div className="p-6 rounded-xl bg-white/5 border border-white/10 text-center">
-        <Wallet className="w-12 h-12 mx-auto mb-4 text-gray-400" />
-        <p className="text-gray-400">Connect wallet to place bets</p>
+      <div className="p-6 border border-[#936DFF] bg-[#05010A] text-center">
+        <Wallet className="w-12 h-12 mx-auto mb-4 text-[#B8B8CC]" />
+        <p className="font-display text-sm uppercase tracking-widest text-[#B8B8CC]">Connect wallet to place bets</p>
       </div>
     );
   }
@@ -300,9 +300,9 @@ export function BetSelector({
   // SDK not ready
   if (!isClientReady) {
     return (
-      <div className="p-6 rounded-xl bg-white/5 border border-white/10 text-center">
-        <Loader2 className="w-8 h-8 mx-auto mb-4 text-purple-400 animate-spin" />
-        <p className="text-gray-400">Loading ShadowPay SDK...</p>
+      <div className="p-6 border border-[#936DFF] bg-[#05010A] text-center">
+        <Loader2 className="w-8 h-8 mx-auto mb-4 text-[#936DFF] animate-spin" />
+        <p className="font-display text-sm uppercase tracking-widest text-[#B8B8CC]">Loading ShadowPay SDK...</p>
       </div>
     );
   }
@@ -311,20 +311,20 @@ export function BetSelector({
     <div className="space-y-4">
       {/* Escrow Balance Display - Only show in preset mode with ShadowWire */}
       {mode === "preset" && paymentMode === 'shadowwire' && (
-        <div className="flex items-center justify-between p-4 rounded-xl bg-white/5 border border-white/10">
+        <div className="flex items-center justify-between p-4 border border-[#936DFF] bg-[#05010A]">
           <div className="flex items-center gap-2">
-            <Lock className="w-5 h-5 text-purple-400" />
-            <span className="text-sm text-gray-400">Escrow Balance</span>
+            <Lock className="w-5 h-5 text-[#936DFF]" />
+            <span className="font-display text-xs uppercase tracking-widest text-[#B8B8CC]">Escrow Balance</span>
           </div>
           <div className="flex items-center gap-3">
-            <span className="text-lg font-bold text-white">
+            <span className="font-display font-bold text-lg text-[#FFFFFF]">
               {escrowBalance !== null ? `${escrowBalance.toFixed(3)} SOL` : "..."}
             </span>
             <button
               onClick={() => setShowDeposit(!showDeposit)}
               className={cn(
-                "flex items-center gap-1 px-3 py-1.5 rounded-lg text-sm",
-                "bg-purple-600/20 text-purple-400 hover:bg-purple-600/30",
+                "flex items-center gap-1 px-3 py-1.5 border border-[#936DFF] text-[10px] font-display uppercase tracking-widest",
+                "bg-[#936DFF]/10 text-[#936DFF] hover:bg-[#936DFF]/20",
                 "transition-colors"
               )}
             >
@@ -344,7 +344,7 @@ export function BetSelector({
             exit={{ height: 0, opacity: 0 }}
             className="overflow-hidden"
           >
-            <div className="p-4 rounded-xl bg-purple-500/10 border border-purple-500/20">
+            <div className="p-4 border border-[#936DFF] bg-[#05010A]">
               <div className="flex gap-2">
                 <input
                   type="number"
@@ -355,9 +355,8 @@ export function BetSelector({
                   onChange={(e) => setDepositAmount(e.target.value)}
                   disabled={isLoading}
                   className={cn(
-                    "flex-1 px-4 py-2 rounded-lg",
-                    "bg-black/50 border border-white/20",
-                    "focus:border-purple-500 focus:outline-none",
+                    "flex-1 px-4 py-2 bg-[#05010A] border border-[#936DFF] text-[#FFFFFF]",
+                    "focus:outline-none focus:bg-[#936DFF]/10 font-display text-sm",
                     "disabled:opacity-50"
                   )}
                 />
@@ -365,9 +364,9 @@ export function BetSelector({
                   onClick={handleDeposit}
                   disabled={isLoading || !depositAmount}
                   className={cn(
-                    "flex items-center gap-2 px-4 py-2 rounded-lg",
-                    "bg-purple-600 hover:bg-purple-500",
-                    "transition-colors",
+                    "flex items-center gap-2 px-4 py-2 border border-[#936DFF]",
+                    "bg-[#936DFF]/10 hover:bg-[#936DFF]/20 text-[#FFFFFF]",
+                    "transition-colors font-display text-xs uppercase tracking-widest",
                     "disabled:opacity-50 disabled:cursor-not-allowed"
                   )}
                 >
@@ -379,7 +378,7 @@ export function BetSelector({
                   Deposit
                 </button>
               </div>
-              <p className="mt-2 text-xs text-gray-400">
+              <p className="mt-2 text-[10px] font-display uppercase tracking-widest text-[#B8B8CC]">
                 Funds are held securely in ShadowPay escrow for private betting.
               </p>
             </div>
@@ -389,67 +388,68 @@ export function BetSelector({
 
       {/* Payment Mode Toggle - Test Mode vs ShadowWire */}
       {mode === "preset" && (
-        <div className="p-1 rounded-xl bg-black/30 border border-white/10">
+        <div className="p-1 border border-[#936DFF]/30 bg-[#05010A]">
           <div className="flex gap-1">
             <button
               onClick={() => handlePaymentModeChange('test')}
               disabled={disabled || isLoading}
               className={cn(
-                "flex-1 flex items-center justify-center gap-2 py-2.5 px-4 rounded-lg text-sm font-medium transition-all",
+                "flex-1 flex items-center justify-center gap-2 py-2.5 px-4 text-xs font-display uppercase tracking-widest transition-all",
                 paymentMode === 'test'
-                  ? "bg-blue-600 text-white shadow-lg shadow-blue-500/20"
-                  : "text-gray-400 hover:text-white hover:bg-white/5",
+                  ? "bg-[#3b82f6] text-white"
+                  : "text-[#B8B8CC] hover:text-white hover:bg-[#FFFFFF]/5",
                 "disabled:opacity-50 disabled:cursor-not-allowed"
               )}
             >
               <span className="text-base">🧪</span>
               <span>Test Mode</span>
-              <span className="text-xs opacity-70">(Skip Payment)</span>
+              <span className="text-[10px] opacity-70 ml-1">(Skip Payment)</span>
             </button>
             <button
               onClick={() => handlePaymentModeChange('shadowwire')}
               disabled={disabled || isLoading}
               className={cn(
-                "flex-1 flex items-center justify-center gap-2 py-2.5 px-4 rounded-lg text-sm font-medium transition-all",
+                "flex-1 flex items-center justify-center gap-2 py-2.5 px-4 text-xs font-display uppercase tracking-widest transition-all",
                 paymentMode === 'shadowwire'
-                  ? "bg-purple-600 text-white shadow-lg shadow-purple-500/20"
-                  : "text-gray-400 hover:text-white hover:bg-white/5",
+                  ? "bg-[#936DFF] text-white"
+                  : "text-[#B8B8CC] hover:text-white hover:bg-[#FFFFFF]/5",
                 "disabled:opacity-50 disabled:cursor-not-allowed"
               )}
             >
               <Shield className="w-4 h-4" />
               <span>ShadowWire</span>
-              <span className="text-xs opacity-70">(Private)</span>
+              <span className="text-[10px] opacity-70 ml-1">(Private)</span>
             </button>
           </div>
         </div>
       )}
 
       {/* Bet Amount Selection */}
-      <div className="p-4 rounded-xl bg-white/5 border border-white/10">
+      <div className="p-4 border border-[#936DFF] bg-[#05010A] relative overflow-hidden">
+        <div className="absolute inset-0 bg-[#936DFF]/5 pointer-events-none"></div>
         {/* Header - changes based on mode */}
-        <div className="flex items-center gap-2 mb-4">
+        <div className="flex items-center gap-2 mb-4 relative z-10">
           {mode === "custom" ? (
             <>
-              <Edit3 className="w-5 h-5 text-purple-400" />
-              <span className="text-sm font-medium text-gray-300">Enter Deposit Amount</span>
+              <Edit3 className="w-5 h-5 text-[#936DFF]" />
+              <span className="font-display text-xs uppercase tracking-widest text-[#B8B8CC]">Enter Deposit Amount</span>
             </>
           ) : mode === "fixed" ? (
             <>
-              <Lock className="w-5 h-5 text-yellow-400" />
-              <span className="text-sm font-medium text-gray-300">Required Deposit</span>
+              <Lock className="w-5 h-5 text-[#936DFF]" />
+              <span className="font-display text-xs uppercase tracking-widest text-[#B8B8CC]">Required Deposit</span>
             </>
           ) : (
             <>
-              <Coins className="w-5 h-5 text-yellow-400" />
-              <span className="text-sm font-medium text-gray-300">Select Bet Amount</span>
+              <Coins className="w-5 h-5 text-[#936DFF]" />
+              <span className="font-display text-xs uppercase tracking-widest text-[#B8B8CC]">Select Bet Amount</span>
             </>
           )}
         </div>
 
         {/* MODE: PRESET - Grid of preset buttons (amounts vary by network) */}
         {mode === "preset" && (
-          <div className="grid grid-cols-4 gap-2 mb-4">
+          <div className="grid grid-cols-4 gap-2 mb-4 relative z-10">
             {betOptions.map((amount) => (
               <motion.button
                 key={amount}
@@ -457,16 +457,15 @@ export function BetSelector({
                 onClick={() => setSelectedBet(amount)}
                 disabled={disabled || isLoading}
                 className={cn(
-                  "py-3 px-2 rounded-xl text-center transition-all",
-                  "border-2",
+                  "py-3 px-2 text-center transition-all border",
                   selectedBet === amount
-                    ? "bg-purple-600/30 border-purple-500 text-white"
-                    : "bg-white/5 border-white/10 text-gray-300 hover:border-white/30",
+                    ? "bg-[#936DFF] border-[#936DFF] text-white"
+                    : "bg-transparent border-[#936DFF]/30 text-[#B8B8CC] hover:border-[#936DFF]",
                   "disabled:opacity-50 disabled:cursor-not-allowed"
                 )}
               >
-                <span className="text-lg font-bold">{amount}</span>
-                <span className="text-xs text-gray-400 block">SOL</span>
+                <span className="font-display font-bold text-lg block">{amount}</span>
+                <span className="font-display text-[10px] uppercase tracking-widest block opacity-70">SOL</span>
               </motion.button>
             ))}
           </div>
@@ -474,7 +473,7 @@ export function BetSelector({
 
         {/* MODE: CUSTOM - Input field for dealer */}
         {mode === "custom" && (
-          <div className="mb-4">
+          <div className="mb-4 relative z-10">
             <div className="relative">
               <input
                 type="number"
@@ -486,30 +485,30 @@ export function BetSelector({
                 onChange={handleCustomAmountChange}
                 disabled={disabled || isLoading}
                 className={cn(
-                  "w-full px-4 py-4 rounded-xl text-lg font-bold text-center",
-                  "bg-black/50 border-2",
+                  "w-full px-4 py-4 font-display font-bold text-lg text-center",
+                  "bg-[#05010A] border-2",
                   inputError
                     ? "border-red-500 focus:border-red-400"
-                    : "border-purple-500/50 focus:border-purple-500",
-                  "focus:outline-none transition-colors",
+                    : "border-[#936DFF] focus:border-[#936DFF]",
+                  "focus:outline-none transition-colors text-[#FFFFFF]",
                   "disabled:opacity-50"
                 )}
               />
-              <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 font-medium">
+              <span className="absolute right-4 top-1/2 -translate-y-1/2 text-[#B8B8CC] font-display text-xs uppercase tracking-widest">
                 SOL
               </span>
             </div>
             {inputError && (
-              <p className="mt-2 text-sm text-red-400 flex items-center gap-1">
+              <p className="mt-2 text-xs font-display uppercase tracking-widest text-red-400 flex items-center gap-1">
                 <AlertCircle className="w-4 h-4" />
                 {inputError}
               </p>
             )}
-            <p className="mt-2 text-xs text-gray-500">
+            <p className="mt-2 text-[10px] font-display uppercase tracking-widest text-[#B8B8CC]">
               Players joining your room must deposit this exact amount.
             </p>
             {paymentMode === 'shadowwire' && SHADOWWIRE_ENABLED && (
-              <p className="mt-1 text-xs text-purple-400 flex items-center gap-1">
+              <p className="mt-1 text-[10px] font-display uppercase tracking-widest text-[#936DFF] flex items-center gap-1">
                 <Shield className="w-3 h-3" />
                 Minimum {SHADOWWIRE_MIN_AMOUNT} SOL (ShadowWire privacy enabled)
               </p>
@@ -519,13 +518,13 @@ export function BetSelector({
 
         {/* MODE: FIXED - Display-only amount for player joining */}
         {mode === "fixed" && fixedAmount && (
-          <div className="mb-4">
-            <div className="p-6 rounded-xl bg-gradient-to-br from-purple-500/20 to-pink-500/20 border-2 border-purple-500/50 text-center">
-              <p className="text-sm text-gray-400 mb-1">Room Deposit</p>
-              <p className="text-4xl font-bold text-white">{fixedAmount}</p>
-              <p className="text-lg text-purple-400">SOL</p>
+          <div className="mb-4 relative z-10">
+            <div className="p-6 border-2 border-[#936DFF] bg-[#05010A] text-center">
+              <p className="font-display text-xs uppercase tracking-widest text-[#B8B8CC] mb-1">Room Deposit</p>
+              <p className="font-display font-bold text-4xl text-[#FFFFFF]">{fixedAmount}</p>
+              <p className="font-display text-lg uppercase tracking-widest text-[#936DFF]">SOL</p>
             </div>
-            <p className="mt-3 text-xs text-center text-gray-500">
+            <p className="mt-3 text-[10px] font-display uppercase tracking-widest text-center text-[#B8B8CC]">
               You must deposit exactly {fixedAmount} SOL to join this room.
             </p>
           </div>
@@ -533,9 +532,9 @@ export function BetSelector({
 
         {/* Insufficient balance warning */}
         {needsDeposit && currentBetAmount > 0 && (
-          <div className="flex items-center gap-2 p-3 mb-4 rounded-lg bg-yellow-500/10 border border-yellow-500/20">
+          <div className="flex items-center gap-2 p-3 mb-4 border border-yellow-500/20 bg-yellow-500/5 relative z-10">
             <AlertCircle className="w-4 h-4 text-yellow-400 flex-shrink-0" />
-            <p className="text-xs text-yellow-400">
+            <p className="font-display text-[10px] uppercase tracking-widest text-yellow-400">
               Insufficient balance. {(currentBetAmount - (escrowBalance || 0)).toFixed(3)} SOL needed.
               Auto-deposit will be triggered.
             </p>
@@ -549,10 +548,10 @@ export function BetSelector({
               initial={{ opacity: 0, y: -10 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -10 }}
-              className="mb-4"
+              className="mb-4 relative z-10"
             >
               <PaymentProgress status={status} />
-              <p className="text-center text-sm text-purple-400 mt-2">
+              <p className="text-center font-display text-[10px] uppercase tracking-widest text-[#936DFF] mt-2">
                 {STATUS_MESSAGES[status] || "Processing..."}
               </p>
             </motion.div>
@@ -561,13 +560,13 @@ export function BetSelector({
 
         {/* Error Display */}
         {error && (
-          <div className="flex items-start gap-2 p-3 mb-4 rounded-lg bg-red-500/10 border border-red-500/20">
+          <div className="flex items-start gap-2 p-3 mb-4 border border-red-500/20 bg-red-500/5 relative z-10">
             <AlertCircle className="w-4 h-4 text-red-400 flex-shrink-0 mt-0.5" />
             <div>
-              <p className="text-sm text-red-400">{error}</p>
+              <p className="font-display text-[10px] uppercase tracking-widest text-red-400">{error}</p>
               <button
                 onClick={clearError}
-                className="text-xs text-gray-400 hover:text-white underline mt-1"
+                className="font-display text-[10px] uppercase tracking-widest text-[#B8B8CC] hover:text-[#FFFFFF] underline mt-1"
               >
                 Dismiss
               </button>
@@ -576,79 +575,75 @@ export function BetSelector({
         )}
 
         {/* Place Bet Button */}
-        <motion.button
-          whileTap={{ scale: 0.95 }}
-          whileHover={{ scale: 1.02 }}
+        <button
           onClick={handlePlaceBet}
           disabled={disabled || isLoading || (mode === "custom" && (!customAmount || inputError))}
           className={cn(
-            "w-full flex items-center justify-center gap-3 py-4 rounded-xl",
-            paymentMode === 'test'
-              ? "bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-500 hover:to-cyan-500"
-              : "bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500",
-            "text-white font-semibold text-lg",
-            "transition-all duration-300",
+            "w-full group relative px-6 py-4 border-2 border-[#936DFF] overflow-hidden relative z-10",
             "disabled:opacity-50 disabled:cursor-not-allowed"
           )}
         >
-          {isLoading ? (
-            <>
-              <Loader2 className="w-5 h-5 animate-spin" />
-              <span>Processing...</span>
-            </>
-          ) : paymentMode === 'test' ? (
-            // Test mode: Skip payment, go straight to game
-            <>
-              <span>🧪</span>
-              <span>Start Game (Test Mode)</span>
-            </>
-          ) : mode === "custom" ? (
-            <>
-              <Shield className="w-5 h-5" />
-              <span>
-                {customAmount && !inputError
-                  ? `Create Room with ${customAmount} SOL Deposit`
-                  : "Enter Deposit Amount"}
-              </span>
-            </>
-          ) : mode === "fixed" ? (
-            <>
-              <Shield className="w-5 h-5" />
-              <span>Deposit {fixedAmount} SOL to Join</span>
-            </>
-          ) : (
-            <>
-              <Shield className="w-5 h-5" />
-              <span>Place {selectedBet} SOL Private Bet</span>
-            </>
-          )}
-        </motion.button>
+          <span className="relative z-10 flex items-center justify-center gap-3 font-display font-bold text-lg uppercase tracking-widest text-[#FFFFFF] group-hover:text-[#05010A] transition-colors duration-300">
+            {isLoading ? (
+              <>
+                <Loader2 className="w-5 h-5 animate-spin" />
+                <span>Processing...</span>
+              </>
+            ) : paymentMode === 'test' ? (
+              // Test mode: Skip payment, go straight to game
+              <>
+                <span>🧪</span>
+                <span>Start Game (Test Mode)</span>
+              </>
+            ) : mode === "custom" ? (
+              <>
+                <Shield className="w-5 h-5" />
+                <span>
+                  {customAmount && !inputError
+                    ? `Create Room`
+                    : "Enter Deposit Amount"}
+                </span>
+              </>
+            ) : mode === "fixed" ? (
+              <>
+                <Shield className="w-5 h-5" />
+                <span>Deposit {fixedAmount} SOL to Join</span>
+              </>
+            ) : (
+              <>
+                <Shield className="w-5 h-5" />
+                <span>Place {selectedBet} SOL Private Bet</span>
+              </>
+            )}
+          </span>
+          <div className="absolute inset-0 bg-[#936DFF] transform -translate-x-full group-hover:translate-x-0 transition-transform duration-300 ease-in-out"></div>
+        </button>
 
         {/* Payment Mode Status - shows different messaging based on selected mode */}
-        <div className="mt-3 text-center">
+        <div className="mt-3 text-center relative z-10">
           {paymentMode === 'test' ? (
             // Test mode: Payment will be skipped
-            <div className="flex items-center justify-center gap-2 text-xs text-blue-400">
-              <span className="w-2 h-2 bg-blue-400 rounded-full" />
+            <div className="flex items-center justify-center gap-2 font-display text-[10px] uppercase tracking-widest text-[#3b82f6]">
+              <span className="w-2 h-2 bg-[#3b82f6] rounded-full" />
               <span>🧪 Test mode - payment will be skipped</span>
             </div>
           ) : SHADOWWIRE_ENABLED && usingShadowWire ? (
             // ShadowWire active and SDK ready
-            <div className="flex items-center justify-center gap-2 text-xs text-green-400">
-              <span className="w-2 h-2 bg-green-400 rounded-full animate-pulse" />
+            <div className="flex items-center justify-center gap-2 font-display text-[10px] uppercase tracking-widest text-[#22c55e]">
+              <span className="w-2 h-2 bg-[#22c55e] rounded-full animate-pulse" />
               <Shield className="w-3 h-3" />
               <span>Private betting via ShadowWire</span>
             </div>
           ) : SHADOWWIRE_ENABLED ? (
             // ShadowWire enabled but SDK still loading
-            <div className="flex items-center justify-center gap-2 text-xs text-yellow-400">
+            <div className="flex items-center justify-center gap-2 font-display text-[10px] uppercase tracking-widest text-yellow-400">
               <span className="w-2 h-2 bg-yellow-400 rounded-full" />
               <Shield className="w-3 h-3" />
               <span>ShadowWire enabled (SDK loading...)</span>
             </div>
           ) : (
             // ShadowWire mode selected but not available
-            <p className="text-xs text-yellow-400">
+            <p className="font-display text-[10px] uppercase tracking-widest text-yellow-400">
               <AlertCircle className="w-3 h-3 inline mr-1" />
               ShadowWire not available - will use direct transfer
             </p>
