@@ -89,26 +89,27 @@ export function PlayingCard({
           className={cn(
             "absolute inset-0 rounded-xl border-2 border-[#936DFF]",
             "bg-white",
-            "flex flex-col items-center justify-between p-2",
             "shadow-lg shadow-[#936DFF]/20",
             "backface-hidden"
           )}
         >
           {/* Top left */}
-          <div className={cn("self-start flex flex-col items-center leading-none", suitInfo.color)}>
-            <span className="text-lg md:text-xl font-bold font-display">{display}</span>
-            <span className="text-sm md:text-base">{suitInfo.symbol}</span>
+          <div className={cn("absolute top-1 left-1.5 flex flex-col items-center leading-none", suitInfo.color)}>
+            <span className="text-sm md:text-base font-bold font-display">{display}</span>
+            <span className="text-[10px] md:text-xs">{suitInfo.symbol}</span>
           </div>
 
           {/* Center suit */}
-          <span className={cn("text-3xl md:text-4xl", suitInfo.color)}>
-            {suitInfo.symbol}
-          </span>
+          <div className="absolute inset-0 flex items-center justify-center">
+            <span className={cn("text-2xl md:text-3xl", suitInfo.color)}>
+              {suitInfo.symbol}
+            </span>
+          </div>
 
           {/* Bottom right (rotated) */}
-          <div className={cn("self-end flex flex-col items-center leading-none rotate-180", suitInfo.color)}>
-            <span className="text-lg md:text-xl font-bold font-display">{display}</span>
-            <span className="text-sm md:text-base">{suitInfo.symbol}</span>
+          <div className={cn("absolute bottom-1 right-1.5 flex flex-col items-center leading-none rotate-180", suitInfo.color)}>
+            <span className="text-sm md:text-base font-bold font-display">{display}</span>
+            <span className="text-[10px] md:text-xs">{suitInfo.symbol}</span>
           </div>
         </div>
 
@@ -117,16 +118,17 @@ export function PlayingCard({
           className={cn(
             "absolute inset-0 rounded-xl border-2 border-[#936DFF]",
             "bg-[#05010A]",
-            "flex items-center justify-center",
+            "flex items-center justify-center overflow-hidden",
             "shadow-lg shadow-[#936DFF]/30",
             "backface-hidden"
           )}
           style={{ transform: "rotateY(180deg)" }}
         >
-          {/* Pattern on back */}
-          <div className="w-14 h-20 md:w-16 md:h-24 rounded-lg border border-[#936DFF]/30 bg-[#936DFF]/10 flex items-center justify-center">
-            <div className="text-[#936DFF] text-2xl md:text-3xl font-bold font-display">ZK</div>
-          </div>
+          <img 
+            src="/umbra_back.jpg" 
+            alt="Card Back" 
+            className="w-full h-full object-cover"
+          />
         </div>
       </motion.div>
     </motion.div>
@@ -151,16 +153,18 @@ export function HiddenCard({ className, delay = 0, isRevealing = false }) {
         "w-20 h-28 md:w-24 md:h-32 rounded-xl",
         "border-2 border-[#936DFF]",
         "bg-[#05010A]",
-        "flex items-center justify-center",
+        "flex items-center justify-center overflow-hidden",
         "shadow-lg shadow-[#936DFF]/30",
         "transition-shadow duration-300",
         "hover:shadow-xl hover:shadow-[#936DFF]/40",
         className
       )}
     >
-      <div className="w-14 h-20 md:w-16 md:h-24 rounded-lg border border-[#936DFF]/30 bg-[#936DFF]/10 flex items-center justify-center">
-        <div className="text-[#936DFF] text-2xl md:text-3xl font-bold font-display">ZK</div>
-      </div>
+      <img 
+        src="/umbra_back.jpg" 
+        alt="Card Back" 
+        className="w-full h-full object-cover"
+      />
     </motion.div>
   );
 }
