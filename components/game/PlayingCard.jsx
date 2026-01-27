@@ -33,18 +33,19 @@ export function PlayingCard({
   const suitInfo = SUITS[suit] || SUITS.spades;
 
   // Arc animation for dealing cards
+  // Arc animation for dealing cards
   const dealVariants = {
     initial: {
       opacity: 0,
-      y: -100,
-      x: 0,
-      rotate: -15,
-      scale: 0.8,
+      x: 300, // Start from right (deck position)
+      y: 0,
+      rotate: 45,
+      scale: 0.5,
     },
     animate: {
       opacity: 1,
-      y: 0,
       x: 0,
+      y: 0,
       rotate: 0,
       scale: 1,
     },
@@ -139,8 +140,8 @@ export function PlayingCard({
 export function HiddenCard({ className, delay = 0, isRevealing = false }) {
   return (
     <motion.div
-      initial={{ opacity: 0, y: -100, rotate: -15, scale: 0.8 }}
-      animate={{ opacity: 1, y: 0, rotate: 0, scale: 1 }}
+      initial={{ opacity: 0, x: 300, rotate: 45, scale: 0.5 }}
+      animate={{ opacity: 1, x: 0, rotate: 0, scale: 1 }}
       transition={{
         duration: 0.6,
         delay,
@@ -173,8 +174,8 @@ export function HiddenCard({ className, delay = 0, isRevealing = false }) {
 export function PendingCard({ className, delay = 0 }) {
   return (
     <motion.div
-      initial={{ opacity: 0, y: -100, rotate: -15, scale: 0.8 }}
-      animate={{ opacity: 1, y: 0, rotate: 0, scale: 1 }}
+      initial={{ opacity: 0, x: 300, rotate: 45, scale: 0.5 }}
+      animate={{ opacity: 1, x: 0, rotate: 0, scale: 1 }}
       transition={{ duration: 0.6, delay, type: "spring", stiffness: 80, damping: 12 }}
       className={cn(
         "w-20 h-28 md:w-24 md:h-32 rounded-xl",

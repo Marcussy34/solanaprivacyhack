@@ -895,43 +895,62 @@ export default function GamePage() {
       // Use sequential submission if 2+ cards to avoid Solana's 1232 byte tx size limit
       if (cardValues.length >= 2) {
         console.log(`[Game] Using sequential submission for ${cardValues.length} cards (avoiding tx size limit)...`);
+        
         await dealerPlayTurnSequential(
           gameId,
           dealerPubkey,
           cardValues,
           proofs,
           publicInputsList,
-          (cardNum, total, txSig) => {
+          async (cardNum, total, txSig) => {
             console.log(`[Game] Card ${cardNum}/${total} submitted: ${txSig}`);
+            
+            // Reveal Hole Card (Card 1)
+            if (cardNum === 1) {
+                currentDealerRevealed[1] = holeCardValue;
+                setLocalDealerState({
+                    cards: [...currentDealerCards],
+                    revealed: [...currentDealerRevealed]
+                });
+                await new Promise(r => setTimeout(r, 500));
+            }
+            
+            // If this is a hit card (index >= 1 in cardValues, so cardNum >= 2), reveal it
+            if (cardNum >= 2) {
+                const hitVal = cardValues[cardNum - 1]; // cardNum is 1-based
+                currentDealerCards.push("simulated_commitment"); 
+                currentDealerRevealed.push(hitVal);
+                setLocalDealerState({
+                  cards: [...currentDealerCards],
+                  revealed: [...currentDealerRevealed]
+                });
+                // Small delay to let user see the card
+                await new Promise(r => setTimeout(r, 500));
+            }
           }
         );
       } else {
         // Single card can fit in one transaction
         await dealerPlayTurn(gameId, dealerPubkey, cardValues, proofs, publicInputsList);
-      }
-
-      // --- ANIMATION PLAYBACK (After Signature) ---
-      console.log("[Game] Transaction confirmed. Playing reveal animation...");
-      
-      // 1. Reveal Hole Card
-      currentDealerRevealed[1] = holeCardValue;
-      setLocalDealerState({
-        cards: [...currentDealerCards],
-        revealed: [...currentDealerRevealed]
-      });
-      await new Promise(r => setTimeout(r, 1000));
-
-      // 2. Reveal Hits (if any)
-      // cardValues[0] is hole card, cardValues[1+] are hits
-      for (let i = 1; i < cardValues.length; i++) {
-        const hitVal = cardValues[i];
-        currentDealerCards.push("simulated_commitment"); 
-        currentDealerRevealed.push(hitVal);
+        
+        // Reveal Hole Card
+        currentDealerRevealed[1] = holeCardValue;
         setLocalDealerState({
-          cards: [...currentDealerCards],
-          revealed: [...currentDealerRevealed]
+            cards: [...currentDealerCards],
+            revealed: [...currentDealerRevealed]
         });
-        await new Promise(r => setTimeout(r, 1000));
+        
+        // Reveal Hits (if any)
+        for (let i = 1; i < cardValues.length; i++) {
+            const hitVal = cardValues[i];
+            currentDealerCards.push("simulated_commitment"); 
+            currentDealerRevealed.push(hitVal);
+            setLocalDealerState({
+              cards: [...currentDealerCards],
+              revealed: [...currentDealerRevealed]
+            });
+            await new Promise(r => setTimeout(r, 1000));
+        }
       }
 
       // Refetch game state to show final result
@@ -1639,6 +1658,18 @@ export default function GamePage() {
                     >
                       {copied ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
                     </button>
+                    
+                    {txSignature && (
+                      <a 
+                        href={`https://solscan.io/tx/${txSignature}?cluster=devnet`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="ml-4 font-display text-[10px] uppercase tracking-widest text-[#936DFF] hover:text-white transition-colors flex items-center gap-1 border border-[#936DFF]/30 px-2 py-0.5 bg-[#936DFF]/10"
+                      >
+                        View Transaction
+                        <ExternalLink className="w-3 h-3" />
+                      </a>
+                    )}
                   </div>
                 </div>
               </div>
@@ -1667,17 +1698,7 @@ export default function GamePage() {
                 </div>
               </div>
 
-              {txSignature && (
-                <a
-                  href={`https://explorer.solana.com/tx/${txSignature}?cluster=devnet`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="absolute top-0 right-0 -mt-6 text-[10px] font-display uppercase tracking-widest text-[#936DFF] hover:text-white flex items-center gap-1"
-                >
-                  <ExternalLink className="w-3 h-3" />
-                  View Transaction
-                </a>
-              )}
+
             </div>
 
             {/* --- MAIN GAME TABLE --- */}
@@ -1688,6 +1709,38 @@ export default function GamePage() {
               {/* Center Logo Watermark */}
               <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 opacity-5 pointer-events-none">
                 <h1 className="font-display font-bold text-[15vw] text-[#936DFF] tracking-tighter">UMBRA</h1>
+              </div>
+
+              {/* Deck of Cards (Right Side) */}
+              <div className="absolute right-4 md:right-8 top-1/2 transform -translate-y-1/2 z-0 hidden md:block">
+                <div className="relative w-24 h-32">
+                  {[...Array(3)].map((_, i) => (
+                    <div 
+                      key={i}
+                      className="absolute w-full h-full rounded-xl border-2 border-[#936DFF] bg-[#05010A] shadow-lg shadow-[#936DFF]/20"
+                      style={{ 
+                        top: -i * 2, 
+                        left: -i * 2,
+                        transform: `rotate(${i * 2}deg)`,
+                        zIndex: 10 - i
+                      }}
+                    >
+                      <img 
+                        src="/umbra_back.jpg" 
+                        alt="Card Back" 
+                        className="w-full h-full object-cover rounded-[10px] opacity-60"
+                      />
+                    </div>
+                  ))}
+                  {/* Top Card of Deck */}
+                  <div className="absolute w-full h-full rounded-xl border-2 border-[#936DFF] bg-[#05010A] shadow-xl shadow-[#936DFF]/30 z-20">
+                     <img 
+                        src="/umbra_back.jpg" 
+                        alt="Card Back" 
+                        className="w-full h-full object-cover rounded-[10px]"
+                      />
+                  </div>
+                </div>
               </div>
 
               {/* DEALER SECTION (TOP) */}
