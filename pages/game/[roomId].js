@@ -1327,6 +1327,23 @@ export default function GameRoom() {
                     <h1 className="font-display font-bold text-[10vw] text-[#936DFF] tracking-tighter">UMBRA</h1>
                   </div>
 
+                  {/* Deck of Cards (Right Side) */}
+                  <div className="absolute right-4 md:right-8 top-1/2 -translate-y-1/2 hidden md:block">
+                    <div className="relative w-24 h-32">
+                      {/* Bottom cards for stack effect */}
+                      <div className="absolute top-1 left-1 w-full h-full rounded-xl bg-[#05010A] border border-[#936DFF]/30 rotate-3"></div>
+                      <div className="absolute top-0.5 left-0.5 w-full h-full rounded-xl bg-[#05010A] border border-[#936DFF]/30 rotate-1"></div>
+                      {/* Top card */}
+                      <div className="absolute top-0 left-0 w-full h-full rounded-xl border-2 border-[#936DFF] bg-[#05010A] overflow-hidden shadow-lg shadow-[#936DFF]/20">
+                        <img 
+                          src="/umbra_back.jpg" 
+                          alt="Deck" 
+                          className="w-full h-full object-cover"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
                   {/* DEALER SECTION (TOP) */}
                   <div className="flex flex-col items-center gap-3 relative z-10 w-full px-4">
                     <span className="font-display font-bold text-sm uppercase tracking-widest text-[#B8B8CC]">Dealer</span>
@@ -1442,6 +1459,23 @@ export default function GameRoom() {
                     <h1 className="font-display font-bold text-[10vw] text-[#936DFF] tracking-tighter">UMBRA</h1>
                   </div>
 
+                  {/* Deck of Cards (Right Side) */}
+                  <div className="absolute right-4 md:right-8 top-1/2 -translate-y-1/2 hidden md:block">
+                    <div className="relative w-24 h-32">
+                      {/* Bottom cards for stack effect */}
+                      <div className="absolute top-1 left-1 w-full h-full rounded-xl bg-[#05010A] border border-[#936DFF]/30 rotate-3"></div>
+                      <div className="absolute top-0.5 left-0.5 w-full h-full rounded-xl bg-[#05010A] border border-[#936DFF]/30 rotate-1"></div>
+                      {/* Top card */}
+                      <div className="absolute top-0 left-0 w-full h-full rounded-xl border-2 border-[#936DFF] bg-[#05010A] overflow-hidden shadow-lg shadow-[#936DFF]/20">
+                        <img 
+                          src="/umbra_back.jpg" 
+                          alt="Deck" 
+                          className="w-full h-full object-cover"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
                   {/* DEALER SECTION (TOP) */}
                   <div className="flex flex-col items-center gap-3 relative z-10 w-full px-4">
                     <span className="font-display font-bold text-sm uppercase tracking-widest text-[#C049FF]">Dealer&apos;s Turn</span>
@@ -1525,6 +1559,23 @@ export default function GameRoom() {
                   {/* Center Logo Watermark */}
                   <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 opacity-5 pointer-events-none">
                     <h1 className="font-display font-bold text-[10vw] text-[#936DFF] tracking-tighter">UMBRA</h1>
+                  </div>
+
+                  {/* Deck of Cards (Right Side) */}
+                  <div className="absolute right-4 md:right-8 top-1/2 -translate-y-1/2 hidden md:block">
+                    <div className="relative w-24 h-32">
+                      {/* Bottom cards for stack effect */}
+                      <div className="absolute top-1 left-1 w-full h-full rounded-xl bg-[#05010A] border border-[#936DFF]/30 rotate-3"></div>
+                      <div className="absolute top-0.5 left-0.5 w-full h-full rounded-xl bg-[#05010A] border border-[#936DFF]/30 rotate-1"></div>
+                      {/* Top card */}
+                      <div className="absolute top-0 left-0 w-full h-full rounded-xl border-2 border-[#936DFF] bg-[#05010A] overflow-hidden shadow-lg shadow-[#936DFF]/20">
+                        <img 
+                          src="/umbra_back.jpg" 
+                          alt="Deck" 
+                          className="w-full h-full object-cover"
+                        />
+                      </div>
+                    </div>
                   </div>
 
                   {/* DEALER SECTION (TOP) */}
