@@ -1,15 +1,21 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { useConnection, useWallet } from '@solana/wallet-adapter-react';
 import { LAMPORTS_PER_SOL } from '@solana/web3.js';
-import { Wallet, History, Trophy, TrendingUp, Plus, ArrowUpRight, Copy, Check } from 'lucide-react';
+import { Wallet, History, Trophy, TrendingUp, Plus, ArrowUpRight, Copy, Check, RefreshCw } from 'lucide-react';
 import { DepositModal } from './DepositModal';
 import { WithdrawModal } from './WithdrawModal';
+import { useShadowPay } from '../../hooks/useShadowPay';
 
 export const ProfileView = () => {
   const { connection } = useConnection();
   const { publicKey } = useWallet();
   const [balance, setBalance] = useState(0);
   const [transactions, setTransactions] = useState([]);
+
+  // ShadowWire integration for pool withdrawal
+  const { withdrawFromPool, getPoolBalance, usingShadowWire } = useShadowPay();
+  const [poolBalance, setPoolBalance] = useState(0);
+  const [isLoadingPoolBalance, setIsLoadingPoolBalance] = useState(false);
 
   const [isDepositModalOpen, setIsDepositModalOpen] = useState(false);
   const [isWithdrawModalOpen, setIsWithdrawModalOpen] = useState(false);
@@ -22,6 +28,22 @@ export const ProfileView = () => {
         setTimeout(() => setAddressCopied(false), 2000);
     }
   };
+
+  // Fetch pool balance from ShadowWire
+  const fetchPoolBalance = useCallback(async () => {
+    if (!publicKey || !getPoolBalance) return;
+
+    setIsLoadingPoolBalance(true);
+    try {
+      const balance = await getPoolBalance();
+      setPoolBalance(balance || 0);
+    } catch (err) {
+      console.log('Could not fetch pool balance:', err);
+      setPoolBalance(0);
+    } finally {
+      setIsLoadingPoolBalance(false);
+    }
+  }, [publicKey, getPoolBalance]);
 
   useEffect(() => {
     if (!publicKey) return;
@@ -36,7 +58,8 @@ export const ProfileView = () => {
     };
 
     getBalance();
-    
+    fetchPoolBalance(); // Also fetch ShadowWire pool balance
+
     // Mock transactions for now
     setTransactions([
         { id: 1, type: 'Deposit', amount: 5.0, date: '2024-05-20', status: 'Completed' },
@@ -44,7 +67,7 @@ export const ProfileView = () => {
         { id: 3, type: 'Withdrawal', amount: -1.0, date: '2024-05-22', status: 'Processing' },
     ]);
 
-  }, [publicKey, connection]);
+  }, [publicKey, connection, fetchPoolBalance]);
 
   if (!publicKey) {
       return (
@@ -67,7 +90,13 @@ export const ProfileView = () => {
       <WithdrawModal
         isOpen={isWithdrawModalOpen}
         onClose={() => setIsWithdrawModalOpen(false)}
-        balance={balance}
+        poolBalance={poolBalance}
+        onWithdraw={withdrawFromPool}
+        onRefreshBalance={() => {
+          fetchPoolBalance();
+          // Also refresh wallet balance after withdrawal
+          connection.getBalance(publicKey).then(bal => setBalance(bal / LAMPORTS_PER_SOL));
+        }}
       />
 
       {/* Header Stats */}
@@ -106,7 +135,7 @@ export const ProfileView = () => {
                   </div>
                   
                   {/* Address Copy */}
-                  <button 
+                  <button
                     onClick={handleCopyAddress}
                     className="flex items-center gap-2 text-[#B8B8CC] hover:text-white transition-colors group/copy"
                   >
@@ -119,6 +148,32 @@ export const ProfileView = () => {
                         <Copy className="w-3 h-3 opacity-60 group-hover/copy:opacity-100" />
                     )}
                   </button>
+
+                  {/* ShadowWire Pool Balance (shown if > 0) */}
+                  {poolBalance > 0 && (
+                    <div className="mt-4 pt-4 border-t border-[#936DFF]/20">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <span className="text-[10px] uppercase tracking-widest text-[#936DFF]/70">
+                            ShadowWire Pool
+                          </span>
+                          <button
+                            onClick={fetchPoolBalance}
+                            disabled={isLoadingPoolBalance}
+                            className="text-[#936DFF]/50 hover:text-[#936DFF] transition-colors"
+                          >
+                            <RefreshCw className={`w-3 h-3 ${isLoadingPoolBalance ? 'animate-spin' : ''}`} />
+                          </button>
+                        </div>
+                        <span className="font-mono text-sm text-yellow-400">
+                          {poolBalance.toFixed(4)} SOL
+                        </span>
+                      </div>
+                      <p className="text-[10px] text-yellow-400/60 mt-1">
+                        Funds stuck in privacy pool - click Withdraw to recover
+                      </p>
+                    </div>
+                  )}
               </div>
           </div>
 
