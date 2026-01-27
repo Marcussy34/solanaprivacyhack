@@ -1,12 +1,15 @@
 /**
  * BetModal - Bet selection modal for players
  *
- * Shows preset bet amounts (0.1, 0.25, 0.5, 1.0 SOL)
+ * Shows preset bet amounts (0.01, 0.05, 0.1, 0.25 SOL)
  * Player deposits directly to dealer (house) wallet via ShadowWire
+ *
+ * Design: Umbra design system with #05010A bg, #936DFF accent
  */
 
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { Coins, Loader2, AlertTriangle, X } from 'lucide-react';
 
 const BET_AMOUNTS = [0.01, 0.05, 0.1, 0.25];
 
@@ -24,6 +27,13 @@ export function BetModal({
     onPlaceBet(amount);
   };
 
+  // Only allow closing when not processing
+  const handleClose = () => {
+    if (!isProcessing) {
+      onClose();
+    }
+  };
+
   if (!isOpen) return null;
 
   return (
@@ -32,90 +42,115 @@ export function BetModal({
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm"
-        onClick={onClose}
+        className="fixed inset-0 z-50 flex items-center justify-center bg-[#05010A]/90 backdrop-blur-sm"
+        onClick={handleClose}
       >
         <motion.div
           initial={{ opacity: 0, scale: 0.9, y: 20 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.9, y: 20 }}
           transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-          className="relative w-full max-w-md mx-4 p-8 bg-gradient-to-br from-gray-900 to-gray-800 rounded-2xl border border-white/10 shadow-2xl"
+          className="relative w-full max-w-md mx-4 p-1 border-2 border-[#936DFF] bg-[#05010A]"
           onClick={(e) => e.stopPropagation()}
         >
-          {/* Close button */}
-          <button
-            onClick={onClose}
-            disabled={isProcessing}
-            className="absolute top-4 right-4 text-gray-500 hover:text-white transition-colors disabled:opacity-50"
-          >
-            <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
+          {/* Decorative corners */}
+          <div className="absolute top-0 left-0 w-4 h-4 border-t-2 border-l-2 border-white -mt-1 -ml-1"></div>
+          <div className="absolute top-0 right-0 w-4 h-4 border-t-2 border-r-2 border-white -mt-1 -mr-1"></div>
+          <div className="absolute bottom-0 left-0 w-4 h-4 border-b-2 border-l-2 border-white -mb-1 -ml-1"></div>
+          <div className="absolute bottom-0 right-0 w-4 h-4 border-b-2 border-r-2 border-white -mb-1 -mr-1"></div>
 
-          {/* Header */}
-          <div className="text-center mb-8">
-            <div className="inline-flex items-center justify-center w-16 h-16 mb-4 rounded-full bg-gradient-to-r from-purple-500 to-pink-500">
-              <svg className="w-8 h-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-            </div>
-            <h2 className="text-2xl font-bold text-white mb-2">Place Your Bet</h2>
-            <p className="text-gray-400">Select an amount to play against the house</p>
-          </div>
+          <div className="p-8 bg-[#05010A] border border-[#936DFF]/30 relative overflow-hidden">
+            <div className="absolute inset-0 bg-[#936DFF]/5 pointer-events-none"></div>
 
-          {/* Error Display */}
-          {error && (
-            <motion.div
-              initial={{ opacity: 0, y: -10 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="mb-6 p-3 bg-red-500/20 border border-red-500/50 rounded-lg text-red-300 text-sm text-center"
+            {/* Close button */}
+            <button
+              onClick={handleClose}
+              disabled={isProcessing}
+              className="absolute top-4 right-4 text-[#B8B8CC] hover:text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed z-10"
             >
-              {error}
-            </motion.div>
-          )}
+              <X className="w-6 h-6" />
+            </button>
 
-          {/* Bet Amount Buttons */}
-          <div className="grid grid-cols-2 gap-4 mb-6">
-            {BET_AMOUNTS.map((amount) => (
-              <motion.button
-                key={amount}
-                whileHover={{ scale: 1.03 }}
-                whileTap={{ scale: 0.98 }}
-                onClick={() => handleBet(amount)}
-                disabled={isProcessing}
-                className={`
-                  relative py-5 px-6 rounded-xl font-bold text-xl transition-all
-                  ${isProcessing && selectedAmount === amount
-                    ? 'bg-purple-600 text-white'
-                    : 'bg-white/10 hover:bg-white/20 text-white border border-white/10 hover:border-purple-500/50'
-                  }
-                  disabled:opacity-50 disabled:cursor-not-allowed
-                `}
-              >
-                {isProcessing && selectedAmount === amount ? (
-                  <span className="flex items-center justify-center gap-2">
-                    <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                    </svg>
-                    <span>Sending...</span>
-                  </span>
-                ) : (
-                  <>
-                    <span className="text-2xl">{amount}</span>
-                    <span className="text-sm text-gray-400 ml-1">SOL</span>
-                  </>
+            <div className="relative z-10">
+              {/* Header */}
+              <div className="text-center mb-8">
+                <div className="inline-flex items-center justify-center w-16 h-16 mb-4 border-2 border-[#936DFF] bg-[#936DFF]/10">
+                  <Coins className="w-8 h-8 text-[#936DFF]" />
+                </div>
+                <h2 className="font-display font-bold text-2xl uppercase tracking-widest text-white mb-2">
+                  Place Your Bet
+                </h2>
+                <p className="text-[#B8B8CC] text-sm">
+                  Select an amount to play against the house
+                </p>
+              </div>
+
+              {/* Error Display - More prominent */}
+              <AnimatePresence>
+                {error && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -10, height: 0 }}
+                    animate={{ opacity: 1, y: 0, height: 'auto' }}
+                    exit={{ opacity: 0, y: -10, height: 0 }}
+                    className="mb-6 p-4 bg-red-500/10 border-2 border-red-500/50 text-center"
+                  >
+                    <div className="flex items-center justify-center gap-2 mb-2">
+                      <AlertTriangle className="w-5 h-5 text-red-400" />
+                      <span className="font-display uppercase tracking-widest text-red-400 text-sm font-bold">
+                        Error
+                      </span>
+                    </div>
+                    <p className="text-red-300 text-sm">
+                      {error}
+                    </p>
+                  </motion.div>
                 )}
-              </motion.button>
-            ))}
-          </div>
+              </AnimatePresence>
 
-          {/* Info Text */}
-          <p className="text-center text-gray-500 text-xs">
-            Powered by ShadowWire • Private payments on Solana
-          </p>
+              {/* Bet Amount Buttons */}
+              <div className="grid grid-cols-2 gap-4 mb-6">
+                {BET_AMOUNTS.map((amount) => (
+                  <motion.button
+                    key={amount}
+                    whileHover={{ scale: isProcessing ? 1 : 1.02 }}
+                    whileTap={{ scale: isProcessing ? 1 : 0.98 }}
+                    onClick={() => handleBet(amount)}
+                    disabled={isProcessing}
+                    className={`
+                      group relative py-5 px-6 border-2 transition-all overflow-hidden
+                      ${isProcessing && selectedAmount === amount
+                        ? 'border-[#936DFF] bg-[#936DFF]/20'
+                        : 'border-[#936DFF]/50 hover:border-[#936DFF] bg-[#05010A]'
+                      }
+                      disabled:cursor-not-allowed
+                    `}
+                  >
+                    {isProcessing && selectedAmount === amount ? (
+                      <span className="flex items-center justify-center gap-2 text-[#936DFF]">
+                        <Loader2 className="w-5 h-5 animate-spin" />
+                        <span className="font-display uppercase tracking-widest text-sm">Sending...</span>
+                      </span>
+                    ) : (
+                      <>
+                        <span className="relative z-10 font-display font-bold text-2xl text-white group-hover:text-[#05010A] transition-colors duration-300">
+                          {amount}
+                        </span>
+                        <span className="relative z-10 text-sm text-[#B8B8CC] ml-1 group-hover:text-[#05010A]/70 transition-colors duration-300">
+                          SOL
+                        </span>
+                        <div className="absolute inset-0 bg-[#936DFF] transform -translate-y-full group-hover:translate-y-0 transition-transform duration-300 ease-in-out"></div>
+                      </>
+                    )}
+                  </motion.button>
+                ))}
+              </div>
+
+              {/* Info Text */}
+              <p className="text-center text-[#B8B8CC]/50 text-xs font-display uppercase tracking-widest">
+                Powered by ShadowWire • Private payments on Solana
+              </p>
+            </div>
+          </div>
         </motion.div>
       </motion.div>
     </AnimatePresence>

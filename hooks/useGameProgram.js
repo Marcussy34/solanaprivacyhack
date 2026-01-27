@@ -11,6 +11,29 @@ const devnetConnection = new Connection(DEVNET_RPC, "confirmed");
 // Program ID from deployed contract (deployed by FBbtn... wallet on Jan 25)
 const PROGRAM_ID = new PublicKey("8Da8a3Q9GLYuxYLXPtxKiAedZZbx5DUQCuG8TPY1dLnx");
 
+/**
+ * Convert a field hex string to a 32-byte array for Anchor/Borsh serialization.
+ * Handles formats: "0x1234..." or "1234..."
+ * @param {string} fieldHex - Hex string from NoirJS
+ * @returns {number[]} - 32-byte array
+ */
+function fieldTo32Bytes(fieldHex) {
+  // Handle case where it's already an array
+  if (Array.isArray(fieldHex)) return fieldHex;
+  if (fieldHex instanceof Uint8Array) return Array.from(fieldHex);
+
+  // Remove 0x prefix if present
+  const clean = fieldHex.startsWith('0x') ? fieldHex.slice(2) : fieldHex;
+  // Pad to 64 hex chars (32 bytes)
+  const padded = clean.padStart(64, '0');
+  // Convert to byte array
+  const bytes = [];
+  for (let i = 0; i < 64; i += 2) {
+    bytes.push(parseInt(padded.slice(i, i + 2), 16));
+  }
+  return bytes;
+}
+
 // Sunspot Groth16 verifier program IDs (deployed Jan 23 2026, match solana-verifiers/target/*.pk keys)
 const SHUFFLE_VERIFIER_PROGRAM_ID = new PublicKey("6sju9HLJTFfESLn49wAR2hqiC6mnu3MrP2K9WDbkjCL2");
 const DEAL_VERIFIER_PROGRAM_ID = new PublicKey("Epoxbrv1Pc2XeYR2xsKsqm3Gy1j2MbkBx4yHfkg8yuSC");
@@ -246,7 +269,10 @@ export function useGameProgram() {
       if (!deckCommitment) {
         throw new Error("Deck commitment required - ZK proof generation must complete first");
       }
-      const commitment = deckCommitment;
+
+      // Convert hex string to 32-byte array for Borsh serialization
+      const commitment = fieldTo32Bytes(deckCommitment);
+      console.log("[Game] Deck commitment bytes:", commitment.slice(0, 8), "... (first 8 bytes)");
 
       const tx = await program.methods
         .createGame(new BN(gameId), commitment)
@@ -353,7 +379,9 @@ export function useGameProgram() {
         throw new Error("Deal proof required - ZK deal proof generation must complete first");
       }
 
-      const commitments = cardCommitments;
+      // Convert card commitments from hex strings to 32-byte arrays
+      const commitments = cardCommitments.map(c => fieldTo32Bytes(c));
+      console.log("[Game] Card commitments converted:", commitments.length, "commitments");
       const cardValues = initialCardValues;
 
       // Convert proof data to buffers for Anchor serialization

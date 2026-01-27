@@ -14,9 +14,24 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/router';
+import Head from 'next/head';
 import { useWallet, useConnection } from '@solana/wallet-adapter-react';
 import { WalletMultiButton } from '@solana/wallet-adapter-react-ui';
 import { motion, AnimatePresence } from 'framer-motion';
+import {
+  Loader2,
+  Copy,
+  Check,
+  ExternalLink,
+  Clock,
+  Shield,
+  Users,
+  Coins,
+  Hand,
+  Square,
+  Play,
+  ArrowLeft
+} from 'lucide-react';
 
 // Hooks
 import { useGameRoom } from '../../hooks/useGameRoom';
@@ -27,6 +42,8 @@ import { useShadowPay } from '../../hooks/useShadowPay';
 // Components
 import { BetModal } from '../../components/BetModal';
 import { PlayingCard, HiddenCard, CardSlot, PendingCard } from '../../components/game/PlayingCard';
+import { BlurFade } from '../../components/ui/blur-fade';
+import { LogoStack } from '../../components/arena/Icons';
 import { cn } from '../../lib/utils';
 
 // Game states
@@ -95,6 +112,7 @@ function calculateHandValue(cards) {
 }
 
 // Animated Value Counter Component with color coding
+// Uses design system colors: #B8B8CC muted, #936DFF primary, #C049FF magenta
 function AnimatedValue({ value, isPlayer = false }) {
   const [displayValue, setDisplayValue] = useState(value);
   const [isAnimating, setIsAnimating] = useState(false);
@@ -124,18 +142,18 @@ function AnimatedValue({ value, isPlayer = false }) {
     }
   }, [value, displayValue]);
 
-  // Color based on value
+  // Color based on value (using design system)
   let colorClass = "text-[#B8B8CC]";
   let glowClass = "";
 
   if (value === 21) {
-    colorClass = "text-[#C049FF]";
+    colorClass = "text-[#C049FF]"; // Magenta for Blackjack
     glowClass = "drop-shadow-[0_0_10px_rgba(192,73,255,0.5)]";
   } else if (value > 21) {
     colorClass = "text-red-500";
     glowClass = "drop-shadow-[0_0_10px_rgba(239,68,68,0.5)]";
   } else if (value >= 17 && value <= 20) {
-    colorClass = isPlayer ? "text-[#936DFF]" : "text-[#B8B8CC]";
+    colorClass = isPlayer ? "text-[#936DFF]" : "text-[#B8B8CC]"; // Purple for good hand
     glowClass = isPlayer ? "drop-shadow-[0_0_8px_rgba(147,109,255,0.3)]" : "";
   } else if (value >= 12 && value < 17 && isPlayer) {
     colorClass = "text-yellow-300";
@@ -145,7 +163,7 @@ function AnimatedValue({ value, isPlayer = false }) {
     <motion.span
       animate={isAnimating ? { scale: [1, 1.2, 1] } : {}}
       transition={{ duration: 0.3, ease: "easeInOut" }}
-      className={cn("text-2xl font-bold tracking-wider", colorClass, glowClass)}
+      className={cn("text-2xl font-display font-bold tracking-wider", colorClass, glowClass)}
     >
       TOTAL: {displayValue}
       {value === 21 && (
@@ -154,7 +172,7 @@ function AnimatedValue({ value, isPlayer = false }) {
           animate={{ opacity: 1, x: 0 }}
           className="ml-2 text-[#C049FF]"
         >
-          {isPlayer ? "BLACKJACK!" : "21!"}
+          {isPlayer ? "- BLACKJACK!" : "- 21!"}
         </motion.span>
       )}
       {value > 21 && (
@@ -1060,128 +1078,215 @@ export default function GameRoom() {
   // RENDER
   // =========================================================================
 
+  // State for copy button
+  const [copied, setCopied] = useState(false);
+
+  // Copy link to clipboard
+  const copyLinkToClipboard = () => {
+    const url = `${window.location.origin}/game/${roomId}?role=player&dealer=${publicKey?.toBase58()}&bet=${DEFAULT_BET_AMOUNT}`;
+    navigator.clipboard.writeText(url);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
   // Loading state
   if (roomLoading || !roomId) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-purple-900 to-gray-900 flex items-center justify-center">
-        <div className="text-white text-xl">Loading...</div>
+      <div className="min-h-screen bg-[#05010A] flex items-center justify-center">
+        <div className="flex flex-col items-center gap-4">
+          <Loader2 className="w-12 h-12 text-[#936DFF] animate-spin" />
+          <span className="text-white font-display uppercase tracking-widest">Loading...</span>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-purple-900 to-gray-900 text-white">
-      {/* Header */}
-      <header className="p-4 flex justify-between items-center border-b border-white/10">
+    <div className="min-h-screen bg-[#05010A] text-white font-body selection:bg-[#936DFF] selection:text-white overflow-x-hidden relative">
+      <Head>
+        <title>Game Room {roomId} | Umbra</title>
+      </Head>
+
+      {/* Fixed Navbar */}
+      <div className="fixed top-0 left-0 w-full flex justify-between items-center px-4 sm:px-6 md:px-8 py-4 sm:py-6 z-50 bg-[#05010A]/80 backdrop-blur-md border-b border-[#936DFF]/20">
         <div className="flex items-center gap-4">
           <button
             onClick={() => router.push('/game')}
-            className="text-gray-400 hover:text-white transition-colors"
+            className="group flex items-center gap-2 text-[#B8B8CC] hover:text-white transition-colors"
           >
-            ← Back
+            <ArrowLeft className="w-4 h-4" />
+            <span className="text-sm font-display uppercase tracking-widest hidden sm:inline">Back</span>
           </button>
-          <h1 className="text-xl font-bold">
-            Room: <span className="text-purple-400 font-mono">{roomId}</span>
-          </h1>
-          <span className={`px-2 py-1 rounded text-xs font-medium ${
-            isDealer ? 'bg-amber-500/20 text-amber-400' : 'bg-blue-500/20 text-blue-400'
-          }`}>
-            {isDealer ? 'DEALER (HOUSE)' : 'PLAYER'}
-          </span>
+          <div className="hidden sm:flex items-center gap-3">
+            <LogoStack className="scale-75 text-[#936DFF]" />
+            <h1 className="font-display font-bold text-xl tracking-tighter uppercase text-white">
+              UMBRA
+            </h1>
+          </div>
         </div>
-        <WalletMultiButton />
-      </header>
+
+        <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 font-display text-sm sm:text-base tracking-[0.2em] text-[#936DFF] uppercase drop-shadow-[0_0_10px_rgba(147,109,255,0.5)]">
+          ZK BLACKJACK
+        </div>
+
+        <div className="flex items-center gap-3">
+          <span className={cn(
+            "px-3 py-1 text-xs font-display uppercase tracking-widest border",
+            isDealer
+              ? "border-amber-500/50 text-amber-400 bg-amber-500/10"
+              : "border-blue-500/50 text-blue-400 bg-blue-500/10"
+          )}>
+            {isDealer ? 'DEALER' : 'PLAYER'}
+          </span>
+          <WalletMultiButton className="!bg-[#936DFF]/10 !border !border-[#936DFF] !text-[#936DFF] hover:!bg-[#936DFF] hover:!text-white !font-display !uppercase !tracking-widest !text-xs !h-8 !px-4 !rounded-none transition-all duration-300" />
+        </div>
+      </div>
+
+      {/* Game Info Bar */}
+      <div className="fixed top-[72px] sm:top-[88px] left-0 w-full flex justify-center items-center gap-6 px-4 py-3 z-40 bg-[#05010A]/80 backdrop-blur-sm border-b border-[#936DFF]/10">
+        <div className="flex items-center gap-2">
+          <span className="text-[#B8B8CC] text-xs font-display uppercase tracking-widest">Room:</span>
+          <span className="text-white font-mono text-sm">{roomId}</span>
+        </div>
+        {currentBet && (
+          <div className="flex items-center gap-2">
+            <Coins className="w-4 h-4 text-[#936DFF]" />
+            <span className="text-[#B8B8CC] text-xs font-display uppercase tracking-widest">Bet:</span>
+            <span className="text-white font-mono text-sm">{currentBet} SOL</span>
+          </div>
+        )}
+      </div>
 
       {/* Main Content */}
-      <main className="p-6">
+      <main className="pt-32 sm:pt-36 px-4 sm:px-6 md:px-8 max-w-4xl mx-auto pb-12">
         {/* Error Display */}
-        {error && (
-          <motion.div
-            initial={{ opacity: 0, y: -20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="mb-6 p-4 bg-red-500/20 border border-red-500/50 rounded-lg text-red-300"
-          >
-            {error}
-            <button
-              onClick={() => setError(null)}
-              className="ml-4 text-red-400 hover:text-red-200"
+        <AnimatePresence>
+          {error && (
+            <motion.div
+              initial={{ opacity: 0, y: -20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              className="mb-6 p-4 bg-red-500/10 border border-red-500/20 text-red-300"
             >
-              ×
-            </button>
-          </motion.div>
-        )}
+              {error}
+              <button
+                onClick={() => setError(null)}
+                className="ml-4 text-red-400 hover:text-red-200"
+              >
+                ×
+              </button>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {/* Proof Phase Indicator */}
-        {proofPhase && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="mb-6 p-4 bg-purple-500/20 border border-purple-500/50 rounded-lg text-purple-300 text-center"
-          >
-            <div className="flex items-center justify-center gap-3">
-              <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-              </svg>
-              {proofPhase}
-            </div>
-          </motion.div>
-        )}
+        <AnimatePresence>
+          {proofPhase && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="mb-6 p-4 border border-[#936DFF] bg-[#936DFF]/10 text-center"
+            >
+              <div className="flex items-center justify-center gap-3">
+                <Loader2 className="w-5 h-5 text-[#936DFF] animate-spin" />
+                <span className="font-display uppercase tracking-widest text-[#936DFF]">{proofPhase}</span>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {/* Game State Display */}
         <div className="max-w-2xl mx-auto">
           {/* WAITING FOR PLAYER */}
           {gameState === GAME_STATES.WAITING_FOR_PLAYER && isDealer && (
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              className="text-center p-8 bg-white/5 rounded-2xl border border-white/10"
-            >
-              <h2 className="text-2xl font-bold mb-4">Game Created!</h2>
-              <p className="text-gray-400 mb-4">Share this link with a player:</p>
+            <BlurFade delay={0.1}>
+              <div className="p-1 border-2 border-[#936DFF] bg-[#05010A] relative">
+                {/* Decorative corners */}
+                <div className="absolute top-0 left-0 w-4 h-4 border-t-2 border-l-2 border-white -mt-1 -ml-1"></div>
+                <div className="absolute top-0 right-0 w-4 h-4 border-t-2 border-r-2 border-white -mt-1 -mr-1"></div>
+                <div className="absolute bottom-0 left-0 w-4 h-4 border-b-2 border-l-2 border-white -mb-1 -ml-1"></div>
+                <div className="absolute bottom-0 right-0 w-4 h-4 border-b-2 border-r-2 border-white -mb-1 -mr-1"></div>
 
-              {/* Shareable URL with dealer pubkey and bet amount */}
-              <div className="mb-4 p-3 bg-black/30 rounded-lg">
-                <p className="text-xs text-gray-500 mb-1">Player Join Link (Bet: {DEFAULT_BET_AMOUNT} SOL):</p>
-                <p className="text-sm font-mono text-purple-300 break-all select-all">
-                  {typeof window !== 'undefined'
-                    ? `${window.location.origin}/game/${roomId}?role=player&dealer=${publicKey?.toBase58()}&bet=${DEFAULT_BET_AMOUNT}`
-                    : `.../${roomId}?role=player&dealer=...&bet=${DEFAULT_BET_AMOUNT}`}
-                </p>
+                <div className="p-8 bg-[#05010A] border border-[#936DFF]/30 relative overflow-hidden text-center">
+                  <div className="absolute inset-0 bg-[#936DFF]/5 pointer-events-none"></div>
+
+                  <div className="relative z-10">
+                    <Users className="w-12 h-12 text-[#936DFF] mx-auto mb-4 animate-pulse" />
+                    <h2 className="font-display font-bold text-2xl uppercase tracking-widest text-white mb-4">Game Created!</h2>
+                    <p className="text-[#B8B8CC] mb-6">Share this link with a player:</p>
+
+                    {/* Shareable URL with dealer pubkey and bet amount */}
+                    <div className="mb-6 p-4 bg-[#05010A] border border-[#936DFF]/30">
+                      <p className="text-xs text-[#B8B8CC] mb-2 font-display uppercase tracking-widest">Player Join Link (Bet: {DEFAULT_BET_AMOUNT} SOL)</p>
+                      <p className="text-sm font-mono text-[#936DFF] break-all select-all">
+                        {typeof window !== 'undefined'
+                          ? `${window.location.origin}/game/${roomId}?role=player&dealer=${publicKey?.toBase58()}&bet=${DEFAULT_BET_AMOUNT}`
+                          : `.../${roomId}?role=player&dealer=...&bet=${DEFAULT_BET_AMOUNT}`}
+                      </p>
+                    </div>
+
+                    {/* Copy button */}
+                    <button
+                      onClick={copyLinkToClipboard}
+                      className="group relative px-6 py-3 border-2 border-[#936DFF] bg-[#05010A] overflow-hidden transition-colors"
+                    >
+                      <span className="relative z-10 font-display font-bold uppercase tracking-widest text-white group-hover:text-[#05010A] transition-colors duration-300 flex items-center justify-center gap-2">
+                        {copied ? (
+                          <>
+                            <Check className="w-4 h-4" />
+                            Copied!
+                          </>
+                        ) : (
+                          <>
+                            <Copy className="w-4 h-4" />
+                            Copy Link
+                          </>
+                        )}
+                      </span>
+                      <div className="absolute inset-0 bg-[#936DFF] transform -translate-x-full group-hover:translate-x-0 transition-transform duration-300 ease-in-out"></div>
+                    </button>
+
+                    <div className="mt-6 flex items-center justify-center gap-2 text-[#B8B8CC]">
+                      <Clock className="w-4 h-4 animate-pulse" />
+                      <p className="text-sm">Waiting for player to join and place bet...</p>
+                    </div>
+                  </div>
+                </div>
               </div>
-
-              {/* Copy button */}
-              <button
-                onClick={() => {
-                  const url = `${window.location.origin}/game/${roomId}?role=player&dealer=${publicKey?.toBase58()}&bet=${DEFAULT_BET_AMOUNT}`;
-                  navigator.clipboard.writeText(url);
-                  alert('Link copied to clipboard!');
-                }}
-                className="mb-4 px-4 py-2 bg-purple-600 hover:bg-purple-500 rounded-lg text-sm font-medium transition-colors"
-              >
-                Copy Link
-              </button>
-
-              <p className="text-gray-500 text-sm">Waiting for player to join and place bet...</p>
-            </motion.div>
+            </BlurFade>
           )}
 
           {/* WAITING FOR BET (Player sees bet modal) */}
           {gameState === GAME_STATES.WAITING_FOR_BET && !isDealer && (
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              className="text-center p-8 bg-white/5 rounded-2xl border border-white/10"
-            >
-              <h2 className="text-2xl font-bold mb-4">Ready to Play</h2>
-              <p className="text-gray-400 mb-6">Place your bet to start the game</p>
-              <button
-                onClick={() => setShowBetModal(true)}
-                className="px-8 py-4 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 rounded-xl font-bold text-xl transition-all transform hover:scale-105"
-              >
-                Place Bet
-              </button>
-            </motion.div>
+            <BlurFade delay={0.1}>
+              <div className="p-1 border-2 border-[#936DFF] bg-[#05010A] relative">
+                {/* Decorative corners */}
+                <div className="absolute top-0 left-0 w-4 h-4 border-t-2 border-l-2 border-white -mt-1 -ml-1"></div>
+                <div className="absolute top-0 right-0 w-4 h-4 border-t-2 border-r-2 border-white -mt-1 -mr-1"></div>
+                <div className="absolute bottom-0 left-0 w-4 h-4 border-b-2 border-l-2 border-white -mb-1 -ml-1"></div>
+                <div className="absolute bottom-0 right-0 w-4 h-4 border-b-2 border-r-2 border-white -mb-1 -mr-1"></div>
+
+                <div className="p-8 bg-[#05010A] border border-[#936DFF]/30 relative overflow-hidden text-center">
+                  <div className="absolute inset-0 bg-[#936DFF]/5 pointer-events-none"></div>
+
+                  <div className="relative z-10">
+                    <Coins className="w-12 h-12 text-[#936DFF] mx-auto mb-4" />
+                    <h2 className="font-display font-bold text-2xl uppercase tracking-widest text-white mb-4">Ready to Play</h2>
+                    <p className="text-[#B8B8CC] mb-6">Place your bet to start the game</p>
+                    <button
+                      onClick={() => setShowBetModal(true)}
+                      className="group relative px-8 py-4 border-2 border-[#936DFF] bg-[#05010A] overflow-hidden transition-colors"
+                    >
+                      <span className="relative z-10 font-display font-bold text-xl uppercase tracking-widest text-white group-hover:text-[#05010A] transition-colors duration-300">
+                        Place Bet
+                      </span>
+                      <div className="absolute inset-0 bg-[#936DFF] transform -translate-x-full group-hover:translate-x-0 transition-transform duration-300 ease-in-out"></div>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </BlurFade>
           )}
 
           {/* Bet Modal */}
@@ -1195,41 +1300,36 @@ export default function GameRoom() {
 
           {/* DEALING */}
           {gameState === GAME_STATES.DEALING && (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              className="text-center p-8"
-            >
-              <h2 className="text-2xl font-bold mb-4">Dealing Cards...</h2>
-              <div className="flex justify-center">
-                <svg className="animate-spin h-12 w-12 text-purple-400" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                </svg>
+            <BlurFade delay={0.1}>
+              <div className="text-center p-8">
+                <Loader2 className="w-12 h-12 text-[#936DFF] mx-auto mb-4 animate-spin" />
+                <h2 className="font-display font-bold text-2xl uppercase tracking-widest text-white mb-2">Dealing Cards...</h2>
+                <p className="text-[#B8B8CC] text-sm">Please wait while the dealer deals the cards</p>
               </div>
-            </motion.div>
+            </BlurFade>
           )}
 
           {/* PLAYER TURN */}
           {gameState === GAME_STATES.PLAYER_TURN && (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              className="w-full"
-            >
-              {/* Game Table */}
-              <div className="relative w-full aspect-[3/4] md:aspect-[16/9] border-2 border-[#936DFF] rounded-[2rem] bg-[#05010A] overflow-hidden flex flex-col justify-between p-6 md:p-10">
-                {/* Table Felt Gradient */}
-                <div className="absolute inset-0 bg-gradient-to-b from-[#936DFF]/5 via-transparent to-[#936DFF]/5 pointer-events-none"></div>
+            <BlurFade delay={0.1}>
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                className="w-full"
+              >
+                {/* Game Table */}
+                <div className="relative w-full aspect-[3/4] md:aspect-[16/9] border-2 border-[#936DFF] rounded-[3rem] bg-[#05010A] overflow-hidden flex flex-col justify-between p-6 md:p-10">
+                  {/* Table Felt Gradient */}
+                  <div className="absolute inset-0 bg-gradient-to-b from-[#936DFF]/5 via-transparent to-[#936DFF]/5 pointer-events-none"></div>
 
-                {/* Center Logo Watermark */}
-                <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 opacity-5 pointer-events-none">
-                  <h1 className="font-bold text-[10vw] text-[#936DFF] tracking-tighter">UMBRA</h1>
-                </div>
+                  {/* Center Logo Watermark */}
+                  <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 opacity-5 pointer-events-none">
+                    <h1 className="font-display font-bold text-[10vw] text-[#936DFF] tracking-tighter">UMBRA</h1>
+                  </div>
 
-                {/* DEALER SECTION (TOP) */}
-                <div className="flex flex-col items-center gap-3 relative z-10">
-                  <span className="font-bold text-sm uppercase tracking-widest text-[#B8B8CC]">Dealer</span>
+                  {/* DEALER SECTION (TOP) */}
+                  <div className="flex flex-col items-center gap-3 relative z-10">
+                    <span className="font-display font-bold text-sm uppercase tracking-widest text-[#B8B8CC]">Dealer</span>
                   <div className="flex gap-3 justify-center min-h-[120px] md:min-h-[140px] items-center">
                     {!gameData?.dealerCards?.length ? (
                       <><CardSlot /><CardSlot /></>
@@ -1253,89 +1353,98 @@ export default function GameRoom() {
                   )}
                 </div>
 
-                {/* CENTER - Turn Indicator */}
-                <div className="flex-1 flex items-center justify-center relative z-10">
-                  <div className="px-6 py-3 border border-[#936DFF] bg-[#05010A]/80 backdrop-blur-sm">
-                    <span className="font-bold text-lg uppercase tracking-widest text-[#936DFF]">
-                      {isDealer ? "PLAYER'S TURN" : "YOUR TURN"}
-                    </span>
+                  {/* CENTER - Turn Indicator */}
+                  <div className="flex-1 flex items-center justify-center relative z-10">
+                    <div className="px-6 py-3 border border-[#936DFF] bg-[#05010A]/80 backdrop-blur-sm">
+                      <span className="font-display font-bold text-lg uppercase tracking-widest text-[#936DFF]">
+                        {isDealer ? "PLAYER'S TURN" : "YOUR TURN"}
+                      </span>
+                    </div>
                   </div>
-                </div>
 
-                {/* PLAYER SECTION (BOTTOM) */}
-                <div className="flex flex-col items-center gap-3 relative z-10">
-                  {gameData?.playerRevealed?.length > 0 && (
-                    <AnimatedValue value={calculateHandValue(gameData.playerRevealed)} isPlayer={true} />
-                  )}
-                  <div className="flex gap-3 justify-center min-h-[120px] md:min-h-[140px] items-center">
-                    {!gameData?.playerCards?.length ? (
-                      <><CardSlot /><CardSlot /></>
-                    ) : (
-                      gameData.playerCards.map((_, index) =>
-                        gameData.playerRevealed?.[index] !== undefined ? (
-                          <PlayingCard
-                            key={index}
-                            value={gameData.playerRevealed[index] % 13}
-                            suit={SUITS[Math.floor(gameData.playerRevealed[index] / 13)]}
-                            delay={index * 0.2}
-                          />
-                        ) : !isDealer ? (
-                          <PendingCard key={index} delay={index * 0.2} />
-                        ) : (
-                          <HiddenCard key={index} delay={index * 0.2} />
-                        )
-                      )
+                  {/* PLAYER SECTION (BOTTOM) */}
+                  <div className="flex flex-col items-center gap-3 relative z-10">
+                    {gameData?.playerRevealed?.length > 0 && (
+                      <AnimatedValue value={calculateHandValue(gameData.playerRevealed)} isPlayer={true} />
                     )}
+                    <div className="flex gap-3 justify-center min-h-[120px] md:min-h-[140px] items-center">
+                      {!gameData?.playerCards?.length ? (
+                        <><CardSlot /><CardSlot /></>
+                      ) : (
+                        gameData.playerCards.map((_, index) =>
+                          gameData.playerRevealed?.[index] !== undefined ? (
+                            <PlayingCard
+                              key={index}
+                              value={gameData.playerRevealed[index] % 13}
+                              suit={SUITS[Math.floor(gameData.playerRevealed[index] / 13)]}
+                              delay={index * 0.2}
+                            />
+                          ) : !isDealer ? (
+                            <PendingCard key={index} delay={index * 0.2} />
+                          ) : (
+                            <HiddenCard key={index} delay={index * 0.2} />
+                          )
+                        )
+                      )}
+                    </div>
+                    <span className="font-display font-bold text-sm uppercase tracking-widest text-white">
+                      {isDealer ? 'Player' : 'You'}
+                    </span>
                   </div>
-                  <span className="font-bold text-sm uppercase tracking-widest text-white">
-                    {isDealer ? 'Player' : 'You'}
-                  </span>
                 </div>
-              </div>
 
-              {/* Player Actions */}
-              {!isDealer && (
-                <div className="flex justify-center gap-4 mt-6">
-                  <button
-                    onClick={handleHit}
-                    disabled={isProcessing}
-                    className="group relative px-8 py-4 border-2 border-[#936DFF] bg-[#05010A] overflow-hidden hover:border-white transition-colors"
-                  >
-                    <span className="relative z-10 font-bold text-lg uppercase tracking-widest text-white group-hover:text-[#05010A] transition-colors duration-300">
-                      {isProcessing ? 'HITTING...' : 'HIT'}
-                    </span>
-                    <div className="absolute inset-0 bg-[#936DFF] transform -translate-x-full group-hover:translate-x-0 transition-transform duration-300 ease-in-out"></div>
-                  </button>
-                  <button
-                    onClick={handleStand}
-                    disabled={isProcessing}
-                    className="group relative px-8 py-4 border-2 border-white bg-[#05010A] overflow-hidden hover:border-[#936DFF] transition-colors"
-                  >
-                    <span className="relative z-10 font-bold text-lg uppercase tracking-widest text-white group-hover:text-[#05010A] transition-colors duration-300">
-                      {isProcessing ? 'STANDING...' : 'STAND'}
-                    </span>
-                    <div className="absolute inset-0 bg-white transform -translate-x-full group-hover:translate-x-0 transition-transform duration-300 ease-in-out"></div>
-                  </button>
-                </div>
-              )}
-            </motion.div>
+                {/* Player Actions */}
+                {!isDealer && (
+                  <div className="flex justify-center gap-4 mt-6">
+                    <button
+                      onClick={handleHit}
+                      disabled={isProcessing}
+                      className="group relative px-8 py-4 border-2 border-[#936DFF] bg-[#05010A] overflow-hidden hover:border-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      <span className="relative z-10 font-display font-bold text-lg uppercase tracking-widest text-white group-hover:text-[#05010A] transition-colors duration-300 flex items-center gap-2">
+                        {isProcessing ? <Loader2 className="w-5 h-5 animate-spin" /> : <Hand className="w-5 h-5" />}
+                        {isProcessing ? 'HITTING...' : 'HIT'}
+                      </span>
+                      <div className="absolute inset-0 bg-[#936DFF] transform -translate-x-full group-hover:translate-x-0 transition-transform duration-300 ease-in-out"></div>
+                    </button>
+                    <button
+                      onClick={handleStand}
+                      disabled={isProcessing}
+                      className="group relative px-8 py-4 border-2 border-white bg-[#05010A] overflow-hidden hover:border-[#936DFF] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      <span className="relative z-10 font-display font-bold text-lg uppercase tracking-widest text-white group-hover:text-[#05010A] transition-colors duration-300 flex items-center gap-2">
+                        {isProcessing ? <Loader2 className="w-5 h-5 animate-spin" /> : <Square className="w-5 h-5" />}
+                        {isProcessing ? 'STANDING...' : 'STAND'}
+                      </span>
+                      <div className="absolute inset-0 bg-white transform -translate-x-full group-hover:translate-x-0 transition-transform duration-300 ease-in-out"></div>
+                    </button>
+                  </div>
+                )}
+              </motion.div>
+            </BlurFade>
           )}
 
           {/* DEALER TURN */}
           {gameState === GAME_STATES.DEALER_TURN && (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              className="w-full"
-            >
-              {/* Game Table */}
-              <div className="relative w-full aspect-[3/4] md:aspect-[16/9] border-2 border-[#936DFF] rounded-[2rem] bg-[#05010A] overflow-hidden flex flex-col justify-between p-6 md:p-10">
-                {/* Table Felt Gradient */}
-                <div className="absolute inset-0 bg-gradient-to-b from-[#936DFF]/5 via-transparent to-[#936DFF]/5 pointer-events-none"></div>
+            <BlurFade delay={0.1}>
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                className="w-full"
+              >
+                {/* Game Table */}
+                <div className="relative w-full aspect-[3/4] md:aspect-[16/9] border-2 border-[#936DFF] rounded-[3rem] bg-[#05010A] overflow-hidden flex flex-col justify-between p-6 md:p-10">
+                  {/* Table Felt Gradient */}
+                  <div className="absolute inset-0 bg-gradient-to-b from-[#936DFF]/5 via-transparent to-[#936DFF]/5 pointer-events-none"></div>
 
-                {/* DEALER SECTION (TOP) */}
-                <div className="flex flex-col items-center gap-3 relative z-10">
-                  <span className="font-bold text-sm uppercase tracking-widest text-[#C049FF]">Dealer&apos;s Turn</span>
+                  {/* Center Logo Watermark */}
+                  <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 opacity-5 pointer-events-none">
+                    <h1 className="font-display font-bold text-[10vw] text-[#936DFF] tracking-tighter">UMBRA</h1>
+                  </div>
+
+                  {/* DEALER SECTION (TOP) */}
+                  <div className="flex flex-col items-center gap-3 relative z-10">
+                    <span className="font-display font-bold text-sm uppercase tracking-widest text-[#C049FF]">Dealer&apos;s Turn</span>
                   <div className="flex gap-3 justify-center min-h-[120px] md:min-h-[140px] items-center">
                     {!gameData?.dealerCards?.length ? (
                       <><CardSlot /><CardSlot /></>
@@ -1359,210 +1468,230 @@ export default function GameRoom() {
                   )}
                 </div>
 
-                {/* CENTER - Status */}
-                <div className="flex-1 flex items-center justify-center relative z-10">
-                  <div className="px-6 py-3 border border-[#C049FF] bg-[#05010A]/80 backdrop-blur-sm animate-pulse">
-                    <span className="font-bold text-lg uppercase tracking-widest text-[#C049FF]">
-                      {isDealer ? 'PLAYING...' : 'DEALER PLAYING...'}
+                  {/* CENTER - Status */}
+                  <div className="flex-1 flex items-center justify-center relative z-10">
+                    <div className="px-6 py-3 border border-[#C049FF] bg-[#05010A]/80 backdrop-blur-sm animate-pulse">
+                      <span className="font-display font-bold text-lg uppercase tracking-widest text-[#C049FF]">
+                        {isDealer ? 'PLAYING...' : 'DEALER PLAYING...'}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* PLAYER SECTION (BOTTOM) */}
+                  <div className="flex flex-col items-center gap-3 relative z-10">
+                    {gameData?.playerRevealed?.length > 0 && (
+                      <AnimatedValue value={calculateHandValue(gameData.playerRevealed)} isPlayer={true} />
+                    )}
+                    <div className="flex gap-3 justify-center min-h-[120px] md:min-h-[140px] items-center">
+                      {!gameData?.playerCards?.length ? (
+                        <><CardSlot /><CardSlot /></>
+                      ) : (
+                        gameData.playerCards.map((_, index) =>
+                          gameData.playerRevealed?.[index] !== undefined ? (
+                            <PlayingCard
+                              key={index}
+                              value={gameData.playerRevealed[index] % 13}
+                              suit={SUITS[Math.floor(gameData.playerRevealed[index] / 13)]}
+                              delay={index * 0.2}
+                            />
+                          ) : (
+                            <PendingCard key={index} delay={index * 0.2} />
+                          )
+                        )
+                      )}
+                    </div>
+                    <span className="font-display font-bold text-sm uppercase tracking-widest text-white">
+                      {isDealer ? 'Player' : 'You'}
                     </span>
                   </div>
                 </div>
-
-                {/* PLAYER SECTION (BOTTOM) */}
-                <div className="flex flex-col items-center gap-3 relative z-10">
-                  {gameData?.playerRevealed?.length > 0 && (
-                    <AnimatedValue value={calculateHandValue(gameData.playerRevealed)} isPlayer={true} />
-                  )}
-                  <div className="flex gap-3 justify-center min-h-[120px] md:min-h-[140px] items-center">
-                    {!gameData?.playerCards?.length ? (
-                      <><CardSlot /><CardSlot /></>
-                    ) : (
-                      gameData.playerCards.map((_, index) =>
-                        gameData.playerRevealed?.[index] !== undefined ? (
-                          <PlayingCard
-                            key={index}
-                            value={gameData.playerRevealed[index] % 13}
-                            suit={SUITS[Math.floor(gameData.playerRevealed[index] / 13)]}
-                            delay={index * 0.2}
-                          />
-                        ) : (
-                          <PendingCard key={index} delay={index * 0.2} />
-                        )
-                      )
-                    )}
-                  </div>
-                  <span className="font-bold text-sm uppercase tracking-widest text-white">
-                    {isDealer ? 'Player' : 'You'}
-                  </span>
-                </div>
-              </div>
-            </motion.div>
+              </motion.div>
+            </BlurFade>
           )}
 
           {/* GAME OVER */}
           {gameState === GAME_STATES.GAME_OVER && (
-            <motion.div
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
-              className="w-full"
-            >
-              {/* Game Table with Final Hands */}
-              <div className="relative w-full aspect-[3/4] md:aspect-[16/9] border-2 border-[#936DFF] rounded-[2rem] bg-[#05010A] overflow-hidden flex flex-col justify-between p-6 md:p-10">
-                {/* Table Felt Gradient */}
-                <div className="absolute inset-0 bg-gradient-to-b from-[#936DFF]/5 via-transparent to-[#936DFF]/5 pointer-events-none"></div>
-
-                {/* DEALER SECTION (TOP) */}
-                <div className="flex flex-col items-center gap-3 relative z-10">
-                  <span className="font-bold text-sm uppercase tracking-widest text-[#B8B8CC]">Dealer</span>
-                  <div className="flex gap-3 justify-center min-h-[120px] md:min-h-[140px] items-center">
-                    {gameData?.dealerRevealed?.map((card, index) => (
-                      <PlayingCard
-                        key={index}
-                        value={card % 13}
-                        suit={SUITS[Math.floor(card / 13)]}
-                        delay={index * 0.2}
-                      />
-                    ))}
-                  </div>
-                  {gameData?.dealerRevealed?.length > 0 && (
-                    <AnimatedValue value={calculateHandValue(gameData.dealerRevealed)} isPlayer={false} />
-                  )}
-                </div>
-
-                {/* CENTER - Winner Display */}
-                <div className="flex-1 flex flex-col items-center justify-center relative z-10 gap-4">
-                  <motion.div
-                    initial={{ scale: 0 }}
-                    animate={{ scale: 1 }}
-                    transition={{ type: "spring", stiffness: 200, delay: 0.3 }}
-                    className={cn(
-                      "px-8 py-4 border-2",
-                      gameData?.winner === 'player' ? "border-green-500 bg-green-500/10" :
-                      gameData?.winner === 'dealer' ? "border-red-500 bg-red-500/10" :
-                      "border-yellow-500 bg-yellow-500/10"
-                    )}
-                  >
-                    <span className={cn(
-                      "font-bold text-2xl md:text-3xl uppercase tracking-widest",
-                      gameData?.winner === 'player' ? "text-green-400" :
-                      gameData?.winner === 'dealer' ? "text-red-400" :
-                      "text-yellow-400"
-                    )}>
-                      {gameData?.winner === 'player' && (isDealer ? 'PLAYER WINS!' : 'YOU WIN!')}
-                      {gameData?.winner === 'dealer' && (isDealer ? 'HOUSE WINS!' : 'DEALER WINS')}
-                      {gameData?.winner === 'push' && 'PUSH - TIE!'}
-                      {!gameData?.winner && 'GAME OVER'}
-                    </span>
-                  </motion.div>
-                </div>
-
-                {/* PLAYER SECTION (BOTTOM) */}
-                <div className="flex flex-col items-center gap-3 relative z-10">
-                  {gameData?.playerRevealed?.length > 0 && (
-                    <AnimatedValue value={calculateHandValue(gameData.playerRevealed)} isPlayer={true} />
-                  )}
-                  <div className="flex gap-3 justify-center min-h-[120px] md:min-h-[140px] items-center">
-                    {gameData?.playerRevealed?.map((card, index) => (
-                      <PlayingCard
-                        key={index}
-                        value={card % 13}
-                        suit={SUITS[Math.floor(card / 13)]}
-                        delay={index * 0.2}
-                      />
-                    ))}
-                  </div>
-                  <span className="font-bold text-sm uppercase tracking-widest text-white">
-                    {isDealer ? 'Player' : 'You'}
-                  </span>
-                </div>
-              </div>
-
-              {/* Payout and Actions - Below the table */}
-              <div className="mt-6 p-6 bg-white/5 rounded-2xl border border-white/10 text-center">
-
-              {/* Payout Info */}
-              {currentBet && (
-                <div className="mb-6">
-                  {gameData?.winner === 'player' && !isDealer && (
-                    <div>
-                      <p className="text-green-400 text-lg mb-2">
-                        🎉 You won <span className="font-bold">{(currentBet * 2).toFixed(2)} SOL</span>!
-                      </p>
-                      {payoutStatus === 'success' && (
-                        <p className="text-green-300 text-sm">✅ Payout received!</p>
-                      )}
-                      {payoutStatus === 'sending' && (
-                        <p className="text-purple-300 text-sm animate-pulse">⏳ Receiving payout...</p>
-                      )}
-                    </div>
-                  )}
-                  {gameData?.winner === 'dealer' && !isDealer && (
-                    <p className="text-red-400 text-lg">
-                      You lost <span className="font-bold">{currentBet.toFixed(2)} SOL</span>
-                    </p>
-                  )}
-                  {gameData?.winner === 'push' && !isDealer && (
-                    <div>
-                      <p className="text-yellow-400 text-lg mb-2">
-                        Push! Your bet of <span className="font-bold">{currentBet?.toFixed(2) || '0.00'} SOL</span> is being returned
-                      </p>
-                      {payoutStatus === 'success' && (
-                        <p className="text-green-300 text-sm">✅ Bet returned!</p>
-                      )}
-                      {payoutStatus === 'sending' && (
-                        <p className="text-purple-300 text-sm animate-pulse">⏳ Returning bet...</p>
-                      )}
-                    </div>
-                  )}
-                  {gameData?.winner === 'push' && isDealer && (
-                    <div>
-                      <p className="text-yellow-400 text-lg mb-2">
-                        Push! Returning <span className="font-bold">{currentBet?.toFixed(2) || '0.00'} SOL</span> to player
-                      </p>
-                      {payoutStatus === 'sending' && (
-                        <p className="text-purple-300 text-sm animate-pulse">⏳ Sending refund...</p>
-                      )}
-                      {payoutStatus === 'success' && (
-                        <p className="text-green-300 text-sm">✅ Refund sent!</p>
-                      )}
-                    </div>
-                  )}
-                  {isDealer && gameData?.winner === 'player' && (
-                    <div>
-                      <p className="text-amber-400 text-lg mb-2">
-                        House pays <span className="font-bold">{(currentBet * 2).toFixed(2)} SOL</span> to player
-                      </p>
-                      {payoutStatus === 'sending' && (
-                        <p className="text-purple-300 text-sm animate-pulse">⏳ Sending payout...</p>
-                      )}
-                      {payoutStatus === 'success' && (
-                        <p className="text-green-300 text-sm">✅ Payout sent successfully!</p>
-                      )}
-                      {payoutStatus?.startsWith('error') && (
-                        <p className="text-red-300 text-sm">❌ {payoutStatus}</p>
-                      )}
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* Play Again Button */}
-              <button
-                onClick={() => router.push('/game')}
-                className="group relative px-8 py-4 border-2 border-[#936DFF] bg-[#05010A] overflow-hidden hover:border-white transition-colors"
+            <BlurFade delay={0.1}>
+              <motion.div
+                initial={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+                className="w-full"
               >
-                <span className="relative z-10 font-bold text-lg uppercase tracking-widest text-white group-hover:text-[#05010A] transition-colors duration-300">
-                  Play Again
-                </span>
-                <div className="absolute inset-0 bg-[#936DFF] transform -translate-x-full group-hover:translate-x-0 transition-transform duration-300 ease-in-out"></div>
-              </button>
-              </div>
-            </motion.div>
+                {/* Game Table with Final Hands */}
+                <div className="relative w-full aspect-[3/4] md:aspect-[16/9] border-2 border-[#936DFF] rounded-[3rem] bg-[#05010A] overflow-hidden flex flex-col justify-between p-6 md:p-10">
+                  {/* Table Felt Gradient */}
+                  <div className="absolute inset-0 bg-gradient-to-b from-[#936DFF]/5 via-transparent to-[#936DFF]/5 pointer-events-none"></div>
+
+                  {/* Center Logo Watermark */}
+                  <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 opacity-5 pointer-events-none">
+                    <h1 className="font-display font-bold text-[10vw] text-[#936DFF] tracking-tighter">UMBRA</h1>
+                  </div>
+
+                  {/* DEALER SECTION (TOP) */}
+                  <div className="flex flex-col items-center gap-3 relative z-10">
+                    <span className="font-display font-bold text-sm uppercase tracking-widest text-[#B8B8CC]">Dealer</span>
+                    <div className="flex gap-3 justify-center min-h-[120px] md:min-h-[140px] items-center">
+                      {gameData?.dealerRevealed?.map((card, index) => (
+                        <PlayingCard
+                          key={index}
+                          value={card % 13}
+                          suit={SUITS[Math.floor(card / 13)]}
+                          delay={index * 0.2}
+                        />
+                      ))}
+                    </div>
+                    {gameData?.dealerRevealed?.length > 0 && (
+                      <AnimatedValue value={calculateHandValue(gameData.dealerRevealed)} isPlayer={false} />
+                    )}
+                  </div>
+
+                  {/* CENTER - Winner Display */}
+                  <div className="flex-1 flex flex-col items-center justify-center relative z-10 gap-4">
+                    <motion.div
+                      initial={{ scale: 0 }}
+                      animate={{ scale: 1 }}
+                      transition={{ type: "spring", stiffness: 200, delay: 0.3 }}
+                      className={cn(
+                        "px-8 py-4 border-2",
+                        gameData?.winner === 'player' ? "border-green-500 bg-green-500/10" :
+                        gameData?.winner === 'dealer' ? "border-red-500 bg-red-500/10" :
+                        "border-yellow-500 bg-yellow-500/10"
+                      )}
+                    >
+                      <span className={cn(
+                        "font-display font-bold text-2xl md:text-3xl uppercase tracking-widest",
+                        gameData?.winner === 'player' ? "text-green-400" :
+                        gameData?.winner === 'dealer' ? "text-red-400" :
+                        "text-yellow-400"
+                      )}>
+                        {gameData?.winner === 'player' && (isDealer ? 'PLAYER WINS!' : 'YOU WIN!')}
+                        {gameData?.winner === 'dealer' && (isDealer ? 'HOUSE WINS!' : 'DEALER WINS')}
+                        {gameData?.winner === 'push' && 'PUSH - TIE!'}
+                        {!gameData?.winner && 'GAME OVER'}
+                      </span>
+                    </motion.div>
+                  </div>
+
+                  {/* PLAYER SECTION (BOTTOM) */}
+                  <div className="flex flex-col items-center gap-3 relative z-10">
+                    {gameData?.playerRevealed?.length > 0 && (
+                      <AnimatedValue value={calculateHandValue(gameData.playerRevealed)} isPlayer={true} />
+                    )}
+                    <div className="flex gap-3 justify-center min-h-[120px] md:min-h-[140px] items-center">
+                      {gameData?.playerRevealed?.map((card, index) => (
+                        <PlayingCard
+                          key={index}
+                          value={card % 13}
+                          suit={SUITS[Math.floor(card / 13)]}
+                          delay={index * 0.2}
+                        />
+                      ))}
+                    </div>
+                    <span className="font-display font-bold text-sm uppercase tracking-widest text-white">
+                      {isDealer ? 'Player' : 'You'}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Payout and Actions - Below the table */}
+                <div className="mt-6 p-1 border-2 border-[#936DFF] bg-[#05010A] relative">
+                  {/* Decorative corners */}
+                  <div className="absolute top-0 left-0 w-4 h-4 border-t-2 border-l-2 border-white -mt-1 -ml-1"></div>
+                  <div className="absolute top-0 right-0 w-4 h-4 border-t-2 border-r-2 border-white -mt-1 -mr-1"></div>
+                  <div className="absolute bottom-0 left-0 w-4 h-4 border-b-2 border-l-2 border-white -mb-1 -ml-1"></div>
+                  <div className="absolute bottom-0 right-0 w-4 h-4 border-b-2 border-r-2 border-white -mb-1 -mr-1"></div>
+
+                  <div className="p-6 bg-[#05010A] border border-[#936DFF]/30 text-center relative overflow-hidden">
+                    <div className="absolute inset-0 bg-[#936DFF]/5 pointer-events-none"></div>
+
+                    <div className="relative z-10">
+                      {/* Payout Info */}
+                      {currentBet && (
+                        <div className="mb-6">
+                          {gameData?.winner === 'player' && !isDealer && (
+                            <div>
+                              <p className="text-green-400 text-lg mb-2 font-display uppercase tracking-wide">
+                                You won <span className="font-bold">{(currentBet * 2).toFixed(2)} SOL</span>!
+                              </p>
+                              {payoutStatus === 'success' && (
+                                <p className="text-green-300 text-sm">Payout received!</p>
+                              )}
+                              {payoutStatus === 'sending' && (
+                                <p className="text-[#936DFF] text-sm animate-pulse">Receiving payout...</p>
+                              )}
+                            </div>
+                          )}
+                          {gameData?.winner === 'dealer' && !isDealer && (
+                            <p className="text-red-400 text-lg font-display uppercase tracking-wide">
+                              You lost <span className="font-bold">{currentBet.toFixed(2)} SOL</span>
+                            </p>
+                          )}
+                          {gameData?.winner === 'push' && !isDealer && (
+                            <div>
+                              <p className="text-yellow-400 text-lg mb-2 font-display uppercase tracking-wide">
+                                Push! Your bet of <span className="font-bold">{currentBet?.toFixed(2) || '0.00'} SOL</span> is being returned
+                              </p>
+                              {payoutStatus === 'success' && (
+                                <p className="text-green-300 text-sm">Bet returned!</p>
+                              )}
+                              {payoutStatus === 'sending' && (
+                                <p className="text-[#936DFF] text-sm animate-pulse">Returning bet...</p>
+                              )}
+                            </div>
+                          )}
+                          {gameData?.winner === 'push' && isDealer && (
+                            <div>
+                              <p className="text-yellow-400 text-lg mb-2 font-display uppercase tracking-wide">
+                                Push! Returning <span className="font-bold">{currentBet?.toFixed(2) || '0.00'} SOL</span> to player
+                              </p>
+                              {payoutStatus === 'sending' && (
+                                <p className="text-[#936DFF] text-sm animate-pulse">Sending refund...</p>
+                              )}
+                              {payoutStatus === 'success' && (
+                                <p className="text-green-300 text-sm">Refund sent!</p>
+                              )}
+                            </div>
+                          )}
+                          {isDealer && gameData?.winner === 'player' && (
+                            <div>
+                              <p className="text-amber-400 text-lg mb-2 font-display uppercase tracking-wide">
+                                House pays <span className="font-bold">{(currentBet * 2).toFixed(2)} SOL</span> to player
+                              </p>
+                              {payoutStatus === 'sending' && (
+                                <p className="text-[#936DFF] text-sm animate-pulse">Sending payout...</p>
+                              )}
+                              {payoutStatus === 'success' && (
+                                <p className="text-green-300 text-sm">Payout sent successfully!</p>
+                              )}
+                              {payoutStatus?.startsWith('error') && (
+                                <p className="text-red-300 text-sm">{payoutStatus}</p>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Play Again Button */}
+                      <button
+                        onClick={() => router.push('/game')}
+                        className="group relative px-8 py-4 border-2 border-[#936DFF] bg-[#05010A] overflow-hidden hover:border-white transition-colors"
+                      >
+                        <span className="relative z-10 font-display font-bold text-lg uppercase tracking-widest text-white group-hover:text-[#05010A] transition-colors duration-300 flex items-center justify-center gap-2">
+                          <Play className="w-5 h-5" />
+                          Play Again
+                        </span>
+                        <div className="absolute inset-0 bg-[#936DFF] transform -translate-x-full group-hover:translate-x-0 transition-transform duration-300 ease-in-out"></div>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </motion.div>
+            </BlurFade>
           )}
 
           {/* Debug Info */}
           {process.env.NODE_ENV === 'development' && (
-            <div className="mt-8 p-4 bg-black/30 rounded-lg text-xs font-mono text-gray-500">
+            <div className="mt-8 p-4 bg-[#05010A] border border-[#936DFF]/20 text-xs font-mono text-[#B8B8CC]/50">
               <p>State: {gameState}</p>
               <p>IsDealer: {isDealer ? 'Yes' : 'No'}</p>
               <p>GameId: {gameId || 'None'}</p>
@@ -1572,6 +1701,11 @@ export default function GameRoom() {
           )}
         </div>
       </main>
+
+      {/* Footer */}
+      <footer className="fixed bottom-0 left-0 right-0 p-4 text-center text-[#B8B8CC]/50 text-xs font-body bg-[#05010A]/80 backdrop-blur-sm border-t border-[#936DFF]/10">
+        Powered by Solana &bull; ZK Proofs by Noir &bull; Privacy by ShadowWire
+      </footer>
     </div>
   );
 }
