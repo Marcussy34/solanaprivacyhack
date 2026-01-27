@@ -13,7 +13,7 @@ export const Poster = () => {
         <header className="flex-none border-b-2 border-[#936DFF] h-14 sm:h-16 md:h-20 flex items-stretch z-20 bg-[#05010A]">
             {/* Left Arrow Box */}
             <div className="w-14 sm:w-16 md:w-20 border-r-2 border-[#936DFF] flex items-center justify-center shrink-0">
-            <ArrowLeft className="w-5 h-5 sm:w-6 sm:h-6 md:w-8 md:h-8 text-[#C049FF]" />
+            <LogoStack className="scale-75 sm:scale-100 text-[#C049FF]" />
             </div>
             
             {/* Center Title */}
@@ -84,7 +84,7 @@ export const Poster = () => {
         <footer className="flex-none border-t-2 border-[#936DFF] h-12 sm:h-14 md:h-16 flex items-stretch z-20 bg-[#05010A]">
             {/* Left Close */}
             <div className="w-14 sm:w-16 md:w-20 border-r-2 border-[#936DFF] flex items-center justify-center shrink-0">
-            <CloseIcon className="w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6 text-[#C049FF]" />
+            <LogoStack className="scale-75 sm:scale-100 text-[#C049FF]" />
             </div>
 
             {/* Center Ticker */}
@@ -105,7 +105,7 @@ export const Poster = () => {
 
             {/* Right Arrow */}
             <div className="w-14 sm:w-16 md:w-20 border-l-2 border-[#936DFF] flex items-center justify-center shrink-0">
-            <ArrowCircleRight className="w-5 h-5 sm:w-6 sm:h-6 md:w-8 md:h-8 text-[#C049FF]" />
+            <LogoStack className="scale-75 sm:scale-100 text-[#C049FF]" />
             </div>
         </footer>
         
