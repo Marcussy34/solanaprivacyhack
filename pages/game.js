@@ -1901,7 +1901,7 @@ export default function GamePage() {
                       <input
                         type="number"
                         step="0.01"
-                        min="0.01"
+                        min="0.1"
                         placeholder="e.g., 0.1"
                         value={manualBetInput}
                         onChange={(e) => setManualBetInput(e.target.value)}
@@ -1910,12 +1910,12 @@ export default function GamePage() {
                       <button
                         onClick={() => {
                           const amount = parseFloat(manualBetInput);
-                          if (amount > 0) {
+                          if (amount >= 0.1) {
                             setPlayerBetAmount(amount);
                             setGameState(GAME_STATES.WAITING_DEALER_BET);
                           }
                         }}
-                        disabled={!manualBetInput || parseFloat(manualBetInput) <= 0}
+                        disabled={!manualBetInput || parseFloat(manualBetInput) < 0.1}
                         className="group relative px-6 py-3 border border-[#936DFF] overflow-hidden"
                       >
                         <span className="relative z-10 font-display font-bold text-sm uppercase tracking-widest text-[#FFFFFF] group-hover:text-[#05010A] transition-colors duration-300">
