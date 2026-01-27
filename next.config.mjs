@@ -1,6 +1,8 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  reactStrictMode: true,
+  // Disabled for wallet adapter compatibility - StrictMode's double-rendering
+  // in development conflicts with wallet extension APIs. No production impact.
+  reactStrictMode: false,
   
   // Use empty turbopack config to silence warning
   // bb.js WASM should work with default Turbopack settings
