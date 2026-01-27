@@ -71,7 +71,7 @@ export function PlayingCard({
       }}
       whileHover={{ y: -8, scale: 1.02 }}
       className={cn(
-        "relative w-20 h-28 md:w-24 md:h-32 rounded-xl cursor-pointer",
+        "relative w-16 h-24 sm:w-20 sm:h-28 md:w-24 md:h-32 rounded-xl cursor-pointer",
         className
       )}
       style={{ perspective: "1000px" }}
@@ -151,7 +151,7 @@ export function HiddenCard({ className, delay = 0, isRevealing = false }) {
       }}
       whileHover={{ y: -4 }}
       className={cn(
-        "w-20 h-28 md:w-24 md:h-32 rounded-xl",
+        "w-16 h-24 sm:w-20 sm:h-28 md:w-24 md:h-32 rounded-xl",
         "border-2 border-[#936DFF]",
         "bg-[#05010A]",
         "flex items-center justify-center overflow-hidden",
@@ -178,7 +178,7 @@ export function PendingCard({ className, delay = 0 }) {
       animate={{ opacity: 1, x: 0, rotate: 0, scale: 1 }}
       transition={{ duration: 0.6, delay, type: "spring", stiffness: 80, damping: 12 }}
       className={cn(
-        "w-20 h-28 md:w-24 md:h-32 rounded-xl",
+        "w-16 h-24 sm:w-20 sm:h-28 md:w-24 md:h-32 rounded-xl",
         "border-2 border-yellow-500/50",
         "bg-[#05010A]",
         "flex items-center justify-center",
@@ -212,7 +212,7 @@ export function CardSlot({ className, isPulsing = true }) {
         ease: "easeInOut",
       }}
       className={cn(
-        "w-20 h-28 md:w-24 md:h-32 rounded-xl",
+        "w-16 h-24 sm:w-20 sm:h-28 md:w-24 md:h-32 rounded-xl",
         "border-2 border-dashed border-[#936DFF]/30",
         "bg-[#05010A]",
         className

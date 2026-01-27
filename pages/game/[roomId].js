@@ -1158,7 +1158,7 @@ export default function GameRoom() {
       </div>
 
       {/* Main Content */}
-      <main className="pt-32 sm:pt-36 px-4 sm:px-6 md:px-8 max-w-4xl mx-auto pb-12">
+      <main className="pt-32 sm:pt-36 px-4 sm:px-6 md:px-8 max-w-7xl mx-auto pb-12">
         {/* Error Display */}
         <AnimatePresence>
           {error && (
@@ -1197,7 +1197,7 @@ export default function GameRoom() {
         </AnimatePresence>
 
         {/* Game State Display */}
-        <div className="max-w-2xl mx-auto">
+        <div className="w-full max-w-6xl mx-auto">
           {/* WAITING FOR PLAYER */}
           {gameState === GAME_STATES.WAITING_FOR_PLAYER && isDealer && (
             <BlurFade delay={0.1}>
@@ -1318,7 +1318,7 @@ export default function GameRoom() {
                 className="w-full"
               >
                 {/* Game Table */}
-                <div className="relative w-full aspect-[3/4] md:aspect-[16/9] border-2 border-[#936DFF] rounded-[3rem] bg-[#05010A] overflow-hidden flex flex-col justify-between p-6 md:p-10">
+                <div className="relative w-full aspect-[3/4] md:aspect-[16/9] border-2 border-[#936DFF] rounded-[2rem] md:rounded-[3rem] bg-[#05010A] overflow-hidden flex flex-col justify-between p-4 md:p-10">
                   {/* Table Felt Gradient */}
                   <div className="absolute inset-0 bg-gradient-to-b from-[#936DFF]/5 via-transparent to-[#936DFF]/5 pointer-events-none"></div>
 
@@ -1328,9 +1328,9 @@ export default function GameRoom() {
                   </div>
 
                   {/* DEALER SECTION (TOP) */}
-                  <div className="flex flex-col items-center gap-3 relative z-10">
+                  <div className="flex flex-col items-center gap-3 relative z-10 w-full px-4">
                     <span className="font-display font-bold text-sm uppercase tracking-widest text-[#B8B8CC]">Dealer</span>
-                  <div className="flex gap-3 justify-center min-h-[120px] md:min-h-[140px] items-center">
+                  <div className="flex flex-wrap gap-2 md:gap-3 justify-center min-h-[100px] sm:min-h-[120px] md:min-h-[140px] items-center w-full">
                     {!gameData?.dealerCards?.length ? (
                       <><CardSlot /><CardSlot /></>
                     ) : (
@@ -1367,7 +1367,7 @@ export default function GameRoom() {
                     {gameData?.playerRevealed?.length > 0 && (
                       <AnimatedValue value={calculateHandValue(gameData.playerRevealed)} isPlayer={true} />
                     )}
-                    <div className="flex gap-3 justify-center min-h-[120px] md:min-h-[140px] items-center">
+                    <div className="flex gap-2 md:gap-3 justify-center min-h-[100px] sm:min-h-[120px] md:min-h-[140px] items-center">
                       {!gameData?.playerCards?.length ? (
                         <><CardSlot /><CardSlot /></>
                       ) : (
@@ -1433,7 +1433,7 @@ export default function GameRoom() {
                 className="w-full"
               >
                 {/* Game Table */}
-                <div className="relative w-full aspect-[3/4] md:aspect-[16/9] border-2 border-[#936DFF] rounded-[3rem] bg-[#05010A] overflow-hidden flex flex-col justify-between p-6 md:p-10">
+                <div className="relative w-full aspect-[3/4] md:aspect-[16/9] border-2 border-[#936DFF] rounded-[2rem] md:rounded-[3rem] bg-[#05010A] overflow-hidden flex flex-col justify-between p-4 md:p-10">
                   {/* Table Felt Gradient */}
                   <div className="absolute inset-0 bg-gradient-to-b from-[#936DFF]/5 via-transparent to-[#936DFF]/5 pointer-events-none"></div>
 
@@ -1443,9 +1443,9 @@ export default function GameRoom() {
                   </div>
 
                   {/* DEALER SECTION (TOP) */}
-                  <div className="flex flex-col items-center gap-3 relative z-10">
+                  <div className="flex flex-col items-center gap-3 relative z-10 w-full px-4">
                     <span className="font-display font-bold text-sm uppercase tracking-widest text-[#C049FF]">Dealer&apos;s Turn</span>
-                  <div className="flex gap-3 justify-center min-h-[120px] md:min-h-[140px] items-center">
+                  <div className="flex flex-wrap gap-2 md:gap-3 justify-center min-h-[100px] sm:min-h-[120px] md:min-h-[140px] items-center w-full">
                     {!gameData?.dealerCards?.length ? (
                       <><CardSlot /><CardSlot /></>
                     ) : (
@@ -1478,11 +1478,11 @@ export default function GameRoom() {
                   </div>
 
                   {/* PLAYER SECTION (BOTTOM) */}
-                  <div className="flex flex-col items-center gap-3 relative z-10">
+                  <div className="flex flex-col items-center gap-3 relative z-10 w-full px-4">
                     {gameData?.playerRevealed?.length > 0 && (
                       <AnimatedValue value={calculateHandValue(gameData.playerRevealed)} isPlayer={true} />
                     )}
-                    <div className="flex gap-3 justify-center min-h-[120px] md:min-h-[140px] items-center">
+                    <div className="flex flex-wrap gap-2 md:gap-3 justify-center min-h-[100px] sm:min-h-[120px] md:min-h-[140px] items-center w-full">
                       {!gameData?.playerCards?.length ? (
                         <><CardSlot /><CardSlot /></>
                       ) : (
@@ -1518,7 +1518,7 @@ export default function GameRoom() {
                 className="w-full"
               >
                 {/* Game Table with Final Hands */}
-                <div className="relative w-full aspect-[3/4] md:aspect-[16/9] border-2 border-[#936DFF] rounded-[3rem] bg-[#05010A] overflow-hidden flex flex-col justify-between p-6 md:p-10">
+                <div className="relative w-full aspect-[3/4] md:aspect-[16/9] border-2 border-[#936DFF] rounded-[2rem] md:rounded-[3rem] bg-[#05010A] overflow-hidden flex flex-col justify-between p-4 md:p-10">
                   {/* Table Felt Gradient */}
                   <div className="absolute inset-0 bg-gradient-to-b from-[#936DFF]/5 via-transparent to-[#936DFF]/5 pointer-events-none"></div>
 
@@ -1528,9 +1528,9 @@ export default function GameRoom() {
                   </div>
 
                   {/* DEALER SECTION (TOP) */}
-                  <div className="flex flex-col items-center gap-3 relative z-10">
+                  <div className="flex flex-col items-center gap-3 relative z-10 w-full px-4">
                     <span className="font-display font-bold text-sm uppercase tracking-widest text-[#B8B8CC]">Dealer</span>
-                    <div className="flex gap-3 justify-center min-h-[120px] md:min-h-[140px] items-center">
+                    <div className="flex flex-wrap gap-2 md:gap-3 justify-center min-h-[100px] sm:min-h-[120px] md:min-h-[140px] items-center w-full">
                       {gameData?.dealerRevealed?.map((card, index) => (
                         <PlayingCard
                           key={index}
@@ -1573,11 +1573,11 @@ export default function GameRoom() {
                   </div>
 
                   {/* PLAYER SECTION (BOTTOM) */}
-                  <div className="flex flex-col items-center gap-3 relative z-10">
+                  <div className="flex flex-col items-center gap-3 relative z-10 w-full px-4">
                     {gameData?.playerRevealed?.length > 0 && (
                       <AnimatedValue value={calculateHandValue(gameData.playerRevealed)} isPlayer={true} />
                     )}
-                    <div className="flex gap-3 justify-center min-h-[120px] md:min-h-[140px] items-center">
+                    <div className="flex flex-wrap gap-2 md:gap-3 justify-center min-h-[100px] sm:min-h-[120px] md:min-h-[140px] items-center w-full">
                       {gameData?.playerRevealed?.map((card, index) => (
                         <PlayingCard
                           key={index}
