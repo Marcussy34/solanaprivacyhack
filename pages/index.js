@@ -1,5 +1,6 @@
 import React from 'react';
 import Head from 'next/head';
+import Link from 'next/link';
 import { Poster } from '../components/arena/Poster';
 import { HeroOverlay } from '../components/arena/HeroOverlay';
 import { Scene } from '../components/arena/Scene';
@@ -66,12 +67,14 @@ export default function Home() {
                   </div>
                </div>
 
-               <button className="group relative px-6 py-3 sm:px-8 sm:py-4 border-2 border-[#936DFF] w-max overflow-hidden">
-                  <span className="relative z-10 font-display font-bold text-base sm:text-lg uppercase tracking-widest group-hover:text-[#05010A] transition-colors duration-300 text-[#FFFFFF]">
-                      Play Demo
-                  </span>
-                  <div className="absolute inset-0 bg-[#936DFF] transform -translate-x-full group-hover:translate-x-0 transition-transform duration-300 ease-in-out"></div>
-               </button>
+               <Link href="/dashboard">
+                 <button className="group relative px-6 py-3 sm:px-8 sm:py-4 border-2 border-[#936DFF] w-max overflow-hidden">
+                    <span className="relative z-10 font-display font-bold text-base sm:text-lg uppercase tracking-widest group-hover:text-[#05010A] transition-colors duration-300 text-[#FFFFFF]">
+                        Enter App
+                    </span>
+                    <div className="absolute inset-0 bg-[#936DFF] transform -translate-x-full group-hover:translate-x-0 transition-transform duration-300 ease-in-out"></div>
+                 </button>
+               </Link>
           </div>
         </section>
 

@@ -46,7 +46,7 @@ export const Poster = () => {
 
             {/* Launch App Button */}
             <button 
-                onClick={() => navigate('/game')}
+                onClick={() => navigate('/dashboard')}
                 className="mb-6 sm:mb-8 md:mb-12 group relative px-6 py-3 sm:px-8 sm:py-4 border-2 border-[#936DFF] w-max overflow-hidden z-[60]"
             >
                 <span className="relative z-10 font-display font-bold text-base sm:text-lg uppercase tracking-widest text-[#FFFFFF] group-hover:text-[#05010A] transition-colors duration-300">
