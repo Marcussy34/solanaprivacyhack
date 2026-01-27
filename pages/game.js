@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import Head from 'next/head';
 import { useWallet } from "@solana/wallet-adapter-react";
 import { WalletMultiButton } from "@solana/wallet-adapter-react-ui";
 import { motion, AnimatePresence } from "framer-motion";
@@ -1305,31 +1306,34 @@ export default function GamePage() {
 
   return (
     <div className="min-h-screen bg-[#05010A] text-[#FFFFFF] font-body selection:bg-[#936DFF] selection:text-white overflow-x-hidden relative">
+      <Head>
+        <title>Umbra</title>
+      </Head>
       
       {/* --- TOP BAR --- */}
       <div className="fixed top-0 left-0 w-full flex justify-between items-center px-4 sm:px-6 md:px-8 py-4 sm:py-6 z-50 bg-[#05010A]/80 backdrop-blur-md border-b border-[#936DFF]/20">
           <button 
-            onClick={() => navigate('/')}
-            className="group flex items-center gap-2 text-[#936DFF] hover:text-white transition-colors"
+            onClick={() => navigate('/dashboard')}
+            className="group flex items-center gap-4 hover:opacity-80 transition-opacity"
           >
-            <ArrowLeft className="w-5 h-5" />
-            <span className="font-display text-xs tracking-[0.2em] uppercase opacity-80 group-hover:opacity-100">Back</span>
+            <LogoStack className="scale-75 text-[#936DFF]" />
+            <h1 className="font-display font-bold text-3xl tracking-tighter uppercase text-white group-hover:text-[#936DFF] transition-colors">
+              UMBRA
+            </h1>
           </button>
           
-          <div className="flex gap-8 sm:gap-16 font-display text-[10px] sm:text-xs tracking-[0.2em] text-[#936DFF] opacity-60 uppercase">
-              <span>ZK</span>
-              <span className="text-[#FFFFFF] opacity-100 text-sm">PROVABLY FAIR</span>
-              <span>SOL</span>
+          <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 font-display text-sm sm:text-base tracking-[0.2em] text-[#936DFF] uppercase drop-shadow-[0_0_10px_rgba(147,109,255,0.5)]">
+              ZK BLACKJACK
           </div>
           
-          <LogoStack className="scale-75 text-[#936DFF]" />
+          <div className="flex items-center gap-4">
+            <WalletMultiButton className="!bg-[#936DFF]/10 !border !border-[#936DFF] !text-[#936DFF] hover:!bg-[#936DFF] hover:!text-white !font-display !uppercase !tracking-widest !text-xs !h-8 !px-4 !rounded-none transition-all duration-300" />
+          </div>
       </div>
 
       <div className="pt-24 px-4 sm:px-6 md:px-8 max-w-7xl mx-auto pb-12">
-        {/* Wallet Connection Header */}
-        <div className="flex justify-end mb-8">
-            <WalletMultiButton className="!bg-[#936DFF]/10 !border !border-[#936DFF] !text-[#936DFF] hover:!bg-[#936DFF] hover:!text-white !font-display !uppercase !tracking-widest !text-xs !h-10 !rounded-none transition-all duration-300" />
-        </div>
+        {/* Wallet Connection Header - MOVED TO NAVBAR */}
+        
         {!connected ? (
           /* Not Connected State */
           <BlurFade delay={0.1}>

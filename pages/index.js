@@ -11,12 +11,13 @@ export default function Home() {
   return (
     <>
       <Head>
-        <title>Provably Fair Casino | ZK Blackjack</title>
-        <meta name="description" content="Provably fair casino on Solana using Zero-Knowledge Proofs (Noir) and ShadowWire privacy." />
+        <title>Umbra</title>
+        <meta name="description" content="Provably Fair ZK Casino on Solana" />
         {/* Google Fonts for the Umbra theme */}
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link href="https://fonts.googleapis.com/css2?family=Antonio:wght@400;500;600;700&family=Oswald:wght@400;500;600;700&family=Roboto+Condensed:ital,wght@0,300;0,400;0,700;1,300;1,400;1,700&display=swap" rel="stylesheet" />
+        <link rel="icon" href="/logo.png" />
       </Head>
 
       <div className="bg-[#05010A] min-h-screen text-[#FFFFFF] w-full overflow-x-hidden arena-theme">
