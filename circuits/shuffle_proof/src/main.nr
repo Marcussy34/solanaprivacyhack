@@ -1,4 +1,3 @@
-use dep::std;
 use dep::poseidon;
 
 fn main(
@@ -58,6 +57,6 @@ fn test_valid_shuffle() {
         commitment = poseidon::poseidon::bn254::hash_2([commitment, shuffled[i] as Field]);
     }
 
-    let result = main(seed, shuffled, commitment, original);
+    let result = main(seed, shuffled, commitment);
     assert(result == commitment);
 }
