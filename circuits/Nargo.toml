@@ -4,5 +4,6 @@ members = [
     "deal_proof", 
     "reveal_proof",
     "hash_14_helper",
-    "hash_2_helper"
+    "hash_2_helper",
+    "hash_53_helper"
 ]

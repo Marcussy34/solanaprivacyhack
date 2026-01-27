@@ -11,12 +11,16 @@ const SUITS = {
   spades: { symbol: "♠", color: "text-black" },
 };
 
-// Convert card value (0-12) to display
+// Convert card value (0-51) to display
 function getCardDisplay(value) {
   if (value === undefined || value === null) return { display: "?", isAce: false };
+  
+  // Map 0-51 to rank (0-12)
+  const rank = value % 13;
+  
   return {
-    display: VALUES[value] || "?",
-    isAce: value === 0,
+    display: VALUES[rank] || "?",
+    isAce: rank === 0,
   };
 }
 

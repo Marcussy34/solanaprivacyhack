@@ -92,14 +92,16 @@ function calculateHandValue(cards) {
   let aces = 0;
 
   for (const card of cards) {
-    const value = card % 13;
-    if (value === 0) {
+    // Map 0-51 to rank 0-12
+    const rank = card % 13;
+    
+    if (rank === 0) {
       aces += 1;
       total += 11;
-    } else if (value >= 10) {
+    } else if (rank >= 9) { // 10, J, Q, K (ranks 9-12) are all 10
       total += 10;
     } else {
-      total += value + 1;
+      total += (rank + 1); // 2-9 (ranks 1-8) are value+1
     }
   }
 

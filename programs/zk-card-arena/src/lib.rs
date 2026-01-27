@@ -202,7 +202,7 @@ pub mod zk_card_arena {
             GameError::InvalidCard
         );
         require!(
-            initial_card_values[0] < 13 && initial_card_values[1] < 13 && initial_card_values[2] < 13,
+            initial_card_values[0] < 52 && initial_card_values[1] < 52 && initial_card_values[2] < 52,
             GameError::InvalidCard
         );
 
@@ -304,7 +304,7 @@ pub mod zk_card_arena {
             game.dealer == ctx.accounts.dealer.key(),
             GameError::Unauthorized
         );
-        require!(card_value < 13, GameError::InvalidCard);
+        require!(card_value < 52, GameError::InvalidCard);
         require!(
             ctx.accounts.reveal_verifier_program.key() == reveal_verifier::ID,
             GameError::InvalidVerifier
@@ -414,7 +414,7 @@ pub mod zk_card_arena {
         if !hole_card_revealed {
             // 1. Reveal dealer's hole card (the second card that was hidden)
             // SECURITY: Verify ZK proof before accepting the card value
-            require!(dealer_card_values[value_index] < 13, GameError::InvalidCard);
+            require!(dealer_card_values[value_index] < 52, GameError::InvalidCard);
 
             // Verify hole card reveal proof via CPI
             let mut instruction_data = Vec::with_capacity(
@@ -465,7 +465,7 @@ pub mod zk_card_arena {
                 GameError::NoMoreCards
             );
             require!(
-                dealer_card_values[value_index] < 13,
+                dealer_card_values[value_index] < 52,
                 GameError::InvalidCard
             );
 
@@ -532,9 +532,10 @@ fn calculate_hand_value(cards: &[u8]) -> u8 {
     let mut aces: u8 = 0;
 
     for &card in cards {
-        let value = match card {
+        let rank = card % 13;
+        let value = match rank {
             0 => { aces += 1; 11 }           // Ace (start as 11)
-            1..=8 => card + 1,               // 2-9
+            1..=8 => rank + 1,               // 2-9
             9..=12 => 10,                    // 10, J, Q, K
             _ => 0,
         };

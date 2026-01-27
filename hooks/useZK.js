@@ -26,7 +26,7 @@ export function useZK() {
     shuffle: null,
     deal: null,
     reveal: null,
-    hash14: null,  // Hash helper for deck commitment
+    hash53: null,  // Hash helper for deck commitment (52 cards + seed)
     hash2: null,   // Hash helper for card commitment
   });
 
@@ -63,15 +63,15 @@ export function useZK() {
         log('Barretenberg initialized');
 
         // 3. Load Circuits (main proofs + hash helpers)
-        const [shuffle, deal, reveal, hash14, hash2] = await Promise.all([
+        const [shuffle, deal, reveal, hash53, hash2] = await Promise.all([
           fetch('/shuffle_proof.json').then(r => r.json()),
           fetch('/deal_proof.json').then(r => r.json()),
           fetch('/reveal_proof.json').then(r => r.json()),
-          fetch('/hash_14_helper.json').then(r => r.json()),
+          fetch('/hash_53_helper.json').then(r => r.json()),
           fetch('/hash_2_helper.json').then(r => r.json()),
         ]);
 
-        circuitsRef.current = { shuffle, deal, reveal, hash14, hash2 };
+        circuitsRef.current = { shuffle, deal, reveal, hash53, hash2 };
         log('Circuits loaded (including hash helpers)');
 
         // 4. Store classes for later use
@@ -234,43 +234,32 @@ export function useZK() {
   // =========================================================================
 
   /**
-   * Compute deck commitment: Poseidon(seed, deck[0], ..., deck[12])
+   * Compute deck commitment: Poseidon(seed, deck[0], ..., deck[51])
    * 
-   * Uses the hash_14_helper circuit to compute the hash.
-   * The circuit takes 14 private inputs and returns the hash as public output.
+   * Uses the hash_53_helper circuit to compute the hash.
+   * The circuit takes 53 private inputs and returns the hash as public output.
    * 
    * @param {string} seed - Random seed (field element as string)
-   * @param {number[]} shuffledDeck - Shuffled deck array [0-12] (13 elements)
+   * @param {number[]} shuffledDeck - Shuffled deck array [0-51] (52 elements)
    * @returns {string} Deck commitment (hex string)
    */
   const computeDeckCommitment = useCallback(async (seed, shuffledDeck) => {
     if (isInitializing) throw new Error('ZK not initialized');
-    if (!circuitsRef.current.hash14) throw new Error('Hash helper circuit not loaded');
-    if (shuffledDeck.length !== 13) throw new Error('Deck must have exactly 13 cards');
+    if (!circuitsRef.current.hash53) throw new Error('Hash helper circuit not loaded');
+    if (shuffledDeck.length !== 52) throw new Error('Deck must have exactly 52 cards');
 
-    log('Computing deck commitment via hash_14_helper circuit...');
+    log('Computing deck commitment via hash_53_helper circuit...');
 
     const Noir = noirRef.current;
-    const circuit = circuitsRef.current.hash14;
+    const circuit = circuitsRef.current.hash53;
     const noir = new Noir(circuit);
 
-    // Build inputs for hash_14_helper
-    // Circuit signature: main(seed, element_0, ..., element_12) -> pub Field
+    // Build inputs for hash_53_helper
+    // Circuit signature: main(seed, deck: [Field; 52]) -> pub Field
+    // Note: NoirJS requires array inputs to be passed as arrays, not individual fields if defined as array in circuit
     const inputs = {
       seed: String(seed),
-      element_0: String(shuffledDeck[0]),
-      element_1: String(shuffledDeck[1]),
-      element_2: String(shuffledDeck[2]),
-      element_3: String(shuffledDeck[3]),
-      element_4: String(shuffledDeck[4]),
-      element_5: String(shuffledDeck[5]),
-      element_6: String(shuffledDeck[6]),
-      element_7: String(shuffledDeck[7]),
-      element_8: String(shuffledDeck[8]),
-      element_9: String(shuffledDeck[9]),
-      element_10: String(shuffledDeck[10]),
-      element_11: String(shuffledDeck[11]),
-      element_12: String(shuffledDeck[12]),
+      deck: shuffledDeck.map(String),
     };
 
     try {

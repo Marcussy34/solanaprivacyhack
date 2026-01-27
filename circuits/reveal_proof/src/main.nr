@@ -7,8 +7,8 @@ fn main(
     card_value: pub Field,
     card_commitment: pub Field
 ) -> pub Field {
-    // 1. Range check: card value must be 0-12
-    assert(card_value as u8 < 13);
+    // 1. Range check: card value must be 0-51
+    assert(card_value as u8 < 52);
 
     // 2. Compute commitment using same scheme as deal_proof
     let computed_commitment = hash_2([card_value, blinding_factor]);
