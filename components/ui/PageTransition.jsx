@@ -80,7 +80,14 @@ export const TransitionProvider = ({ children }) => {
 
   // Handle standard route changes (back button etc)
   useEffect(() => {
-    const handleStart = () => setIsTransitioning(true);
+    const handleStart = (url) => {
+        // Skip transition for query param changes on the same page
+        const targetPath = url.split('?')[0];
+        const currentPath = router.asPath.split('?')[0];
+        if (targetPath === currentPath) return;
+
+        setIsTransitioning(true);
+    };
     const handleComplete = () => {
         // Keep curtain down for a moment to show "Loading" state
         setTimeout(() => setIsTransitioning(false), 1000); 
