@@ -1110,13 +1110,7 @@ export default function GameRoom() {
       {/* Fixed Navbar */}
       <div className="fixed top-0 left-0 w-full flex justify-between items-center px-4 sm:px-6 md:px-8 py-4 sm:py-6 z-50 bg-[#05010A]/80 backdrop-blur-md border-b border-[#936DFF]/20">
         <div className="flex items-center gap-4">
-          <button
-            onClick={() => router.push('/game')}
-            className="group flex items-center gap-2 text-[#B8B8CC] hover:text-white transition-colors"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            <span className="text-sm font-display uppercase tracking-widest hidden sm:inline">Back</span>
-          </button>
+
           <div className="hidden sm:flex items-center gap-3">
             <LogoStack className="scale-75 text-[#936DFF]" />
             <h1 className="font-display font-bold text-xl tracking-tighter uppercase text-white">
