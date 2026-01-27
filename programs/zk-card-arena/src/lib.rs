@@ -7,17 +7,17 @@ declare_id!("8Da8a3Q9GLYuxYLXPtxKiAedZZbx5DUQCuG8TPY1dLnx");
 /// Sunspot Groth16 verifier program IDs (deployed Jan 23 2026, match solana-verifiers/target/*.pk keys)
 mod shuffle_verifier {
     use super::*;
-    declare_id!("6sju9HLJTFfESLn49wAR2hqiC6mnu3MrP2K9WDbkjCL2");
+    declare_id!("BUQqPUUzMUh3AYGj3G8besXgHkuJHUBrAAYAXmgZxxr4");
 }
 
 mod deal_verifier {
     use super::*;
-    declare_id!("Epoxbrv1Pc2XeYR2xsKsqm3Gy1j2MbkBx4yHfkg8yuSC");
+    declare_id!("8pPU6qbcnq3bGnMmo9NXchS3GnNMvHuFozgm6XqcAzrq");
 }
 
 mod reveal_verifier {
     use super::*;
-    declare_id!("HrETBH5nTa3DTVjBFWMdytLtuX9GsFwiAGkkyQAXnMt9");
+    declare_id!("4PvFgvbeSVCGkVW1sSR2aNksBcU2a4DQjhYvP55bQCY8");
 }
 
 #[program]
@@ -565,7 +565,7 @@ pub struct CreateGame<'info> {
         seeds = [b"game", dealer.key().as_ref(), &game_id.to_le_bytes()],
         bump
     )]
-    pub game: Account<'info, Game>,
+    pub game: Box<Account<'info, Game>>,
 
     #[account(mut)]
     pub dealer: Signer<'info>,
@@ -579,7 +579,7 @@ pub struct JoinGame<'info> {
         mut,
         constraint = game.state == GameState::AwaitingPlayer @ GameError::InvalidState
     )]
-    pub game: Account<'info, Game>,
+    pub game: Box<Account<'info, Game>>,
 
     pub player: Signer<'info>,
 }
@@ -590,7 +590,7 @@ pub struct VerifyShuffle<'info> {
         mut,
         constraint = game.dealer == dealer.key() @ GameError::Unauthorized
     )]
-    pub game: Account<'info, Game>,
+    pub game: Box<Account<'info, Game>>,
 
     pub dealer: Signer<'info>,
 
@@ -605,7 +605,7 @@ pub struct PlayerAction<'info> {
         mut,
         constraint = game.player == Some(player.key()) @ GameError::Unauthorized
     )]
-    pub game: Account<'info, Game>,
+    pub game: Box<Account<'info, Game>>,
 
     pub player: Signer<'info>,
 }
@@ -617,7 +617,7 @@ pub struct DealCard<'info> {
         mut,
         constraint = game.dealer == dealer.key() @ GameError::Unauthorized
     )]
-    pub game: Account<'info, Game>,
+    pub game: Box<Account<'info, Game>>,
 
     pub dealer: Signer<'info>,
 }
@@ -630,7 +630,7 @@ pub struct DealerPlayTurnSecure<'info> {
         mut,
         constraint = game.dealer == dealer.key() @ GameError::Unauthorized
     )]
-    pub game: Account<'info, Game>,
+    pub game: Box<Account<'info, Game>>,
 
     pub dealer: Signer<'info>,
 
@@ -647,7 +647,7 @@ pub struct DealInitialHand<'info> {
         mut,
         constraint = game.dealer == dealer.key() @ GameError::Unauthorized
     )]
-    pub game: Account<'info, Game>,
+    pub game: Box<Account<'info, Game>>,
 
     pub dealer: Signer<'info>,
 
@@ -662,7 +662,7 @@ pub struct RevealCard<'info> {
         mut,
         constraint = game.dealer == dealer.key() @ GameError::Unauthorized
     )]
-    pub game: Account<'info, Game>,
+    pub game: Box<Account<'info, Game>>,
 
     pub dealer: Signer<'info>,
 

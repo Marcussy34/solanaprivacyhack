@@ -20,7 +20,7 @@ import { useZK } from './useZK';
 // CONSTANTS
 // ============================================================================
 
-const DECK_SIZE = 13;  // Cards 0-12 (simplified deck)
+const DECK_SIZE = 52;  // Cards 0-51 (full deck)
 const PROVE_API_URL = '/api/prove'; // Backend Groth16 proof generation
 
 // ============================================================================
@@ -201,7 +201,7 @@ export function useZKGame() {
       const newShuffledDeck = shuffleArray(originalDeck);
       console.log('[ZKGame] Shuffled deck:', newShuffledDeck);
       
-      // 3. Compute deck commitment using hash_14_helper circuit
+      // 3. Compute deck commitment using hash_53_helper circuit
       console.log('[ZKGame] Computing deck commitment...');
       const newDeckCommitment = await computeDeckCommitment(newSeed, newShuffledDeck);
       console.log('[ZKGame] Deck commitment:', newDeckCommitment);
@@ -218,7 +218,6 @@ export function useZKGame() {
         seed: newSeed,
         shuffled_deck: newShuffledDeck,
         deck_commitment: newDeckCommitment,
-        original_deck: originalDeck,
       });
 
       // Store proof data
@@ -426,9 +425,6 @@ export function useZKGame() {
     return {
       proof: shuffleProofData.proof,
       deckCommitment: fieldTo32Bytes(shuffleProofData.commitment),
-      originalDeck: Array.from({ length: DECK_SIZE }, (_, i) => 
-        fieldTo32Bytes('0x' + i.toString(16).padStart(2, '0'))
-      ),
     };
   }, [shuffleProofData]);
 

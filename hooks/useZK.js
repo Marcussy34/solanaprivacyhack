@@ -264,7 +264,7 @@ export function useZK() {
 
     try {
       // Execute circuit to get the return value (the commitment)
-      log('Executing hash_14_helper circuit...');
+      log('Executing hash_53_helper circuit...');
       console.log('[ZK] Circuit inputs:', { seed: inputs.seed, deck: shuffledDeck });
 
       const result = await noir.execute(inputs);

@@ -12,7 +12,8 @@ const ARTIFACTS = [
   'deal_proof.json',
   'reveal_proof.json',
   'hash_14_helper.json',
-  'hash_2_helper.json'
+  'hash_2_helper.json',
+  'hash_53_helper.json'
 ];
 
 console.log('🔄 Syncing ZK circuits from target to public...');

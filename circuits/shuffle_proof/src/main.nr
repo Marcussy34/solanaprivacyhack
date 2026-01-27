@@ -7,8 +7,7 @@ fn main(
     shuffled_deck: [u8; 52],
 
     // Public inputs
-    deck_commitment: pub Field,
-    _original_deck: pub [u8; 52]
+    deck_commitment: pub Field
 ) -> pub Field {
     // 1. Verify shuffled_deck is a permutation of 0..51
     // Check that every card in original_deck appears exactly once in shuffled_deck

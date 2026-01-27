@@ -35,9 +35,9 @@ function fieldTo32Bytes(fieldHex) {
 }
 
 // Sunspot Groth16 verifier program IDs (deployed Jan 23 2026, match solana-verifiers/target/*.pk keys)
-const SHUFFLE_VERIFIER_PROGRAM_ID = new PublicKey("6sju9HLJTFfESLn49wAR2hqiC6mnu3MrP2K9WDbkjCL2");
-const DEAL_VERIFIER_PROGRAM_ID = new PublicKey("Epoxbrv1Pc2XeYR2xsKsqm3Gy1j2MbkBx4yHfkg8yuSC");
-const REVEAL_VERIFIER_PROGRAM_ID = new PublicKey("HrETBH5nTa3DTVjBFWMdytLtuX9GsFwiAGkkyQAXnMt9");
+const SHUFFLE_VERIFIER_PROGRAM_ID = new PublicKey("BUQqPUUzMUh3AYGj3G8besXgHkuJHUBrAAYAXmgZxxr4");
+const DEAL_VERIFIER_PROGRAM_ID = new PublicKey("8pPU6qbcnq3bGnMmo9NXchS3GnNMvHuFozgm6XqcAzrq");
+const REVEAL_VERIFIER_PROGRAM_ID = new PublicKey("4PvFgvbeSVCGkVW1sSR2aNksBcU2a4DQjhYvP55bQCY8");
 
 // IDL imported directly (smaller than full IDL, just what we need)
 const IDL = {

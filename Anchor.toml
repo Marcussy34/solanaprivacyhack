@@ -1,5 +1,4 @@
 [toolchain]
-anchor_version = "0.31.1"
 
 [features]
 resolution = true
@@ -7,6 +6,9 @@ skip-lint = false
 
 [programs.devnet]
 zk_card_arena = "8Da8a3Q9GLYuxYLXPtxKiAedZZbx5DUQCuG8TPY1dLnx"
+shuffle_verifier = "BUQqPUUzMUh3AYGj3G8besXgHkuJHUBrAAYAXmgZxxr4"
+deal_verifier = "8pPU6qbcnq3bGnMmo9NXchS3GnNMvHuFozgm6XqcAzrq"
+reveal_verifier = "4PvFgvbeSVCGkVW1sSR2aNksBcU2a4DQjhYvP55bQCY8"
 
 [registry]
 url = "https://api.apr.dev"
