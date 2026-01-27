@@ -9,12 +9,14 @@ const DEVNET_RPC = process.env.NEXT_PUBLIC_DEVNET_RPC_ENDPOINT || "https://api.d
 const devnetConnection = new Connection(DEVNET_RPC, "confirmed");
 
 // Program ID from deployed contract (deployed by FBbtn... wallet on Jan 25)
-const PROGRAM_ID = new PublicKey("8Da8a3Q9GLYuxYLXPtxKiAedZZbx5DUQCuG8TPY1dLnx");
+const PROGRAM_ID = new PublicKey("22BfrTbAzVmwENnyfzk6rFtPaNvCmaATbeWaJKKoqkK4");
 
-// Sunspot Groth16 verifier program IDs (deployed Jan 23 2026, match solana-verifiers/target/*.pk keys)
-const SHUFFLE_VERIFIER_PROGRAM_ID = new PublicKey("6sju9HLJTFfESLn49wAR2hqiC6mnu3MrP2K9WDbkjCL2");
-const DEAL_VERIFIER_PROGRAM_ID = new PublicKey("Epoxbrv1Pc2XeYR2xsKsqm3Gy1j2MbkBx4yHfkg8yuSC");
-const REVEAL_VERIFIER_PROGRAM_ID = new PublicKey("HrETBH5nTa3DTVjBFWMdytLtuX9GsFwiAGkkyQAXnMt9");
+// Sunspot Groth16 verifier program IDs (deployed to devnet by FBbtn... wallet)
+const SHUFFLE_VERIFIER_PROGRAM_ID = new PublicKey("EbqLX5ryQAuch2zueoNoXyV9B8okvpRPLCgxYgZLf8g");
+// Updated Jan 26 2026 - new VK/PK matching pair
+const DEAL_VERIFIER_PROGRAM_ID = new PublicKey("7p8MDtniW4WgE8LpT2R2t35CSG3YbkWGCjWixPuq6AbL");
+// Updated Jan 26 2026 - new VK/PK matching pair
+const REVEAL_VERIFIER_PROGRAM_ID = new PublicKey("7PMUYpFvo2pKjTH2r6YJ2MZC4Tb72SS9hmfu8QzW41NW");
 
 // IDL imported directly (smaller than full IDL, just what we need)
 const IDL = {
@@ -51,7 +53,9 @@ const IDL = {
         { name: "game", isMut: true, isSigner: false },
         { name: "player", isMut: false, isSigner: true },
       ],
-      args: [],
+      args: [
+        { name: "betAmount", type: "u64" },
+      ],
     },
     {
       name: "playerAction",
@@ -144,6 +148,7 @@ const IDL = {
           { name: "bump", type: "u8" },
           { name: "pendingHit", type: "bool" },
           { name: "committedCards", type: { vec: { array: ["u8", 32] } } },
+          { name: "betAmount", type: "u64" },
         ],
       },
     },
@@ -187,7 +192,7 @@ const IDL = {
   ],
 };
 
-// Helper: Convert game state enum to string
+/// Helper: Convert game state enum to string
 function parseGameState(state) {
   if (state.created) return "created";
   if (state.awaitingPlayer) return "awaitingPlayer";
@@ -199,6 +204,14 @@ function parseGameState(state) {
   if (state.push) return "push";
   if (state.abandoned) return "abandoned";
   return "unknown";
+}
+
+// Helper: Determine winner from game state
+function getWinnerFromState(state) {
+  if (state.playerWon) return "player";
+  if (state.dealerWon) return "dealer";
+  if (state.push) return "push";
+  return null;
 }
 
 export function useGameProgram() {
@@ -246,7 +259,20 @@ export function useGameProgram() {
       if (!deckCommitment) {
         throw new Error("Deck commitment required - ZK proof generation must complete first");
       }
-      const commitment = deckCommitment;
+
+      // Convert hex string to byte array if needed
+      let commitment;
+      if (typeof deckCommitment === 'string') {
+        // Remove 0x prefix if present
+        const hexStr = deckCommitment.startsWith('0x') ? deckCommitment.slice(2) : deckCommitment;
+        commitment = Array.from(Buffer.from(hexStr, 'hex'));
+      } else if (deckCommitment instanceof Uint8Array) {
+        commitment = Array.from(deckCommitment);
+      } else {
+        commitment = deckCommitment;
+      }
+
+      console.log('[Game] Creating game with commitment:', commitment.slice(0, 8), '... (length:', commitment.length, ')');
 
       const tx = await program.methods
         .createGame(new BN(gameId), commitment)
@@ -303,8 +329,9 @@ export function useGameProgram() {
 
   // Join an existing game (player action)
   // Requires dealer's pubkey to derive PDA
+  // betAmountSol: Bet amount in SOL (e.g., 0.1, 0.25, 0.5)
   const joinGame = useCallback(
-    async (gameId, dealerPubkey) => {
+    async (gameId, dealerPubkey, betAmountSol = 0.1) => {
       if (!program || !wallet.publicKey) {
         throw new Error("Wallet not connected");
       }
@@ -316,8 +343,11 @@ export function useGameProgram() {
       const dealer = new PublicKey(dealerPubkey);
       const gamePda = getGamePda(gameId, dealer);
 
+      // Convert SOL to lamports (1 SOL = 1e9 lamports)
+      const betAmountLamports = new BN(Math.floor(betAmountSol * 1e9));
+
       const tx = await program.methods
-        .joinGame()
+        .joinGame(betAmountLamports)
         .accounts({
           game: gamePda,
           player: wallet.publicKey,
@@ -353,7 +383,16 @@ export function useGameProgram() {
         throw new Error("Deal proof required - ZK deal proof generation must complete first");
       }
 
-      const commitments = cardCommitments;
+      // Convert hex string commitments to byte arrays for Anchor serialization
+      // ZK computations return hex strings like "0x2d7426c3cc28522139..."
+      // Anchor expects Vec<[u8; 32]> - array of 32-byte arrays
+      const commitments = cardCommitments.map(commitment => {
+        if (typeof commitment === 'string') {
+          const hexStr = commitment.startsWith('0x') ? commitment.slice(2) : commitment;
+          return Array.from(Buffer.from(hexStr, 'hex'));
+        }
+        return Array.from(commitment);
+      });
       const cardValues = initialCardValues;
 
       // Convert proof data to buffers for Anchor serialization
@@ -557,6 +596,15 @@ export function useGameProgram() {
 
       const dealerCardValues = explicitCardValues;
 
+      // VALIDATION: Check all card values are valid u8 in range 0-12
+      console.log(`[DealerPlayTurn] Card values:`, dealerCardValues);
+      for (let i = 0; i < dealerCardValues.length; i++) {
+        const cv = dealerCardValues[i];
+        if (typeof cv !== 'number' || cv < 0 || cv >= 13 || !Number.isInteger(cv)) {
+          throw new Error(`[DealerPlayTurn] Invalid card value at index ${i}: ${cv} (type: ${typeof cv}). Must be integer 0-12.`);
+        }
+      }
+
       // Convert proofs to Buffer format for Anchor serialization
       const proofsBuffers = proofs.map(p =>
         Buffer.from(p instanceof Uint8Array ? p : new Uint8Array(p))
@@ -618,6 +666,15 @@ export function useGameProgram() {
       const txSignatures = [];
 
       console.log(`[DealerPlayTurnSequential] Submitting ${totalCards} cards one at a time...`);
+      console.log(`[DealerPlayTurnSequential] Card values:`, explicitCardValues);
+
+      // VALIDATION: Check all card values are valid u8 in range 0-12
+      for (let i = 0; i < explicitCardValues.length; i++) {
+        const cv = explicitCardValues[i];
+        if (typeof cv !== 'number' || cv < 0 || cv >= 13 || !Number.isInteger(cv)) {
+          throw new Error(`[DealerPlayTurnSequential] Invalid card value at index ${i}: ${cv} (type: ${typeof cv}). Must be integer 0-12.`);
+        }
+      }
 
       // Submit each card as a separate transaction to stay under size limit
       for (let i = 0; i < totalCards; i++) {
@@ -629,7 +686,12 @@ export function useGameProgram() {
         const proofBuffer = Buffer.from(proof instanceof Uint8Array ? proof : new Uint8Array(proof));
         const publicInputsBuffer = Buffer.from(publicInputs instanceof Uint8Array ? publicInputs : new Uint8Array(publicInputs));
 
-        console.log(`[DealerPlayTurnSequential] Submitting card ${i + 1}/${totalCards}: value=${cardValue}`);
+        console.log(`[DealerPlayTurnSequential] Submitting card ${i + 1}/${totalCards}: value=${cardValue} (type: ${typeof cardValue})`);
+
+        // Final check right before submission
+        if (typeof cardValue !== 'number' || cardValue < 0 || cardValue >= 13) {
+          throw new Error(`Card value ${cardValue} is not valid u8 in range 0-12!`);
+        }
 
         try {
           const tx = await program.methods
@@ -692,6 +754,7 @@ export function useGameProgram() {
           deckCommitment: Array.from(gameAccount.deckCommitment),
           shuffleVerified: gameAccount.shuffleVerified,
           state: parseGameState(gameAccount.state),
+          winner: getWinnerFromState(gameAccount.state), // 'player', 'dealer', 'push', or null
           playerCards: gameAccount.playerCards.map((c) => Array.from(c)),
           dealerCards: gameAccount.dealerCards.map((c) => Array.from(c)),
           playerRevealed: Array.from(gameAccount.playerRevealed),
@@ -702,6 +765,7 @@ export function useGameProgram() {
           bump: gameAccount.bump,
           pendingHit: gameAccount.pendingHit,
           committedCards: gameAccount.committedCards?.map((c) => Array.from(c)) || [],
+          betAmount: gameAccount.betAmount ? gameAccount.betAmount.toNumber() / 1e9 : 0,  // Convert lamports to SOL
           pda: gamePda.toBase58(),
         };
       } catch (err) {
@@ -737,6 +801,7 @@ export function useGameProgram() {
               deckCommitment: Array.from(decoded.deckCommitment),
               shuffleVerified: decoded.shuffleVerified,
               state: parseGameState(decoded.state),
+              winner: getWinnerFromState(decoded.state), // 'player', 'dealer', 'push', or null
               playerCards: decoded.playerCards.map((c) => Array.from(c)),
               dealerCards: decoded.dealerCards.map((c) => Array.from(c)),
               playerRevealed: Array.from(decoded.playerRevealed),
@@ -747,6 +812,7 @@ export function useGameProgram() {
               bump: decoded.bump,
               pendingHit: decoded.pendingHit,
               committedCards: decoded.committedCards?.map((c) => Array.from(c)) || [],
+              betAmount: decoded.betAmount ? decoded.betAmount.toNumber() / 1e9 : 0,  // Convert lamports to SOL
               pda: gamePda.toBase58(),
             });
           } catch (err) {
