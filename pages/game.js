@@ -1322,7 +1322,7 @@ export default function GamePage() {
               <span>SOL</span>
           </div>
           
-          <LogoStack className="w-6 h-6 text-[#936DFF]" />
+          <LogoStack className="scale-75 text-[#936DFF]" />
       </div>
 
       <div className="pt-24 px-4 sm:px-6 md:px-8 max-w-7xl mx-auto pb-12">
