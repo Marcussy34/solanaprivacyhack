@@ -2,29 +2,37 @@ import React from 'react';
 import Head from 'next/head';
 import Link from 'next/link';
 import { WalletMultiButton } from '@solana/wallet-adapter-react-ui';
+import { LogoStack } from '../arena/Icons';
 
-export const DashboardLayout = ({ children }) => {
+export const DashboardLayout = ({ children, activeTab = 'games' }) => {
   return (
     <div className="min-h-screen bg-[#05010A] text-white font-body selection:bg-[#936DFF] selection:text-white">
       <Head>
-        <title>Dashboard | UMBRA</title>
+        <title>Umbra</title>
       </Head>
 
       {/* Top Navigation */}
       <nav className="w-full h-20 border-b border-[#936DFF]/20 bg-[#05010A]/80 backdrop-blur-md fixed top-0 left-0 z-50 flex items-center justify-between px-6 sm:px-12">
         <div className="flex items-center gap-12">
-          <Link href="/" className="group">
+          <Link href="/" className="group flex items-center gap-4">
+            <LogoStack className="scale-75 text-[#936DFF]" />
             <h1 className="font-display font-bold text-3xl tracking-tighter uppercase text-white group-hover:text-[#936DFF] transition-colors">
               UMBRA
             </h1>
           </Link>
           
           <div className="hidden md:flex items-center gap-8">
-            <Link href="/dashboard" className="text-[#936DFF] font-display uppercase tracking-widest text-sm border-b border-[#936DFF]">
+            <Link 
+              href="/dashboard?tab=games" 
+              className={`font-display uppercase tracking-widest text-sm transition-colors ${activeTab === 'games' ? 'text-[#936DFF] border-b border-[#936DFF]' : 'text-[#B8B8CC] hover:text-white'}`}
+            >
               Dashboard
             </Link>
-            <Link href="/game" className="text-[#B8B8CC] hover:text-white font-display uppercase tracking-widest text-sm transition-colors">
-              Games
+            <Link 
+              href="/dashboard?tab=profile" 
+              className={`font-display uppercase tracking-widest text-sm transition-colors ${activeTab === 'profile' ? 'text-[#936DFF] border-b border-[#936DFF]' : 'text-[#B8B8CC] hover:text-white'}`}
+            >
+              Profile
             </Link>
           </div>
         </div>
