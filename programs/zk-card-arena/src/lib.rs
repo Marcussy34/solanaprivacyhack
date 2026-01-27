@@ -2,24 +2,22 @@ use anchor_lang::prelude::*;
 use anchor_lang::solana_program::instruction::Instruction;
 use anchor_lang::solana_program::program::invoke;
 
-declare_id!("22BfrTbAzVmwENnyfzk6rFtPaNvCmaATbeWaJKKoqkK4");
+declare_id!("8Da8a3Q9GLYuxYLXPtxKiAedZZbx5DUQCuG8TPY1dLnx");
 
-/// Sunspot Groth16 verifier program IDs (deployed to devnet by FBbtn... wallet)
+/// Sunspot Groth16 verifier program IDs (deployed Jan 23 2026, match solana-verifiers/target/*.pk keys)
 mod shuffle_verifier {
     use super::*;
-    declare_id!("EbqLX5ryQAuch2zueoNoXyV9B8okvpRPLCgxYgZLf8g");
+    declare_id!("6sju9HLJTFfESLn49wAR2hqiC6mnu3MrP2K9WDbkjCL2");
 }
 
 mod deal_verifier {
     use super::*;
-    // Updated Jan 26 2026 - new VK/PK matching pair
-    declare_id!("7p8MDtniW4WgE8LpT2R2t35CSG3YbkWGCjWixPuq6AbL");
+    declare_id!("Epoxbrv1Pc2XeYR2xsKsqm3Gy1j2MbkBx4yHfkg8yuSC");
 }
 
 mod reveal_verifier {
     use super::*;
-    // Updated Jan 26 2026 - new VK/PK matching pair
-    declare_id!("7PMUYpFvo2pKjTH2r6YJ2MZC4Tb72SS9hmfu8QzW41NW");
+    declare_id!("HrETBH5nTa3DTVjBFWMdytLtuX9GsFwiAGkkyQAXnMt9");
 }
 
 #[program]
@@ -48,14 +46,13 @@ pub mod zk_card_arena {
         game.bump = *ctx.bumps.get("game").unwrap();
         game.pending_hit = false;
         game.committed_cards = Vec::new();
-        game.bet_amount = 0;  // Will be set when player joins
 
         msg!("Game {} created by {}", game_id, game.dealer);
         Ok(())
     }
 
-    /// Player joins an existing game with their bet amount
-    pub fn join_game(ctx: Context<JoinGame>, bet_amount: u64) -> Result<()> {
+    /// Player joins an existing game
+    pub fn join_game(ctx: Context<JoinGame>) -> Result<()> {
         let game = &mut ctx.accounts.game;
 
         require!(
@@ -63,14 +60,11 @@ pub mod zk_card_arena {
             GameError::InvalidState
         );
         require!(game.player.is_none(), GameError::GameFull);
-        require!(bet_amount > 0, GameError::InvalidBet);
 
         game.player = Some(ctx.accounts.player.key());
-        game.bet_amount = bet_amount;
         game.state = GameState::Playing;
 
-        msg!("Player {} joined game {} with bet {} lamports",
-             ctx.accounts.player.key(), game.game_id, bet_amount);
+        msg!("Player {} joined game {}", ctx.accounts.player.key(), game.game_id);
         Ok(())
     }
 
@@ -732,9 +726,6 @@ pub struct Game {
     /// Pre-committed cards for auto-deal (max 10 cards for hits)
     #[max_len(10)]
     pub committed_cards: Vec<[u8; 32]>,
-
-    /// Player's bet amount in lamports (set when player joins)
-    pub bet_amount: u64,
 }
 
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, PartialEq, Eq, InitSpace)]
@@ -804,7 +795,4 @@ pub enum GameError {
 
     #[msg("No more cards available in committed deck")]
     NoMoreCards,
-
-    #[msg("Invalid bet amount - must be greater than 0")]
-    InvalidBet,
 }
