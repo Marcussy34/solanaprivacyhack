@@ -154,6 +154,693 @@ anchor deploy
 └─────────────────────────────┘
 ```
 
+## Technical Gameplay Flow 🎮
+
+### Phase 1: Game Creation
+
+The dealer creates a new game by shuffling the deck locally and generating a ZK proof that the shuffle is valid.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant D as 🎰 Dealer
+    participant B as 🌐 Browser (NoirJS)
+    participant API as ⚙️ Backend (/api/prove)
+    participant S as ⛓️ Solana
+
+    Note over D,S: PHASE 1: GAME CREATION
+
+    D->>B: Click "Create Game"
+
+    rect rgb(40, 40, 60)
+        Note over B: Local Cryptographic Operations
+        B->>B: Generate random seed (8 bytes)
+        B->>B: Fisher-Yates shuffle [0,1,2...12]
+        B->>B: Execute hash_14_helper circuit
+        B->>B: deckCommitment = Poseidon(seed || shuffledDeck)
+        Note over B: ~1 second
+    end
+
+    B->>API: POST /api/prove {circuit: "shuffle_proof", inputs}
+
+    rect rgb(60, 40, 40)
+        Note over API: Groth16 Proof Generation
+        API->>API: Write Prover.toml with inputs
+        API->>API: nargo execute → generate witness
+        API->>API: sunspot prove → Groth16 proof (384 bytes)
+        Note over API: ~30-60 seconds
+    end
+
+    API-->>B: {proof, publicInputs} (base64)
+
+    B->>S: createGame(gameId, deckCommitment)
+    Note over S: Initialize game PDA<br/>State: Created
+
+    B->>S: verifyShuffle(proof, publicInputs)
+
+    rect rgb(40, 60, 40)
+        Note over S: On-Chain Verification
+        S->>S: CPI to Shuffle Verifier (6sju9HLJ...)
+        S->>S: Groth16 pairing check
+        S->>S: Verify deck is valid permutation
+        Note over S: ~500,000 compute units
+    end
+
+    S-->>B: ✅ Shuffle verified
+    Note over S: State: AwaitingPlayer
+    B-->>D: Game created! Share game code
+```
+
+### Phase 2: Player Joins
+
+A player joins an existing game using the game code shared by the dealer.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant P as 👤 Player
+    participant PB as 🌐 Player Browser
+    participant S as ⛓️ Solana
+    participant DB as 🌐 Dealer Browser
+    participant D as 🎰 Dealer
+
+    Note over P,D: PHASE 2: PLAYER JOINS
+
+    P->>PB: Enter game code
+    PB->>PB: Parse gameId + dealerPubkey
+    PB->>PB: Derive game PDA address
+    PB->>S: Fetch game account
+    S-->>PB: Game state: AwaitingPlayer ✓
+
+    PB->>S: joinGame()
+
+    rect rgb(40, 60, 40)
+        Note over S: State Update
+        S->>S: Verify state == AwaitingPlayer
+        S->>S: Set game.player = player.pubkey
+        S->>S: State → Playing
+    end
+
+    S-->>PB: ✅ Joined successfully
+    S-->>DB: Account subscription update
+
+    PB-->>P: Joined game!
+    DB-->>D: Player joined!
+```
+
+### Phase 3: Initial Deal
+
+The dealer computes card commitments and deals the initial hand (2 cards to player, 2 to dealer).
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant P as 👤 Player
+    participant S as ⛓️ Solana
+    participant DB as 🌐 Dealer Browser
+    participant API as ⚙️ Backend
+    participant D as 🎰 Dealer
+
+    Note over P,D: PHASE 3: INITIAL DEAL
+
+    D->>DB: Click "Deal"
+
+    rect rgb(40, 40, 60)
+        Note over DB: Generate Card Commitments
+        loop For each card position (0-9)
+            DB->>DB: Get cardValue from shuffledDeck[position]
+            DB->>DB: Generate random blinding factor
+            DB->>DB: Execute hash_2_helper circuit
+            DB->>DB: cardCommitment = Poseidon(cardValue, blinding)
+            DB->>DB: Store {blinding, cardValue, commitment} locally
+        end
+        Note over DB: ~5 seconds (10 commitments)
+    end
+
+    DB->>API: POST /api/prove {circuit: "deal_proof", inputs}
+    API-->>DB: {proof, publicInputs}
+
+    DB->>S: dealInitialHand(commitments[], initialValues[], proof)
+
+    rect rgb(40, 60, 40)
+        Note over S: On-Chain Deal
+        S->>S: CPI to Deal Verifier (Epoxbrv1...)
+        S->>S: Store 10 card commitments
+        S->>S: player_cards = [commit[0], commit[1]]
+        S->>S: dealer_cards = [commit[2], commit[3]]
+        S->>S: Auto-reveal: player cards + dealer upcard
+        S->>S: deck_position = 4
+    end
+
+    S-->>DB: ✅ Cards dealt
+    S-->>P: Account update: See your 2 cards + dealer upcard
+
+    Note over P: Player sees:<br/>🂡 🂮 (face up)<br/>Dealer shows: 🂷 🎴 (one hidden)
+```
+
+### Phase 4: Player Actions (Hit/Stand/Double)
+
+The player takes actions, and the dealer reveals cards using ZK proofs.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant P as 👤 Player
+    participant PB as 🌐 Player Browser
+    participant S as ⛓️ Solana
+    participant DB as 🌐 Dealer Browser
+    participant API as ⚙️ Backend
+
+    Note over P,API: PHASE 4: PLAYER ACTIONS
+
+    alt Player Hits
+        P->>PB: Click "Hit"
+        PB->>S: playerAction(Hit)
+
+        rect rgb(40, 60, 40)
+            Note over S: Assign Next Card
+            S->>S: nextCard = committed_cards[deck_position]
+            S->>S: player_cards.push(nextCard)
+            S->>S: deck_position++
+            Note over S: Card value NOT revealed yet
+        end
+
+        S-->>DB: Account update: unrevealed card detected
+
+        rect rgb(60, 40, 40)
+            Note over DB: Auto-Reveal Process
+            DB->>DB: Detect player_cards.len > player_revealed.len
+            DB->>DB: Get blinding factor for position
+            DB->>API: POST /api/prove {circuit: "reveal_proof"}
+            Note over API: ~10-30 seconds
+            API-->>DB: {proof, publicInputs}
+        end
+
+        DB->>S: revealCard(cardIndex, cardValue, proof)
+
+        rect rgb(40, 60, 40)
+            Note over S: Verify & Reveal
+            S->>S: CPI to Reveal Verifier (HrETBH5n...)
+            S->>S: Verify Poseidon(value, blinding) == commitment
+            S->>S: player_revealed.push(cardValue)
+        end
+
+        S-->>P: See new card! 🂣
+
+    else Player Stands
+        P->>PB: Click "Stand"
+        PB->>S: playerAction(Stand)
+        S->>S: State → DealerTurn
+        S-->>DB: Your turn to play
+
+    else Player Doubles
+        P->>PB: Click "Double"
+        PB->>S: playerAction(Double)
+        S->>S: Deal one card + State → DealerTurn
+        Note over DB: Reveal doubled card, then dealer plays
+    end
+```
+
+### Phase 5: Dealer's Turn
+
+The dealer reveals the hole card and hits until reaching 17 or busting.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant P as 👤 Player
+    participant S as ⛓️ Solana
+    participant DB as 🌐 Dealer Browser
+    participant API as ⚙️ Backend
+    participant D as 🎰 Dealer
+
+    Note over P,D: PHASE 5: DEALER'S TURN
+
+    Note over DB: State == DealerTurn detected
+
+    rect rgb(60, 40, 40)
+        Note over DB: Reveal Hole Card (position 3)
+        DB->>DB: Get blinding for hole card
+        DB->>API: POST /api/prove {circuit: "reveal_proof"}
+        API-->>DB: {proof, publicInputs}
+    end
+
+    DB->>S: dealerPlayTurn([holeCardValue], [proof])
+
+    rect rgb(40, 60, 40)
+        Note over S: First Reveal
+        S->>S: CPI verify reveal proof
+        S->>S: dealer_revealed.push(holeCardValue)
+        S->>S: Calculate dealer_total
+    end
+
+    loop While dealer_total < 17
+        Note over S: Dealer must hit
+        S-->>DB: Need another card
+
+        rect rgb(60, 40, 40)
+            Note over DB: Generate Next Card Reveal
+            DB->>DB: Get next card from shuffledDeck
+            DB->>API: POST /api/prove {circuit: "reveal_proof"}
+            API-->>DB: {proof, publicInputs}
+        end
+
+        DB->>S: dealerPlayTurn([nextCardValue], [proof])
+
+        rect rgb(40, 60, 40)
+            Note over S: Hit & Check
+            S->>S: dealer_cards.push(commitment)
+            S->>S: CPI verify reveal proof
+            S->>S: dealer_revealed.push(value)
+            S->>S: deck_position++
+            S->>S: Recalculate dealer_total
+        end
+    end
+
+    Note over S: dealer_total >= 17 OR bust
+    S->>S: determine_winner()
+
+    alt Player Wins
+        S->>S: State → PlayerWon
+        S-->>P: 🎉 You win!
+    else Dealer Wins
+        S->>S: State → DealerWon
+        S-->>D: 🎰 Dealer wins!
+    else Push (Tie)
+        S->>S: State → Push
+        S-->>P: 🤝 Push - bet returned
+    end
+```
+
+### Game State Machine
+
+```mermaid
+stateDiagram-v2
+    [*] --> Created: createGame()
+
+    Created --> AwaitingPlayer: verifyShuffle()
+    note right of Created
+        Dealer has shuffled deck
+        Shuffle proof verified on-chain
+        Deck commitment stored
+    end note
+
+    AwaitingPlayer --> Playing: joinGame()
+    note right of AwaitingPlayer
+        Waiting for player to join
+        Game code can be shared
+    end note
+
+    Playing --> Playing: playerAction(Hit)
+    note right of Playing
+        Player's turn
+        Can Hit, Stand, or Double
+        Dealer auto-reveals hit cards
+    end note
+
+    Playing --> DealerTurn: playerAction(Stand)
+    Playing --> DealerTurn: playerAction(Double)
+    Playing --> DealerWon: Player busts (>21)
+
+    DealerTurn --> DealerTurn: dealerPlayTurn() [total < 17]
+    note right of DealerTurn
+        Dealer reveals hole card
+        Hits until >= 17
+        Sequential proofs required
+    end note
+
+    DealerTurn --> PlayerWon: Dealer busts (>21)
+    DealerTurn --> PlayerWon: Player total > Dealer total
+    DealerTurn --> DealerWon: Dealer total > Player total
+    DealerTurn --> Push: Player total == Dealer total
+
+    PlayerWon --> [*]
+    DealerWon --> [*]
+    Push --> [*]
+```
+
+### Hand Value Calculation
+
+```mermaid
+flowchart TD
+    A[Start with cards] --> B[Sum all card values]
+    B --> C{Card == Ace?}
+    C -->|Yes| D[Count as 11, track ace count]
+    C -->|No| E{Card >= 10?}
+    E -->|Yes| F[Count as 10]
+    E -->|No| G[Count as face value]
+
+    D --> H[Continue to next card]
+    F --> H
+    G --> H
+
+    H --> I{More cards?}
+    I -->|Yes| C
+    I -->|No| J{Total > 21?}
+
+    J -->|Yes| K{Aces counted as 11?}
+    K -->|Yes| L[Demote one ace: total -= 10]
+    L --> J
+    K -->|No| M[BUST!]
+
+    J -->|No| N[Return total]
+
+    style M fill:#ff6b6b
+    style N fill:#51cf66
+```
+
+## ZK Proof Generation Pipeline 🔐
+
+### Complete Proof Lifecycle
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant U as 👤 User Action
+    participant B as 🌐 Browser (NoirJS)
+    participant API as ⚙️ Backend Server
+    participant N as 📦 Nargo (Witness)
+    participant SS as 🔐 Sunspot (Prover)
+    participant S as ⛓️ Solana
+    participant V as ✅ Verifier Program
+
+    Note over U,V: COMPLETE PROOF GENERATION PIPELINE
+
+    U->>B: Trigger action (shuffle/deal/reveal)
+
+    rect rgb(40, 40, 60)
+        Note over B: Step 1: Browser Witness Execution
+        B->>B: Load compiled circuit (.json)
+        B->>B: Initialize Barretenberg WASM
+        B->>B: Execute circuit with inputs
+        B->>B: Get returnValue (commitment)
+        Note over B: ~0.5-1 second
+    end
+
+    B->>API: POST /api/prove<br/>{circuit, inputs}
+
+    rect rgb(60, 40, 40)
+        Note over API,SS: Step 2: Backend Proof Generation
+
+        API->>API: Write Prover.toml
+        API->>N: nargo execute
+
+        rect rgb(50, 50, 70)
+            Note over N: Witness Generation
+            N->>N: Parse inputs from Prover.toml
+            N->>N: Execute circuit constraints
+            N->>N: Compute all intermediate wires
+            N->>N: Output: witness.gz
+            Note over N: ~10-30 seconds
+        end
+
+        N-->>API: witness.gz
+
+        API->>SS: sunspot prove<br/>(circuit.json, witness.gz, proving_key.pk)
+
+        rect rgb(70, 50, 50)
+            Note over SS: Groth16 Proof Generation
+            SS->>SS: Load witness & circuit
+            SS->>SS: FFT operations (~40% time)
+            SS->>SS: MSM operations (~50% time)
+            SS->>SS: Compute π_A, π_B, π_C
+            SS->>SS: Output: proof.bin (384 bytes)
+            Note over SS: ~30-60 seconds
+        end
+
+        SS-->>API: proof.bin + public_inputs.bin
+    end
+
+    API-->>B: {proof: base64, publicInputs: base64}
+
+    rect rgb(40, 60, 40)
+        Note over B: Step 3: Format for Chain
+        B->>B: Decode base64 → Uint8Array
+        B->>B: Construct: proof_bytes || public_inputs_bytes
+    end
+
+    B->>S: Submit transaction with proof
+
+    rect rgb(40, 60, 40)
+        Note over S,V: Step 4: On-Chain Verification
+        S->>V: CPI with proof data
+
+        rect rgb(50, 70, 50)
+            Note over V: Groth16 Verification
+            V->>V: Parse π_A (64 bytes), π_B (128 bytes), π_C (64 bytes)
+            V->>V: Parse public inputs
+            V->>V: Compute pairing: e(π_A, π_B)
+            V->>V: Verify: e(π_A, π_B) == e(α,β)·e(Σxᵢ·Lᵢ,γ)·e(π_C,δ)
+            Note over V: ~500,000 compute units
+        end
+
+        V-->>S: ✅ Valid OR ❌ Revert
+    end
+
+    S-->>B: Transaction confirmed
+    B-->>U: Action complete!
+```
+
+### Circuit Architecture
+
+```mermaid
+flowchart TB
+    subgraph Circuits["🔧 Noir Circuits"]
+        subgraph Main["Main Proof Circuits"]
+            SP[shuffle_proof<br/>~6,350 constraints]
+            DP[deal_proof<br/>~9,310 constraints]
+            RP[reveal_proof<br/>~3,550 constraints]
+        end
+
+        subgraph Helper["Helper Circuits (No Proof)"]
+            H14[hash_14_helper<br/>~5,000 constraints]
+            H2[hash_2_helper<br/>~3,500 constraints]
+        end
+    end
+
+    subgraph Inputs["📥 Inputs"]
+        subgraph Private["Private (Hidden)"]
+            seed[seed: Field]
+            deck[shuffled_deck: u8[13]]
+            blind[blinding_factor: Field]
+        end
+
+        subgraph Public["Public (On-Chain)"]
+            dc[deck_commitment: Field]
+            cc[card_commitment: Field]
+            pos[card_position: Field]
+            val[card_value: Field]
+            orig[original_deck: u8[13]]
+        end
+    end
+
+    subgraph Hash["🔐 Poseidon Hash"]
+        P14[Poseidon-14<br/>14 elements → 1 Field]
+        P2[Poseidon-2<br/>2 elements → 1 Field]
+    end
+
+    seed --> SP
+    deck --> SP
+    dc --> SP
+    orig --> SP
+    SP --> P14
+    P14 --> |"Verify commitment"| SP
+
+    seed --> DP
+    deck --> DP
+    blind --> DP
+    dc --> DP
+    cc --> DP
+    pos --> DP
+    DP --> P14
+    DP --> P2
+
+    blind --> RP
+    cc --> RP
+    val --> RP
+    RP --> P2
+    P2 --> |"Verify commitment"| RP
+
+    seed --> H14
+    deck --> H14
+    H14 --> P14
+    P14 --> dc
+
+    val --> H2
+    blind --> H2
+    H2 --> P2
+    P2 --> cc
+
+    style SP fill:#4a5568
+    style DP fill:#4a5568
+    style RP fill:#4a5568
+    style H14 fill:#2d3748
+    style H2 fill:#2d3748
+```
+
+### Proof Data Structure
+
+```mermaid
+flowchart LR
+    subgraph Proof["Groth16 Proof (384 bytes)"]
+        subgraph A["π_A (G1 Point)"]
+            Ax[x: 32 bytes]
+            Ay[y: 32 bytes]
+        end
+
+        subgraph B["π_B (G2 Point)"]
+            Bxc0[x.c0: 32 bytes]
+            Bxc1[x.c1: 32 bytes]
+            Byc0[y.c0: 32 bytes]
+            Byc1[y.c1: 32 bytes]
+        end
+
+        subgraph C["π_C (G1 Point)"]
+            Cx[x: 32 bytes]
+            Cy[y: 32 bytes]
+        end
+    end
+
+    subgraph Public["Public Inputs (Variable)"]
+        subgraph Shuffle["shuffle_proof (~448 bytes)"]
+            s_dc[deck_commitment: 32B]
+            s_od[original_deck: 13×32B]
+        end
+
+        subgraph Deal["deal_proof (~96 bytes)"]
+            d_dc[deck_commitment: 32B]
+            d_cc[card_commitment: 32B]
+            d_pos[card_position: 32B]
+        end
+
+        subgraph Reveal["reveal_proof (~64 bytes)"]
+            r_val[card_value: 32B]
+            r_cc[card_commitment: 32B]
+        end
+    end
+
+    subgraph OnChain["On-Chain Data Format"]
+        CPI[CPI Instruction Data]
+        CPI --> |"proof_bytes ++ public_inputs_bytes"| Verify[Sunspot Verifier]
+    end
+
+    Proof --> CPI
+    Public --> CPI
+
+    style Proof fill:#4a5568
+    style Public fill:#2d3748
+```
+
+### Circuit Comparison
+
+| Circuit | Purpose | Private Inputs | Public Inputs | Constraints | Proof Time | On-Chain CU |
+|---------|---------|----------------|---------------|-------------|------------|-------------|
+| **shuffle_proof** | Prove valid deck permutation | seed, shuffled_deck | deck_commitment, original_deck | ~6,350 | 30-60s | ~500k |
+| **deal_proof** | Prove card from committed deck | seed, shuffled_deck, blinding | deck_commitment, card_commitment, position | ~9,310 | 30-60s | ~500k |
+| **reveal_proof** | Prove card matches commitment | blinding_factor | card_value, card_commitment | ~3,550 | 10-30s | ~500k |
+| **hash_14_helper** | Compute deck commitment | seed, cards[0..12] | — | ~5,000 | ~1s | N/A |
+| **hash_2_helper** | Compute card commitment | card_value, blinding | — | ~3,500 | ~0.5s | N/A |
+
+### Cryptographic Security Properties
+
+```mermaid
+flowchart TD
+    subgraph Shuffle["shuffle_proof Guarantees"]
+        S1[✅ Deck contains exactly cards 0-12]
+        S2[✅ No duplicate cards]
+        S3[✅ No missing cards]
+        S4[✅ Commitment binds to specific order]
+        S5[✅ Order remains hidden]
+        S6[❌ Does NOT prove randomness]
+    end
+
+    subgraph Deal["deal_proof Guarantees"]
+        D1[✅ Card comes from committed deck]
+        D2[✅ Card is at claimed position]
+        D3[✅ Card value bound to commitment]
+        D4[✅ Actual value stays hidden]
+        D5[✅ Cannot change card later]
+    end
+
+    subgraph Reveal["reveal_proof Guarantees"]
+        R1[✅ Revealed value matches commitment]
+        R2[✅ Prover knows blinding factor]
+        R3[✅ Only one valid value per commitment]
+        R4[✅ Collision resistant - can't fake]
+    end
+
+    subgraph Poseidon["Poseidon Hash Properties"]
+        P1[🔐 ZK-friendly: ~200-400 constraints/element]
+        P2[🔐 128-bit collision resistance]
+        P3[🔐 BN254 field native]
+        P4[⚡ 5-8x cheaper than SHA256 in ZK]
+    end
+
+    style S6 fill:#ff6b6b
+    style S1 fill:#51cf66
+    style S2 fill:#51cf66
+    style S3 fill:#51cf66
+    style S4 fill:#51cf66
+    style S5 fill:#51cf66
+    style D1 fill:#51cf66
+    style D2 fill:#51cf66
+    style D3 fill:#51cf66
+    style D4 fill:#51cf66
+    style D5 fill:#51cf66
+    style R1 fill:#51cf66
+    style R2 fill:#51cf66
+    style R3 fill:#51cf66
+    style R4 fill:#51cf66
+```
+
+### Performance & Timing
+
+```mermaid
+gantt
+    title Complete Game Timeline (Worst Case)
+    dateFormat X
+    axisFormat %s
+
+    section Game Setup
+    Generate seed & shuffle     :a1, 0, 1
+    Compute deck commitment     :a2, after a1, 1
+    Generate shuffle proof      :crit, a3, after a2, 45
+    Create game tx              :a4, after a3, 2
+    Verify shuffle tx           :a5, after a4, 2
+
+    section Player Joins
+    Join game tx                :b1, after a5, 2
+
+    section Initial Deal
+    Compute 10 commitments      :c1, after b1, 5
+    Generate deal proof         :crit, c2, after c1, 45
+    Deal hand tx                :c3, after c2, 2
+
+    section Player Hits (x2)
+    Player hit tx               :d1, after c3, 2
+    Generate reveal proof       :crit, d2, after d1, 20
+    Reveal card tx              :d3, after d2, 2
+    Player hit tx               :d4, after d3, 2
+    Generate reveal proof       :crit, d5, after d4, 20
+    Reveal card tx              :d6, after d5, 2
+
+    section Dealer Turn
+    Reveal hole card proof      :crit, e1, after d6, 20
+    Dealer play tx              :e2, after e1, 2
+    Reveal hit card proof       :crit, e3, after e2, 20
+    Dealer play tx              :e4, after e3, 2
+    Determine winner            :e5, after e4, 1
+```
+
+| Stage | Operations | Time |
+|-------|------------|------|
+| **Game Creation** | Shuffle + proof + 2 txs | ~50s |
+| **Player Join** | 1 tx | ~2s |
+| **Initial Deal** | 10 commitments + proof + tx | ~55s |
+| **Per Player Hit** | Reveal proof + tx | ~25s |
+| **Dealer Turn** | 2-4 reveal proofs + txs | ~50-100s |
+| **Total (worst case)** | Full game with multiple hits | **3-5 minutes** |
+
 ## Technology Stack 🛠️
 
 ### Frontend
