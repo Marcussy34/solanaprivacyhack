@@ -1,4 +1,4 @@
-# Umbra
+# 🌑 Umbra
 
 **Provably Fair Blackjack on Solana with Zero-Knowledge Proofs**
 
