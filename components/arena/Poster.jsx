@@ -73,9 +73,9 @@ export const Poster = () => {
             </div>
 
             {/* Background Decoration */}
-            <div className="absolute inset-0 pointer-events-none opacity-20 z-0 flex items-center justify-center">
-                 <div className="w-[80%] h-[80%] border border-[#936DFF] rounded-full opacity-20 animate-pulse"></div>
-                 <div className="absolute w-[60%] h-[60%] border border-[#936DFF] rounded-full opacity-10 animate-spin-slow"></div>
+            <div className="absolute inset-0 pointer-events-none opacity-40 z-0 flex items-center justify-center">
+                 <div className="w-[80%] h-[80%] border border-[#936DFF] rounded-full opacity-30 animate-pulse"></div>
+                 <div className="absolute w-[60%] h-[60%] border border-[#936DFF] rounded-full opacity-30 animate-spin-slow"></div>
             </div>
 
         </main>
