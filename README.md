@@ -10,7 +10,7 @@ Check out the live demo of **Umbra**: 👉 [Click here to try it out](http://loc
 
 ## The ZK Casino Experience 🎲
 
-ZK Card Arena is built as a decentralized application (dApp) on Solana, optimized for trustless gameplay. The interface provides a seamless, casino-like experience where every shuffle, deal, and reveal is cryptographically proven.
+Umbra is built as a decentralized application (dApp) on Solana, optimized for trustless gameplay. The interface provides a seamless, casino-like experience where every shuffle, deal, and reveal is cryptographically proven.
 
 <p align="center">
   <img src="public/readmepics/landingpage.png" alt="Umbra Landing Page" width="700">
