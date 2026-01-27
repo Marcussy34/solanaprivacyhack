@@ -621,7 +621,7 @@ flowchart TB
     subgraph Inputs["📥 Inputs"]
         subgraph Private["Private (Hidden)"]
             seed[seed: Field]
-            deck[shuffled_deck: u8[13]]
+            deck["shuffled_deck: u8[13]"]
             blind[blinding_factor: Field]
         end
 
@@ -630,7 +630,7 @@ flowchart TB
             cc[card_commitment: Field]
             pos[card_position: Field]
             val[card_value: Field]
-            orig[original_deck: u8[13]]
+            orig["original_deck: u8[13]"]
         end
     end
 
