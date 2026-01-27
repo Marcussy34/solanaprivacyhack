@@ -83,7 +83,8 @@
       "Bash(solana-keygen pubkey:*)",
       "Bash(pip3 install:*)",
       "Skill(confident-executor)",
-      "Bash(git push:*)"
+      "Bash(git push:*)",
+      "Bash(npm ls:*)"
     ]
   },
   "outputStyle": "Explanatory"
