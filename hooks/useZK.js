@@ -42,11 +42,21 @@ export function useZK() {
     const init = async () => {
       try {
         log('Initializing ZK infrastructure...');
-        
+
         // 1. Load Modules
         const { Noir } = await import('@noir-lang/noir_js');
         const { Barretenberg, UltraHonkBackend } = await import('@aztec/bb.js');
-        
+
+        // 1.5. Initialize ACVM and ABI WASM modules (required for noir.execute())
+        log('Initializing WASM modules...');
+        const initACVM = (await import('@noir-lang/acvm_js')).default;
+        const initABI = (await import('@noir-lang/noirc_abi')).default;
+        await Promise.all([
+          initACVM(new URL('/acvm_js_bg.wasm', window.location.origin)),
+          initABI(new URL('/noirc_abi_wasm_bg.wasm', window.location.origin)),
+        ]);
+        log('WASM modules initialized');
+
         // 2. Initialize Barretenberg
         const bb = await Barretenberg.new();
         barretenbergRef.current = bb;
@@ -237,13 +247,13 @@ export function useZK() {
     if (isInitializing) throw new Error('ZK not initialized');
     if (!circuitsRef.current.hash14) throw new Error('Hash helper circuit not loaded');
     if (shuffledDeck.length !== 13) throw new Error('Deck must have exactly 13 cards');
-    
+
     log('Computing deck commitment via hash_14_helper circuit...');
-    
+
     const Noir = noirRef.current;
     const circuit = circuitsRef.current.hash14;
     const noir = new Noir(circuit);
-    
+
     // Build inputs for hash_14_helper
     // Circuit signature: main(seed, element_0, ..., element_12) -> pub Field
     const inputs = {
@@ -262,15 +272,29 @@ export function useZK() {
       element_11: String(shuffledDeck[11]),
       element_12: String(shuffledDeck[12]),
     };
-    
-    // Execute circuit to get the return value (the commitment)
-    const result = await noir.execute(inputs);
-    
-    // returnValue is the Poseidon hash
-    const commitment = result.returnValue;
-    log(`Deck commitment computed: ${commitment.slice(0, 20)}...`);
-    
-    return commitment;
+
+    try {
+      // Execute circuit to get the return value (the commitment)
+      log('Executing hash_14_helper circuit...');
+      console.log('[ZK] Circuit inputs:', { seed: inputs.seed, deck: shuffledDeck });
+
+      const result = await noir.execute(inputs);
+
+      log('Circuit execution complete');
+      console.log('[ZK] Circuit result:', result);
+
+      // returnValue is the Poseidon hash - handle type safely
+      const commitment = typeof result.returnValue === 'string'
+        ? result.returnValue
+        : String(result.returnValue);
+
+      log(`Deck commitment computed: ${commitment.slice(0, 20)}...`);
+
+      return commitment;
+    } catch (err) {
+      console.error('[ZK] computeDeckCommitment failed:', err);
+      throw new Error(`Deck commitment computation failed: ${err.message}`);
+    }
   }, [isInitializing, log]);
 
   /**

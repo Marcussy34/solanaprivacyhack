@@ -33,9 +33,8 @@ import {
 } from "lucide-react";
 
 // Preset bet amounts in SOL
-// Test mode uses lower amounts (devnet SOL is free via airdrop)
-// ShadowWire uses higher amounts with privacy (minimum 0.1 SOL anti-spam)
-const TEST_BET_OPTIONS = [0.01, 0.05, 0.1, 0.25];
+// Both modes use same options with minimum 0.1 SOL
+const TEST_BET_OPTIONS = [0.1, 0.25, 0.5, 1.0];
 const SHADOWWIRE_BET_OPTIONS = [0.1, 0.25, 0.5, 1.0];
 
 // ShadowWire minimum transaction amount (anti-spam protection)
@@ -108,7 +107,7 @@ function PaymentProgress({ status }) {
  * @param {boolean} disabled - Disable all interactions
  * @param {string} mode - 'preset' | 'custom' | 'fixed'
  * @param {number} fixedAmount - For 'fixed' mode, the amount player must pay
- * @param {number} minAmount - Minimum for custom input (default: 0.01)
+ * @param {number} minAmount - Minimum for custom input (default: 0.1)
  * @param {number} maxAmount - Maximum for custom input (default: 10.0)
  * @param {string} defaultPaymentMode - 'test' | 'shadowwire' (default: 'test')
  */
@@ -117,7 +116,7 @@ export function BetSelector({
   disabled = false,
   mode = "preset",
   fixedAmount = null,
-  minAmount = 0.01,
+  minAmount = 0.1,
   maxAmount = 10.0,
   defaultPaymentMode = "test",
 }) {
@@ -164,11 +163,8 @@ export function BetSelector({
     setSelectedBet(newBetOptions[0]);
   };
 
-  // Enforce ShadowWire minimum (0.1 SOL) when using real payments
-  // Test mode allows very low amounts for testing
-  const effectiveMinAmount = paymentMode === 'shadowwire' && SHADOWWIRE_ENABLED
-    ? Math.max(minAmount, SHADOWWIRE_MIN_AMOUNT)
-    : 0.001; // Very low for test mode
+  // Enforce 0.1 SOL minimum for all payment modes
+  const effectiveMinAmount = Math.max(minAmount, SHADOWWIRE_MIN_AMOUNT);
 
   // Fetch balance on mount and when connected
   useEffect(() => {
@@ -349,7 +345,7 @@ export function BetSelector({
                 <input
                   type="number"
                   step="0.1"
-                  min="0.01"
+                  min="0.1"
                   placeholder="Amount in SOL"
                   value={depositAmount}
                   onChange={(e) => setDepositAmount(e.target.value)}

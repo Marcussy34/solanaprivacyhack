@@ -501,6 +501,63 @@ export function useZKGame() {
     console.log('[ZKGame] Game reset');
   }, []);
 
+  /**
+   * Get serializable state for persistence (dealer session save).
+   * This data can be encrypted and stored in localStorage.
+   */
+  const getSerializableState = useCallback(() => {
+    return {
+      seed,
+      shuffledDeck,
+      deckCommitment,
+      blindingFactors: Object.fromEntries(blindingFactors.current),
+      shuffleProofData,
+      dealProofs,
+      revealProofs
+    };
+  }, [seed, shuffledDeck, deckCommitment, shuffleProofData, dealProofs, revealProofs]);
+
+  /**
+   * Restore state from saved session (dealer session restore after refresh).
+   * @param {object} savedState - State object from getSerializableState()
+   */
+  const restoreState = useCallback((savedState) => {
+    if (!savedState) {
+      console.warn('[ZKGame] No state to restore');
+      return false;
+    }
+
+    try {
+      console.log('[ZKGame] Restoring state from saved session...');
+
+      // Restore core state
+      if (savedState.seed) setSeed(savedState.seed);
+      if (savedState.shuffledDeck) setShuffledDeck(savedState.shuffledDeck);
+      if (savedState.deckCommitment) setDeckCommitment(savedState.deckCommitment);
+      if (savedState.shuffleProofData) setShuffleProofData(savedState.shuffleProofData);
+      if (savedState.dealProofs) setDealProofs(savedState.dealProofs);
+      if (savedState.revealProofs) setRevealProofs(savedState.revealProofs);
+
+      // Restore blinding factors (Map from Object)
+      if (savedState.blindingFactors) {
+        blindingFactors.current.clear();
+        for (const [pos, data] of Object.entries(savedState.blindingFactors)) {
+          blindingFactors.current.set(parseInt(pos), data);
+        }
+      }
+
+      setStatus('ready');
+      console.log('[ZKGame] State restored successfully');
+      console.log('[ZKGame] Restored shuffledDeck:', savedState.shuffledDeck);
+      console.log('[ZKGame] Restored blindingFactors count:', blindingFactors.current.size);
+
+      return true;
+    } catch (err) {
+      console.error('[ZKGame] Failed to restore state:', err);
+      return false;
+    }
+  }, []);
+
   // =========================================================================
   // PUBLIC API
   // =========================================================================
@@ -539,6 +596,10 @@ export function useZKGame() {
     shuffleProofData,
     dealProofs,
     revealProofs,
+
+    // Session persistence (for dealer refresh recovery)
+    getSerializableState,
+    restoreState,
   };
 }
 

@@ -1,34 +1,111 @@
-import React, { useState } from 'react';
-import { Check, X, ArrowRight, Wallet } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Check, X, ArrowRight, Wallet, Loader2, AlertCircle } from 'lucide-react';
 
-export const WithdrawModal = ({ isOpen, onClose, balance }) => {
+/**
+ * WithdrawModal - Withdraw funds from ShadowWire pool back to wallet
+ *
+ * Props:
+ * - isOpen: boolean - Whether modal is visible
+ * - onClose: function - Callback to close modal
+ * - poolBalance: number - Available balance in ShadowWire pool (SOL)
+ * - onWithdraw: function - Async callback to perform withdrawal (from useShadowPay)
+ * - onRefreshBalance: function - Callback to refresh pool balance after withdrawal
+ */
+export const WithdrawModal = ({
+  isOpen,
+  onClose,
+  poolBalance = 0,
+  onWithdraw,
+  onRefreshBalance
+}) => {
   const [amount, setAmount] = useState('');
-  const [address, setAddress] = useState('');
-  const [step, setStep] = useState(1); // 1: Input, 2: Confirm, 3: Success
+  const [step, setStep] = useState(1); // 1: Input, 2: Processing, 3: Result
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [result, setResult] = useState(null);
+
+  // Reset state when modal opens
+  useEffect(() => {
+    if (isOpen) {
+      setAmount('');
+      setStep(1);
+      setResult(null);
+      setIsProcessing(false);
+    }
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
-  const handleWithdraw = () => {
-    setStep(2);
+  const handleMaxClick = () => {
+    // Leave a tiny buffer for fees
+    const maxAmount = Math.max(0, poolBalance - 0.0001);
+    setAmount(maxAmount.toFixed(4));
   };
 
-  const confirmWithdraw = () => {
-    // Mock withdrawal logic
-    setStep(3);
-    setTimeout(() => {
-        onClose();
-        setStep(1);
-        setAmount('');
-        setAddress('');
-    }, 2000);
+  const handleWithdraw = async () => {
+    const withdrawAmount = parseFloat(amount);
+
+    // Validate amount
+    if (isNaN(withdrawAmount) || withdrawAmount <= 0) {
+      setResult({ success: false, error: 'Please enter a valid amount' });
+      setStep(3);
+      return;
+    }
+
+    if (withdrawAmount > poolBalance) {
+      setResult({
+        success: false,
+        error: `Insufficient pool balance. Available: ${poolBalance.toFixed(4)} SOL`
+      });
+      setStep(3);
+      return;
+    }
+
+    // Check if onWithdraw is provided
+    if (!onWithdraw) {
+      setResult({
+        success: false,
+        error: 'Withdrawal function not available. ShadowWire may not be configured.'
+      });
+      setStep(3);
+      return;
+    }
+
+    // Start processing
+    setIsProcessing(true);
+    setStep(2);
+
+    try {
+      const withdrawResult = await onWithdraw(withdrawAmount);
+      setResult(withdrawResult);
+      setStep(3);
+
+      // Refresh balance after successful withdrawal
+      if (withdrawResult.success && onRefreshBalance) {
+        onRefreshBalance();
+      }
+    } catch (err) {
+      setResult({ success: false, error: err.message });
+      setStep(3);
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleClose = () => {
+    if (!isProcessing) {
+      setStep(1);
+      setAmount('');
+      setResult(null);
+      onClose();
+    }
   };
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
       {/* Backdrop */}
-      <div 
+      <div
         className="absolute inset-0 bg-black/80 backdrop-blur-sm"
-        onClick={onClose}
+        onClick={handleClose}
       ></div>
 
       {/* Modal Content */}
@@ -41,15 +118,16 @@ export const WithdrawModal = ({ isOpen, onClose, balance }) => {
 
         <div className="bg-[#05010A] border border-[#936DFF]/30 p-6 relative overflow-hidden">
             <div className="absolute inset-0 bg-[#936DFF]/5 pointer-events-none"></div>
-            
+
             {/* Header */}
             <div className="flex items-center justify-between mb-8 relative z-10">
                 <h2 className="font-display font-bold text-2xl text-white uppercase tracking-widest">
-                    Withdraw Funds
+                    Withdraw from Pool
                 </h2>
-                <button 
-                    onClick={onClose}
-                    className="text-[#B8B8CC] hover:text-white transition-colors"
+                <button
+                    onClick={handleClose}
+                    disabled={isProcessing}
+                    className="text-[#B8B8CC] hover:text-white transition-colors disabled:opacity-50"
                 >
                     <X className="w-6 h-6" />
                 </button>
@@ -57,24 +135,34 @@ export const WithdrawModal = ({ isOpen, onClose, balance }) => {
 
             {/* Content */}
             <div className="relative z-10">
+                {/* Step 1: Input Amount */}
                 {step === 1 && (
                     <div className="space-y-6">
-                        <div>
-                            <label className="block text-[#936DFF] font-display text-[10px] uppercase tracking-widest mb-2">
-                                Recipient Address (SOL)
-                            </label>
-                            <input
-                                type="text"
-                                value={address}
-                                onChange={(e) => setAddress(e.target.value)}
-                                placeholder="Enter Solana wallet address"
-                                className="w-full px-4 py-3 bg-[#05010A] border border-[#936DFF]/30 text-white placeholder:text-[#936DFF]/30 focus:outline-none focus:border-[#936DFF] font-mono text-sm"
-                            />
+                        {/* Pool Balance Display */}
+                        <div className="p-4 bg-[#936DFF]/10 border border-[#936DFF]/20">
+                            <p className="text-[#936DFF] text-[10px] uppercase tracking-widest mb-2">
+                                ShadowWire Pool Balance
+                            </p>
+                            <div className="flex items-baseline gap-2">
+                                <span className="text-3xl font-display font-bold text-white">
+                                    {poolBalance.toFixed(4)}
+                                </span>
+                                <span className="text-lg font-display text-[#936DFF]">SOL</span>
+                            </div>
                         </div>
 
+                        {/* Info Box */}
+                        <div className="flex items-start gap-3 p-3 bg-blue-500/10 border border-blue-500/20 text-sm">
+                            <Wallet className="w-5 h-5 text-blue-400 flex-shrink-0 mt-0.5" />
+                            <p className="text-blue-300/80">
+                                Funds will be withdrawn from your ShadowWire privacy pool back to your connected wallet.
+                            </p>
+                        </div>
+
+                        {/* Amount Input */}
                         <div>
                             <label className="block text-[#936DFF] font-display text-[10px] uppercase tracking-widest mb-2">
-                                Amount (SOL)
+                                Amount to Withdraw (SOL)
                             </label>
                             <div className="relative">
                                 <input
@@ -82,73 +170,95 @@ export const WithdrawModal = ({ isOpen, onClose, balance }) => {
                                     value={amount}
                                     onChange={(e) => setAmount(e.target.value)}
                                     placeholder="0.00"
+                                    step="0.01"
+                                    min="0"
+                                    max={poolBalance}
                                     className="w-full px-4 py-3 bg-[#05010A] border border-[#936DFF]/30 text-white placeholder:text-[#936DFF]/30 focus:outline-none focus:border-[#936DFF] font-mono text-xl"
                                 />
-                                <button 
-                                    onClick={() => setAmount(balance)}
-                                    className="absolute right-4 top-1/2 -translate-y-1/2 text-[10px] uppercase tracking-widest text-[#936DFF] hover:text-white"
+                                <button
+                                    onClick={handleMaxClick}
+                                    className="absolute right-4 top-1/2 -translate-y-1/2 text-[10px] uppercase tracking-widest text-[#936DFF] hover:text-white transition-colors"
                                 >
                                     Max
                                 </button>
                             </div>
-                            <p className="text-right text-[#B8B8CC] text-[10px] mt-2 font-mono">
-                                Available: {balance?.toFixed(4)} SOL
-                            </p>
                         </div>
 
-                        <button 
+                        {/* Withdraw Button */}
+                        <button
                             onClick={handleWithdraw}
-                            disabled={!address || !amount || parseFloat(amount) > balance}
+                            disabled={!amount || parseFloat(amount) <= 0 || parseFloat(amount) > poolBalance || poolBalance <= 0}
                             className="w-full py-4 bg-[#936DFF] hover:bg-[#C049FF] text-white font-display font-bold uppercase tracking-widest text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                         >
-                            Review Withdrawal <ArrowRight className="w-4 h-4" />
+                            Withdraw to Wallet <ArrowRight className="w-4 h-4" />
                         </button>
+
+                        {poolBalance <= 0 && (
+                            <p className="text-center text-yellow-400/80 text-sm">
+                                No funds in ShadowWire pool to withdraw.
+                            </p>
+                        )}
                     </div>
                 )}
 
+                {/* Step 2: Processing */}
                 {step === 2 && (
-                    <div className="space-y-6">
-                        <div className="p-4 bg-[#936DFF]/10 border border-[#936DFF]/20 space-y-4">
-                            <div>
-                                <p className="text-[#936DFF] text-[10px] uppercase tracking-widest mb-1">Recipient</p>
-                                <p className="text-white font-mono text-xs break-all">{address}</p>
-                            </div>
-                            <div>
-                                <p className="text-[#936DFF] text-[10px] uppercase tracking-widest mb-1">Amount</p>
-                                <p className="text-white font-display font-bold text-xl">{amount} SOL</p>
-                            </div>
-                            <div>
-                                <p className="text-[#936DFF] text-[10px] uppercase tracking-widest mb-1">Network Fee</p>
-                                <p className="text-white font-mono text-xs">~0.000005 SOL</p>
-                            </div>
-                        </div>
-
-                        <button 
-                            onClick={confirmWithdraw}
-                            className="w-full py-4 bg-[#936DFF] hover:bg-[#C049FF] text-white font-display font-bold uppercase tracking-widest text-sm transition-colors"
-                        >
-                            Confirm Withdrawal
-                        </button>
-                        <button 
-                            onClick={() => setStep(1)}
-                            className="w-full py-2 text-[#B8B8CC] hover:text-white font-display text-xs uppercase tracking-widest transition-colors"
-                        >
-                            Back
-                        </button>
-                    </div>
-                )}
-
-                {step === 3 && (
-                    <div className="flex flex-col items-center justify-center py-8 text-center">
-                        <div className="w-16 h-16 rounded-full bg-green-500/20 flex items-center justify-center mb-6">
-                            <Check className="w-8 h-8 text-green-500" />
-                        </div>
+                    <div className="flex flex-col items-center justify-center py-12 text-center">
+                        <Loader2 className="w-16 h-16 text-[#936DFF] animate-spin mb-6" />
                         <h3 className="text-white font-display font-bold text-xl uppercase tracking-widest mb-2">
-                            Withdrawal Initiated
+                            Processing Withdrawal
                         </h3>
                         <p className="text-[#B8B8CC] text-sm">
-                            Your funds are on the way.
+                            Please approve the transaction in your wallet...
                         </p>
+                    </div>
+                )}
+
+                {/* Step 3: Result */}
+                {step === 3 && result && (
+                    <div className="flex flex-col items-center justify-center py-8 text-center">
+                        {result.success ? (
+                            <>
+                                <div className="w-16 h-16 rounded-full bg-green-500/20 flex items-center justify-center mb-6">
+                                    <Check className="w-8 h-8 text-green-500" />
+                                </div>
+                                <h3 className="text-white font-display font-bold text-xl uppercase tracking-widest mb-2">
+                                    Withdrawal Complete
+                                </h3>
+                                <p className="text-[#B8B8CC] text-sm mb-4">
+                                    {amount} SOL has been sent to your wallet.
+                                </p>
+                                {result.signature && (
+                                    <a
+                                        href={`https://explorer.solana.com/tx/${result.signature}?cluster=devnet`}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="text-[#936DFF] text-sm hover:underline"
+                                    >
+                                        View Transaction on Explorer
+                                    </a>
+                                )}
+                            </>
+                        ) : (
+                            <>
+                                <div className="w-16 h-16 rounded-full bg-red-500/20 flex items-center justify-center mb-6">
+                                    <AlertCircle className="w-8 h-8 text-red-500" />
+                                </div>
+                                <h3 className="text-white font-display font-bold text-xl uppercase tracking-widest mb-2">
+                                    Withdrawal Failed
+                                </h3>
+                                <p className="text-red-400/80 text-sm mb-4">
+                                    {result.error}
+                                </p>
+                            </>
+                        )}
+
+                        <button
+                            onClick={handleClose}
+                            className="mt-4 px-6 py-2 bg-[#936DFF]/20 hover:bg-[#936DFF]/30 text-white font-display text-xs uppercase tracking-widest transition-colors"
+                        >
+                            Close
+                        </button>
                     </div>
                 )}
             </div>
