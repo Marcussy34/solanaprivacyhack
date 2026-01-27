@@ -13,7 +13,13 @@ Check out the live demo of **Umbra**: 👉 [Click here to try it out](http://loc
 ZK Card Arena is built as a decentralized application (dApp) on Solana, optimized for trustless gameplay. The interface provides a seamless, casino-like experience where every shuffle, deal, and reveal is cryptographically proven.
 
 <p align="center">
-  <img src="/public/game-screenshot.png" alt="Umbra Gameplay" width="700">
+  <img src="public/readmepics/landingpage.png" alt="Umbra Landing Page" width="700">
+  <br/>
+  <img src="public/readmepics/landingpage2.png" alt="Umbra Landing Page 2" width="700">
+  <br/>
+  <img src="public/readmepics/userpov.png" alt="User View" width="700">
+  <br/>
+  <img src="public/readmepics/dealerpov.png" alt="Dealer View" width="700">
 </p>
 
 ## Grand Vision vs. Hackathon Scope 🔭
