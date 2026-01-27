@@ -85,18 +85,18 @@ function AnimatedValue({ value, isPlayer = false }) {
   }, [value, displayValue]);
 
   // Color based on value
-  let colorClass = "text-gray-300";
+  let colorClass = "text-[#B8B8CC]";
   let glowClass = "";
 
   if (value === 21) {
-    colorClass = "text-yellow-400";
-    glowClass = "drop-shadow-[0_0_10px_rgba(234,179,8,0.5)]";
+    colorClass = "text-[#C049FF]"; // Magenta for Blackjack
+    glowClass = "drop-shadow-[0_0_10px_rgba(192,73,255,0.5)]";
   } else if (value > 21) {
     colorClass = "text-red-500";
     glowClass = "drop-shadow-[0_0_10px_rgba(239,68,68,0.5)]";
   } else if (value >= 17 && value <= 20) {
-    colorClass = isPlayer ? "text-green-400" : "text-gray-300";
-    glowClass = isPlayer ? "drop-shadow-[0_0_8px_rgba(34,197,94,0.3)]" : "";
+    colorClass = isPlayer ? "text-[#936DFF]" : "text-[#B8B8CC]"; // Purple for good hand
+    glowClass = isPlayer ? "drop-shadow-[0_0_8px_rgba(147,109,255,0.3)]" : "";
   } else if (value >= 12 && value < 17 && isPlayer) {
     colorClass = "text-yellow-300";
   }
@@ -105,14 +105,14 @@ function AnimatedValue({ value, isPlayer = false }) {
     <motion.span
       animate={isAnimating ? { scale: [1, 1.2, 1] } : {}}
       transition={{ duration: 0.3, ease: "easeInOut" }}
-      className={cn("text-lg font-bold", colorClass, glowClass)}
+      className={cn("text-2xl font-display font-bold tracking-wider", colorClass, glowClass)}
     >
-      Total: {displayValue}
+      TOTAL: {displayValue}
       {value === 21 && (
         <motion.span
           initial={{ opacity: 0, x: -10 }}
           animate={{ opacity: 1, x: 0 }}
-          className="ml-2 text-yellow-400"
+          className="ml-2 text-[#C049FF]"
         >
           {isPlayer ? "- BLACKJACK!" : "- 21!"}
         </motion.span>
@@ -135,77 +135,77 @@ function TurnIndicator({ gameState, isDealer, cardsDealt, playerJoined }) {
   let message = "";
   let subMessage = "";
   let icon = null;
-  let color = "text-yellow-400";
+  let color = "text-[#936DFF]";
 
   if (gameState === GAME_STATES.CREATED) {
     if (isDealer) {
-      message = "Verify Your Shuffle";
-      subMessage = "Submit the ZK proof to prove fair shuffle";
+      message = "VERIFY SHUFFLE";
+      subMessage = "Submit ZK proof to prove fair shuffle";
       icon = <Shield className="w-6 h-6" />;
-      color = "text-purple-400";
+      color = "text-[#C049FF]";
     } else {
-      message = "Waiting for Dealer";
+      message = "WAITING FOR DEALER";
       subMessage = "Dealer is preparing the game...";
       icon = <Clock className="w-6 h-6 animate-pulse" />;
     }
   } else if (gameState === GAME_STATES.AWAITING_PLAYER) {
     if (isDealer) {
-      message = "Waiting for Player";
-      subMessage = "Share the game code with a friend";
+      message = "WAITING FOR PLAYER";
+      subMessage = "Share code with a friend";
       icon = <Users className="w-6 h-6 animate-pulse" />;
     } else {
-      message = "Ready to Join";
-      subMessage = "Click Join to enter the game";
+      message = "READY TO JOIN";
+      subMessage = "Click Join to enter";
       icon = <Zap className="w-6 h-6" />;
-      color = "text-green-400";
+      color = "text-[#936DFF]";
     }
   } else if (gameState === GAME_STATES.PLAYING) {
     if (!cardsDealt) {
       if (isDealer) {
-        message = "Deal the Cards";
+        message = "DEAL CARDS";
         subMessage = "Deal 2 cards to each player";
         icon = <Play className="w-6 h-6" />;
-        color = "text-green-400";
+        color = "text-[#936DFF]";
       } else {
-        message = "Waiting for Cards";
-        subMessage = "Dealer is dealing cards...";
+        message = "WAITING FOR CARDS";
+        subMessage = "Dealer is dealing...";
         icon = <Clock className="w-6 h-6 animate-pulse" />;
       }
     } else {
       if (isDealer) {
-        message = "Player's Turn";
-        subMessage = "Waiting for player to Hit or Stand...";
+        message = "PLAYER'S TURN";
+        subMessage = "Waiting for player action...";
         icon = <Hand className="w-6 h-6" />;
-        color = "text-blue-400";
+        color = "text-[#B8B8CC]";
       } else {
-        message = "Your Turn!";
-        subMessage = "Choose: Hit, Stand, or Double";
+        message = "YOUR TURN";
+        subMessage = "Hit, Stand, or Double";
         icon = <Zap className="w-6 h-6" />;
-        color = "text-green-400";
+        color = "text-[#936DFF]";
       }
     }
   } else if (gameState === GAME_STATES.DEALER_TURN) {
     if (isDealer) {
-      message = "Play Your Turn";
-      subMessage = "Reveal hole card, hit until 17+";
+      message = "PLAY YOUR TURN";
+      subMessage = "Reveal hole card, hit to 17+";
       icon = <Zap className="w-6 h-6" />;
-      color = "text-green-400";
+      color = "text-[#936DFF]";
     } else {
-      message = "Dealer's Turn";
-      subMessage = "Dealer is playing their hand...";
+      message = "DEALER'S TURN";
+      subMessage = "Dealer is playing...";
       icon = <Clock className="w-6 h-6 animate-pulse" />;
     }
   } else if (gameState === GAME_STATES.WAITING_DEALER_BET) {
     if (isDealer) {
-      message = "Match Player's Bet";
-      subMessage = "Player is waiting for you to match their bet";
+      message = "MATCH BET";
+      subMessage = "Player waiting for match";
       icon = <Coins className="w-6 h-6" />;
-      color = "text-yellow-400";
+      color = "text-[#C049FF]";
     } else {
-      message = "Waiting for Dealer";
-      subMessage = "Dealer is matching your bet...";
+      message = "WAITING FOR DEALER";
+      subMessage = "Dealer matching bet...";
       icon = <Clock className="w-6 h-6 animate-pulse" />;
-      color = "text-purple-400";
+      color = "text-[#B8B8CC]";
     }
   }
 
@@ -216,15 +216,15 @@ function TurnIndicator({ gameState, isDealer, cardsDealt, playerJoined }) {
       initial={{ opacity: 0, y: -10 }}
       animate={{ opacity: 1, y: 0 }}
       className={cn(
-        "flex items-center gap-3 px-6 py-4 rounded-xl",
-        "bg-white/5 border border-white/10",
+        "flex items-center gap-4 px-8 py-4 border-2",
+        "bg-[#05010A] border-[#936DFF]",
         color
       )}
     >
       {icon}
       <div>
-        <p className="font-semibold">{message}</p>
-        <p className="text-sm text-gray-400">{subMessage}</p>
+        <p className="font-display font-bold text-xl tracking-widest uppercase">{message}</p>
+        <p className="font-body text-sm text-[#B8B8CC] opacity-80">{subMessage}</p>
       </div>
     </motion.div>
   );
@@ -303,11 +303,18 @@ export default function GamePage() {
   // Manual bet input for dealer (cross-browser - can't use localStorage)
   const [manualBetInput, setManualBetInput] = useState("");
 
+  // Dealer turn animation state
+  const [isAnimatingDealerTurn, setIsAnimatingDealerTurn] = useState(false);
+  const [localDealerState, setLocalDealerState] = useState({ cards: [], revealed: [] });
+
   // Derived state
   const playerCards = gameData?.playerCards || [];
-  const dealerCards = gameData?.dealerCards || [];
+  const rawDealerCards = gameData?.dealerCards || [];
+  const rawDealerRevealed = gameData?.dealerRevealed || [];
   const playerRevealed = gameData?.playerRevealed || [];
-  const dealerRevealed = gameData?.dealerRevealed || [];
+  
+  const dealerCards = isAnimatingDealerTurn ? localDealerState.cards : rawDealerCards;
+  const dealerRevealed = isAnimatingDealerTurn ? localDealerState.revealed : rawDealerRevealed;
   const cardsDealt = playerCards.length >= 2 && dealerCards.length >= 2;
   const playerJoined = gameData?.player !== null;
 
@@ -812,10 +819,21 @@ export default function GamePage() {
         throw new Error("Shuffled deck not available - dealer must be in same session for demo");
       }
 
+      // --- ANIMATION START ---
+      // Freeze UI at current state while processing
+      setIsAnimatingDealerTurn(true);
+      
+      // Initialize local state with current game state
+      const currentDealerCards = [...(gameData?.dealerCards || [])];
+      const currentDealerRevealed = [...(gameData?.dealerRevealed || [])];
+      
+      setLocalDealerState({
+        cards: [...currentDealerCards],
+        revealed: [...currentDealerRevealed]
+      });
+
       // Step 1: Generate reveal proof for hole card (deck position 3)
       console.log("[Game] Generating ZK reveal proof for hole card (position 3)...");
-      console.log("[Game] shuffledDeck:", shuffledDeck);
-      console.log("[Game] shuffledDeck.length:", shuffledDeck?.length);
       const holeCardProof = await generateRevealProof(3);
       const holeCardValue = shuffledDeck[3];
 
@@ -874,7 +892,6 @@ export default function GamePage() {
 
       // Step 4: Submit to chain with proofs
       // Use sequential submission if 2+ cards to avoid Solana's 1232 byte tx size limit
-      // Each Groth16 proof is ~388 bytes, so 2+ proofs exceed the limit in a single tx
       if (cardValues.length >= 2) {
         console.log(`[Game] Using sequential submission for ${cardValues.length} cards (avoiding tx size limit)...`);
         await dealerPlayTurnSequential(
@@ -892,15 +909,44 @@ export default function GamePage() {
         await dealerPlayTurn(gameId, dealerPubkey, cardValues, proofs, publicInputsList);
       }
 
-      // Refetch game state to show result
+      // --- ANIMATION PLAYBACK (After Signature) ---
+      console.log("[Game] Transaction confirmed. Playing reveal animation...");
+      
+      // 1. Reveal Hole Card
+      currentDealerRevealed[1] = holeCardValue;
+      setLocalDealerState({
+        cards: [...currentDealerCards],
+        revealed: [...currentDealerRevealed]
+      });
+      await new Promise(r => setTimeout(r, 1000));
+
+      // 2. Reveal Hits (if any)
+      // cardValues[0] is hole card, cardValues[1+] are hits
+      for (let i = 1; i < cardValues.length; i++) {
+        const hitVal = cardValues[i];
+        currentDealerCards.push("simulated_commitment"); 
+        currentDealerRevealed.push(hitVal);
+        setLocalDealerState({
+          cards: [...currentDealerCards],
+          revealed: [...currentDealerRevealed]
+        });
+        await new Promise(r => setTimeout(r, 1000));
+      }
+
+      // Refetch game state to show final result
       const data = await fetchGame(gameId, dealerPubkey);
       if (data) {
         setGameData(data);
         setGameState(data.state);
       }
+      
+      // Animation done - allow state to sync from chain
+      setIsAnimatingDealerTurn(false);
+      
     } catch (err) {
       console.error("Dealer turn error:", err);
       setError(err.message || "Failed to play dealer turn");
+      setIsAnimatingDealerTurn(false);
     }
 
     setLoading(false);
@@ -1161,7 +1207,7 @@ export default function GamePage() {
                 }}
                 className="absolute top-1/2 left-1/2 w-3 h-3 rounded-full"
                 style={{
-                  backgroundColor: ['#22c55e', '#eab308', '#3b82f6', '#ec4899'][i % 4],
+                  backgroundColor: ['#936DFF', '#C049FF', '#FFFFFF', '#B8B8CC'][i % 4],
                   marginLeft: -6,
                   marginTop: -6,
                 }}
@@ -1178,14 +1224,14 @@ export default function GamePage() {
                 ease: "easeInOut",
               }}
             >
-              <Trophy className="w-16 h-16 text-green-400 drop-shadow-[0_0_15px_rgba(34,197,94,0.5)]" />
+              <Trophy className="w-16 h-16 text-[#936DFF] drop-shadow-[0_0_15px_rgba(147,109,255,0.5)]" />
             </motion.div>
           </div>
           <motion.span
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.3 }}
-            className="text-3xl font-bold text-green-400 drop-shadow-[0_0_10px_rgba(34,197,94,0.3)]"
+            className="text-4xl font-display font-bold text-[#936DFF] drop-shadow-[0_0_10px_rgba(147,109,255,0.3)] tracking-widest uppercase"
           >
             PLAYER WINS!
           </motion.span>
@@ -1216,13 +1262,13 @@ export default function GamePage() {
               ease: "easeInOut",
             }}
           >
-            <XCircle className="w-16 h-16 text-red-400 drop-shadow-[0_0_15px_rgba(239,68,68,0.5)]" />
+            <XCircle className="w-16 h-16 text-red-500 drop-shadow-[0_0_15px_rgba(239,68,68,0.5)]" />
           </motion.div>
           <motion.span
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.3 }}
-            className="text-3xl font-bold text-red-400"
+            className="text-4xl font-display font-bold text-red-500 tracking-widest uppercase"
           >
             DEALER WINS
           </motion.span>
@@ -1241,9 +1287,9 @@ export default function GamePage() {
             animate={{ rotate: 360 }}
             transition={{ duration: 1, ease: "easeInOut" }}
           >
-            <RefreshCw className="w-16 h-16 text-yellow-400 drop-shadow-[0_0_15px_rgba(234,179,8,0.5)]" />
+            <RefreshCw className="w-16 h-16 text-[#C049FF] drop-shadow-[0_0_15px_rgba(192,73,255,0.5)]" />
           </motion.div>
-          <span className="text-3xl font-bold text-yellow-400">PUSH - TIE!</span>
+          <span className="text-4xl font-display font-bold text-[#C049FF] tracking-widest uppercase">PUSH - TIE!</span>
         </motion.div>
       );
     }
@@ -1258,7 +1304,7 @@ export default function GamePage() {
   ].includes(gameState);
 
   return (
-    <div className="min-h-screen bg-[#05010A] text-[#FFFFFF] font-body selection:bg-[#936DFF] selection:text-white overflow-x-hidden">
+    <div className="min-h-screen bg-[#05010A] text-[#FFFFFF] font-body selection:bg-[#936DFF] selection:text-white overflow-x-hidden relative">
       
       {/* --- TOP BAR --- */}
       <div className="fixed top-0 left-0 w-full flex justify-between items-center px-4 sm:px-6 md:px-8 py-4 sm:py-6 z-50 bg-[#05010A]/80 backdrop-blur-md border-b border-[#936DFF]/20">
@@ -1287,116 +1333,139 @@ export default function GamePage() {
         {!connected ? (
           /* Not Connected State */
           <BlurFade delay={0.1}>
-            <div className="flex flex-col items-center justify-center min-h-[60vh] gap-6">
-              {connecting ? (
-                /* Connecting State */
-                <>
-                  <Loader2 className="w-16 h-16 text-purple-400 animate-spin" />
-                  <h1 className="text-3xl md:text-4xl font-bold text-center">
-                    Connecting to Wallet...
-                  </h1>
-                  <p className="text-gray-400 text-center max-w-md">
-                    Please approve the connection in your wallet.
-                  </p>
-                </>
-              ) : (
-                /* Not Connected State */
-                <>
-                  <Wallet className="w-16 h-16 text-purple-400" />
-                  <h1 className="text-3xl md:text-4xl font-bold text-center">
-                    Connect Your Wallet to Play
-                  </h1>
-                  <p className="text-gray-400 text-center max-w-md">
-                    Connect your Phantom or Solflare wallet to start playing
-                    provably fair Blackjack on Solana.
-                  </p>
-                  <WalletMultiButton className="!bg-purple-600 hover:!bg-purple-700 !rounded-lg !py-3 !px-6 !text-lg" />
+            <div className="flex flex-col items-center justify-center min-h-[60vh] relative z-10">
+              <div className="w-full max-w-lg p-1 border-2 border-[#936DFF] bg-[#05010A] relative">
+                {/* Decorative corners */}
+                <div className="absolute top-0 left-0 w-4 h-4 border-t-2 border-l-2 border-white -mt-1 -ml-1"></div>
+                <div className="absolute top-0 right-0 w-4 h-4 border-t-2 border-r-2 border-white -mt-1 -mr-1"></div>
+                <div className="absolute bottom-0 left-0 w-4 h-4 border-b-2 border-l-2 border-white -mb-1 -ml-1"></div>
+                <div className="absolute bottom-0 right-0 w-4 h-4 border-b-2 border-r-2 border-white -mb-1 -mr-1"></div>
 
-                  {/* Wallet Error Display */}
-                  {walletError && (
-                    <div className="p-4 rounded-xl bg-red-500/10 border border-red-500/20 max-w-md">
-                      <p className="text-red-400 text-sm mb-2">{walletError}</p>
-                      <button
-                        onClick={() => setWalletError(null)}
-                        className="text-xs text-gray-400 hover:text-white underline"
-                      >
-                        Dismiss
-                      </button>
-                    </div>
+                <div className="p-8 flex flex-col items-center gap-6 bg-[#05010A] border border-[#936DFF]/30 relative overflow-hidden">
+                  <div className="absolute inset-0 bg-[#936DFF]/5 pointer-events-none"></div>
+                  
+                  {connecting ? (
+                    /* Connecting State */
+                    <>
+                      <Loader2 className="w-16 h-16 text-[#936DFF] animate-spin" />
+                      <div className="text-center">
+                        <h1 className="font-display font-bold text-3xl uppercase tracking-widest text-white mb-2">
+                          Connecting...
+                        </h1>
+                        <p className="font-body text-[#B8B8CC] text-sm">
+                          Please approve the connection in your wallet.
+                        </p>
+                      </div>
+                    </>
+                  ) : (
+                    /* Not Connected State */
+                    <>
+                      <Wallet className="w-16 h-16 text-[#936DFF]" />
+                      <div className="text-center">
+                        <h1 className="font-display font-bold text-3xl uppercase tracking-widest text-white mb-2">
+                          Connect Wallet
+                        </h1>
+                        <p className="font-body text-[#B8B8CC] text-sm max-w-xs mx-auto">
+                          Connect your Phantom or Solflare wallet to enter the arena.
+                        </p>
+                      </div>
+                      <WalletMultiButton className="!bg-[#936DFF] hover:!bg-[#C049FF] !rounded-none !py-4 !px-8 !font-display !uppercase !tracking-widest !text-sm transition-all duration-300" />
+
+                      {/* Wallet Error Display */}
+                      {walletError && (
+                        <div className="p-4 w-full bg-red-500/10 border border-red-500/20">
+                          <p className="text-red-400 text-xs font-mono mb-2">{walletError}</p>
+                          <button
+                            onClick={() => setWalletError(null)}
+                            className="text-[10px] uppercase tracking-widest text-[#B8B8CC] hover:text-white underline"
+                          >
+                            Dismiss
+                          </button>
+                        </div>
+                      )}
+                    </>
                   )}
-                </>
-              )}
+                </div>
+              </div>
             </div>
           </BlurFade>
         ) : gameState === GAME_STATES.IDLE ? (
           /* Lobby State */
           <BlurFade delay={0.1}>
-            <div className="flex flex-col items-center justify-center min-h-[60vh] gap-8">
-              <h1 className="font-display font-bold text-3xl md:text-5xl uppercase tracking-tighter text-[#FFFFFF] text-center">
-                Ready to Play?
-              </h1>
-              <p className="font-body text-[#B8B8CC] text-center tracking-widest uppercase text-xs">
-                Connected: {publicKey?.toBase58().slice(0, 4)}...
-                {publicKey?.toBase58().slice(-4)}
-              </p>
+            <div className="flex flex-col items-center justify-center min-h-[60vh] gap-12 relative z-10">
+              <div className="text-center">
+                <h1 className="font-display font-bold text-6xl md:text-8xl uppercase tracking-tighter text-white mb-4 drop-shadow-[0_0_30px_rgba(147,109,255,0.3)]">
+                  READY TO PLAY?
+                </h1>
+                <p className="font-display text-[#B8B8CC] tracking-[0.3em] uppercase text-xs">
+                  CONNECTED: <span className="text-[#936DFF]">{publicKey?.toBase58().slice(0, 4)}...{publicKey?.toBase58().slice(-4)}</span>
+                </p>
+              </div>
 
-              <div className="flex flex-col md:flex-row gap-6 items-stretch">
+              <div className="flex flex-col md:flex-row gap-8 items-stretch w-full max-w-4xl">
                 {/* Create Game (Dealer) */}
                 <button
                   onClick={handleStartHostGame}
                   disabled={loading}
-                  className="group relative px-6 py-4 border-2 border-[#936DFF] overflow-hidden min-w-[200px]"
+                  className="group relative flex-1 px-8 py-12 border-2 border-[#936DFF] bg-[#05010A] overflow-hidden hover:border-white transition-colors duration-300"
                 >
-                  <span className="relative z-10 flex flex-col items-center gap-2">
-                    <Play className="w-6 h-6 text-[#FFFFFF] group-hover:text-[#05010A] transition-colors duration-300" />
-                    <span className="font-display font-bold text-lg uppercase tracking-widest text-[#FFFFFF] group-hover:text-[#05010A] transition-colors duration-300">Host Game</span>
-                    <span className="font-display text-[10px] uppercase tracking-widest text-[#936DFF] group-hover:text-[#05010A] transition-colors duration-300">Be the Dealer</span>
-                  </span>
-                  <div className="absolute inset-0 bg-[#936DFF] transform -translate-x-full group-hover:translate-x-0 transition-transform duration-300 ease-in-out"></div>
+                  <div className="relative z-10 flex flex-col items-center gap-4">
+                    <div className="p-4 border border-[#936DFF] rounded-full group-hover:bg-white group-hover:text-black transition-colors duration-300">
+                      <Play className="w-8 h-8" />
+                    </div>
+                    <div className="text-center">
+                      <span className="block font-display font-bold text-2xl uppercase tracking-widest text-white mb-2">Host Game</span>
+                      <span className="block font-body text-xs uppercase tracking-widest text-[#936DFF]">Be the Dealer</span>
+                    </div>
+                  </div>
+                  <div className="absolute inset-0 bg-[#936DFF]/10 transform scale-y-0 group-hover:scale-y-100 transition-transform duration-300 origin-bottom"></div>
                 </button>
 
                 {/* Single Player Demo */}
                 <button
                   onClick={handleStartSinglePlayerBetting}
                   disabled={loading}
-                  className="group relative px-6 py-4 border-2 border-[#936DFF] overflow-hidden min-w-[200px]"
+                  className="group relative flex-1 px-8 py-12 border-2 border-[#936DFF] bg-[#05010A] overflow-hidden hover:border-white transition-colors duration-300"
                 >
-                  <span className="relative z-10 flex flex-col items-center gap-2">
-                    <UserPlus className="w-6 h-6 text-[#FFFFFF] group-hover:text-[#05010A] transition-colors duration-300" />
-                    <span className="font-display font-bold text-lg uppercase tracking-widest text-[#FFFFFF] group-hover:text-[#05010A] transition-colors duration-300">Single Player</span>
-                    <span className="font-display text-[10px] uppercase tracking-widest text-[#936DFF] group-hover:text-[#05010A] transition-colors duration-300">Demo Mode</span>
-                  </span>
-                  <div className="absolute inset-0 bg-[#936DFF] transform -translate-x-full group-hover:translate-x-0 transition-transform duration-300 ease-in-out"></div>
+                  <div className="relative z-10 flex flex-col items-center gap-4">
+                    <div className="p-4 border border-[#936DFF] rounded-full group-hover:bg-white group-hover:text-black transition-colors duration-300">
+                      <UserPlus className="w-8 h-8" />
+                    </div>
+                    <div className="text-center">
+                      <span className="block font-display font-bold text-2xl uppercase tracking-widest text-white mb-2">Single Player</span>
+                      <span className="block font-body text-xs uppercase tracking-widest text-[#936DFF]">Demo Mode</span>
+                    </div>
+                  </div>
+                  <div className="absolute inset-0 bg-[#936DFF]/10 transform scale-y-0 group-hover:scale-y-100 transition-transform duration-300 origin-bottom"></div>
                 </button>
 
                 {/* Join Game */}
-                <div className="flex flex-col gap-2">
-                  <div className="flex gap-2 h-full">
-                    <input
-                      type="text"
-                      placeholder="PASTE CODE"
-                      value={joinGameCode}
-                      onChange={(e) => setJoinGameCode(e.target.value)}
-                      className="px-4 py-3 bg-[#05010A] border-2 border-[#936DFF] text-[#FFFFFF] placeholder:text-[#936DFF]/50 focus:outline-none focus:bg-[#936DFF]/10 w-48 font-display text-sm uppercase tracking-widest"
-                    />
+                <div className="flex-1 flex flex-col gap-4">
+                  <div className="flex-1 border-2 border-[#936DFF] bg-[#05010A] p-8 flex flex-col items-center justify-center gap-6 relative overflow-hidden">
+                    <div className="w-full">
+                      <label className="block font-display text-[10px] uppercase tracking-widest text-[#936DFF] mb-2 text-center">Enter Game Code</label>
+                      <input
+                        type="text"
+                        placeholder="GAME ID : DEALER KEY"
+                        value={joinGameCode}
+                        onChange={(e) => setJoinGameCode(e.target.value)}
+                        className="w-full px-4 py-3 bg-[#05010A] border border-[#936DFF]/50 text-white placeholder:text-[#936DFF]/30 focus:outline-none focus:border-[#936DFF] font-mono text-xs text-center uppercase"
+                      />
+                    </div>
                     <button
                       onClick={handleStartJoinBetting}
                       disabled={loading || !joinGameCode.trim()}
-                      className="group relative px-6 border-2 border-[#936DFF] overflow-hidden flex items-center justify-center"
+                      className="w-full py-4 bg-[#936DFF] hover:bg-[#C049FF] text-white font-display font-bold uppercase tracking-widest text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      <span className="relative z-10 font-display font-bold text-sm uppercase tracking-widest text-[#FFFFFF] group-hover:text-[#05010A] transition-colors duration-300">
-                        {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : "JOIN"}
-                      </span>
-                      <div className="absolute inset-0 bg-[#936DFF] transform -translate-x-full group-hover:translate-x-0 transition-transform duration-300 ease-in-out"></div>
+                      {loading ? <Loader2 className="w-5 h-5 animate-spin mx-auto" /> : "JOIN GAME"}
                     </button>
                   </div>
-                  <p className="font-display text-[10px] uppercase tracking-widest text-[#936DFF]/60 text-center">Format: gameId:dealerAddress</p>
                 </div>
               </div>
 
               {error && (
-                <div className="p-4 rounded-xl bg-red-500/10 border border-red-500/20 max-w-md">
-                  <p className="text-red-400 text-sm">{error}</p>
+                <div className="p-4 w-full max-w-md bg-red-500/10 border border-red-500/20 text-center">
+                  <p className="text-red-400 text-xs font-mono">{error}</p>
                 </div>
               )}
             </div>
@@ -1404,327 +1473,350 @@ export default function GamePage() {
         ) : gameState === GAME_STATES.BETTING ? (
           /* Betting State - Player places private bet before joining */
           <BlurFade delay={0.1}>
-            <div className="flex flex-col items-center justify-center min-h-[60vh] gap-8 max-w-md mx-auto">
-              <div className="text-center">
-                <h1 className="text-3xl md:text-4xl font-bold mb-2">
-                  Place Your Bet
-                </h1>
-                <p className="text-gray-400">
-                  Place your private bet before joining the game
-                </p>
-              </div>
+            <div className="flex flex-col items-center justify-center min-h-[60vh] relative z-10">
+              <div className="w-full max-w-md p-1 border-2 border-[#936DFF] bg-[#05010A] relative">
+                {/* Decorative corners */}
+                <div className="absolute top-0 left-0 w-4 h-4 border-t-2 border-l-2 border-white -mt-1 -ml-1"></div>
+                <div className="absolute top-0 right-0 w-4 h-4 border-t-2 border-r-2 border-white -mt-1 -mr-1"></div>
+                <div className="absolute bottom-0 left-0 w-4 h-4 border-b-2 border-l-2 border-white -mb-1 -ml-1"></div>
+                <div className="absolute bottom-0 right-0 w-4 h-4 border-b-2 border-r-2 border-white -mb-1 -mr-1"></div>
 
-              <BetSelector
-                onBetPlaced={handleBetPlaced}
-                disabled={loading}
-                defaultPaymentMode="shadowwire"
-              />
+                <div className="p-8 bg-[#05010A] border border-[#936DFF]/30 relative overflow-hidden">
+                  <div className="absolute inset-0 bg-[#936DFF]/5 pointer-events-none"></div>
+                  
+                  <div className="text-center mb-8 relative z-10">
+                    <h1 className="font-display font-bold text-3xl uppercase tracking-widest text-white mb-2">
+                      Place Your Bet
+                    </h1>
+                    <p className="font-body text-[#B8B8CC] text-sm">
+                      Place your private bet before joining the game
+                    </p>
+                  </div>
 
-              <button
-                onClick={() => { setPendingJoinCode(null); setGameState(GAME_STATES.IDLE); }}
-                className="font-display text-xs uppercase tracking-widest text-[#936DFF] hover:text-[#FFFFFF] transition-colors mt-8 border-b border-transparent hover:border-[#FFFFFF]"
-              >
-                Cancel
-              </button>
+                  <div className="relative z-10">
+                    <BetSelector
+                      onBetPlaced={handleBetPlaced}
+                      disabled={loading}
+                      defaultPaymentMode="shadowwire"
+                    />
+                  </div>
 
-              {error && (
-                <div className="p-4 rounded-xl bg-red-500/10 border border-red-500/20 w-full">
-                  <p className="text-red-400 text-sm">{error}</p>
+                  <button
+                    onClick={() => { setPendingJoinCode(null); setGameState(GAME_STATES.IDLE); }}
+                    className="w-full mt-6 py-3 font-display text-xs uppercase tracking-widest text-[#936DFF] hover:text-white hover:bg-[#936DFF]/10 transition-colors border border-transparent hover:border-[#936DFF]/30"
+                  >
+                    Cancel
+                  </button>
+
+                  {error && (
+                    <div className="mt-6 p-4 bg-red-500/10 border border-red-500/20 text-center">
+                      <p className="text-red-400 text-xs font-mono">{error}</p>
+                    </div>
+                  )}
                 </div>
-              )}
+              </div>
             </div>
           </BlurFade>
         ) : gameState === GAME_STATES.WAITING_DEALER_BET ? (
           /* Waiting for Dealer to Match Bet */
           <BlurFade delay={0.1}>
-            <div className="flex flex-col items-center justify-center min-h-[60vh] gap-8 max-w-md mx-auto">
-              {isDealer ? (
-                /* Dealer View - Match the player's bet */
-                <>
-                  <div className="text-center">
-                    <h1 className="font-display font-bold text-3xl md:text-4xl uppercase tracking-tighter text-[#FFFFFF] mb-2">
-                      Match the Bet
-                    </h1>
-                    <p className="font-body text-[#B8B8CC] text-sm">
-                      A player has joined and bet <span className="text-[#936DFF] font-bold">{playerBetAmount} SOL</span>.
-                      <br />
-                      Match their bet to start the game!
-                    </p>
-                  </div>
+            <div className="flex flex-col items-center justify-center min-h-[60vh] relative z-10">
+              <div className="w-full max-w-lg p-1 border-2 border-[#936DFF] bg-[#05010A] relative">
+                {/* Decorative corners */}
+                <div className="absolute top-0 left-0 w-4 h-4 border-t-2 border-l-2 border-white -mt-1 -ml-1"></div>
+                <div className="absolute top-0 right-0 w-4 h-4 border-t-2 border-r-2 border-white -mt-1 -mr-1"></div>
+                <div className="absolute bottom-0 left-0 w-4 h-4 border-b-2 border-l-2 border-white -mb-1 -ml-1"></div>
+                <div className="absolute bottom-0 right-0 w-4 h-4 border-b-2 border-r-2 border-white -mb-1 -mr-1"></div>
 
-                  <div className="w-full p-6 border-2 border-[#936DFF] bg-[#05010A] relative overflow-hidden">
-                    <div className="absolute inset-0 bg-[#936DFF]/5 pointer-events-none"></div>
-                    <div className="text-center mb-4 relative z-10">
-                      <Coins className="w-12 h-12 mx-auto mb-2 text-[#936DFF]" />
-                      <p className="font-display text-xs uppercase tracking-widest text-[#936DFF]/60">Player&apos;s Bet</p>
-                      <p className="font-display font-bold text-4xl text-[#FFFFFF] tracking-tighter">{playerBetAmount} SOL</p>
-                    </div>
-                  </div>
-
-                  <BetSelector
-                    mode="fixed"
-                    fixedAmount={playerBetAmount}
-                    onBetPlaced={handleDealerBetPlaced}
-                    disabled={loading}
-                    defaultPaymentMode="shadowwire"
-                  />
-
-                  {error && (
-                    <div className="p-4 rounded-xl bg-red-500/10 border border-red-500/20 w-full">
-                      <p className="text-red-400 text-sm">{error}</p>
-                    </div>
-                  )}
-                </>
-              ) : (
-                /* Player View - Waiting for dealer */
-                <>
-                  <div className="text-center">
-                    <h1 className="font-display font-bold text-3xl md:text-4xl uppercase tracking-tighter text-[#FFFFFF] mb-2">
-                      Bet Placed!
-                    </h1>
-                    <p className="font-body text-[#B8B8CC] text-sm">
-                      Waiting for the dealer to match your bet...
-                    </p>
-                  </div>
-
-                  <div className="w-full p-6 border-2 border-[#936DFF] bg-[#05010A] relative overflow-hidden">
-                    <div className="absolute inset-0 bg-[#936DFF]/5 pointer-events-none"></div>
-                    <div className="text-center relative z-10">
-                      <Clock className="w-12 h-12 mx-auto mb-2 text-[#936DFF] animate-pulse" />
-                      <p className="font-display text-xs uppercase tracking-widest text-[#936DFF]/60">Your Bet</p>
-                      <p className="font-display font-bold text-4xl text-[#FFFFFF] tracking-tighter">{currentBet} SOL</p>
-                      <p className="font-display text-[10px] uppercase tracking-widest text-[#936DFF]/40 mt-2">
-                        Total pot will be {(currentBet || 0) * 2} SOL
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Important: Tell dealer the bet amount (cross-browser) */}
-                  <div className="w-full p-4 rounded-xl bg-yellow-500/10 border border-yellow-500/30">
-                    <div className="flex items-center gap-3">
-                      <MessageCircle className="w-8 h-8 text-yellow-400 flex-shrink-0" />
-                      <div>
-                        <p className="text-sm font-medium text-yellow-400">
-                          Tell the dealer:
-                        </p>
-                        <p className="text-lg font-bold text-white">
-                          &ldquo;I bet {currentBet} SOL&rdquo;
+                <div className="p-8 bg-[#05010A] border border-[#936DFF]/30 relative overflow-hidden">
+                  <div className="absolute inset-0 bg-[#936DFF]/5 pointer-events-none"></div>
+                  
+                  {isDealer ? (
+                    /* Dealer View - Match the player's bet */
+                    <>
+                      <div className="text-center mb-8 relative z-10">
+                        <h1 className="font-display font-bold text-3xl uppercase tracking-widest text-white mb-2">
+                          Match Bet
+                        </h1>
+                        <p className="font-body text-[#B8B8CC] text-sm">
+                          A player has bet <span className="text-[#936DFF] font-bold">{playerBetAmount} SOL</span>.
+                          <br />
+                          Match it to start the game.
                         </p>
                       </div>
-                    </div>
-                  </div>
 
-                  <div className="flex items-center gap-2 text-sm text-gray-400">
-                    <div className="w-2 h-2 bg-purple-400 rounded-full animate-pulse" />
-                    <span>The dealer must match your bet to start the game</span>
-                  </div>
-                </>
-              )}
+                      <div className="w-full p-6 border border-[#936DFF] bg-[#05010A] relative overflow-hidden mb-8">
+                        <div className="absolute inset-0 bg-[#936DFF]/10 pointer-events-none"></div>
+                        <div className="text-center relative z-10">
+                          <Coins className="w-8 h-8 mx-auto mb-2 text-[#936DFF]" />
+                          <p className="font-display text-[10px] uppercase tracking-widest text-[#936DFF]/60">Player&apos;s Bet</p>
+                          <p className="font-display font-bold text-4xl text-white tracking-tighter">{playerBetAmount} SOL</p>
+                        </div>
+                      </div>
+
+                      <div className="relative z-10">
+                        <BetSelector
+                          mode="fixed"
+                          fixedAmount={playerBetAmount}
+                          onBetPlaced={handleDealerBetPlaced}
+                          disabled={loading}
+                          defaultPaymentMode="shadowwire"
+                        />
+                      </div>
+
+                      {error && (
+                        <div className="mt-6 p-4 bg-red-500/10 border border-red-500/20 text-center">
+                          <p className="text-red-400 text-xs font-mono">{error}</p>
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    /* Player View - Waiting for dealer */
+                    <>
+                      <div className="text-center mb-8 relative z-10">
+                        <h1 className="font-display font-bold text-3xl uppercase tracking-widest text-white mb-2">
+                          Bet Placed
+                        </h1>
+                        <p className="font-body text-[#B8B8CC] text-sm">
+                          Waiting for dealer to match...
+                        </p>
+                      </div>
+
+                      <div className="w-full p-6 border border-[#936DFF] bg-[#05010A] relative overflow-hidden mb-8">
+                        <div className="absolute inset-0 bg-[#936DFF]/10 pointer-events-none"></div>
+                        <div className="text-center relative z-10">
+                          <Clock className="w-8 h-8 mx-auto mb-2 text-[#936DFF] animate-pulse" />
+                          <p className="font-display text-[10px] uppercase tracking-widest text-[#936DFF]/60">Your Bet</p>
+                          <p className="font-display font-bold text-4xl text-white tracking-tighter">{currentBet} SOL</p>
+                          <p className="font-display text-[10px] uppercase tracking-widest text-[#936DFF]/40 mt-2">
+                            Total pot: {(currentBet || 0) * 2} SOL
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="w-full p-4 bg-[#936DFF]/10 border border-[#936DFF]/30 relative z-10">
+                        <div className="flex items-center gap-4">
+                          <MessageCircle className="w-6 h-6 text-[#936DFF] flex-shrink-0" />
+                          <div>
+                            <p className="font-display text-[10px] uppercase tracking-widest text-[#936DFF]/60">
+                              Tell the dealer:
+                            </p>
+                            <p className="font-display font-bold text-lg text-white tracking-wide">
+                              &ldquo;I bet {currentBet} SOL&rdquo;
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="mt-6 flex items-center justify-center gap-2 text-[10px] uppercase tracking-widest text-[#B8B8CC]/60">
+                        <div className="w-1.5 h-1.5 bg-[#936DFF] rounded-full animate-pulse" />
+                        <span>Waiting for match</span>
+                      </div>
+                    </>
+                  )}
+                </div>
+              </div>
             </div>
           </BlurFade>
         ) : (
           /* Game Table */
-          <div className="flex flex-col gap-6">
+          <div className="flex flex-col gap-8 relative z-10 max-w-6xl mx-auto">
+            
             {/* Game Info Bar */}
-            <div className="flex flex-wrap justify-between items-center gap-4 p-4 border border-[#936DFF] bg-[#05010A] relative overflow-hidden">
-              <div className="absolute inset-0 bg-[#936DFF]/5 pointer-events-none"></div>
-              <div className="flex items-center gap-2 relative z-10">
-                <span className="font-display text-xs uppercase tracking-widest text-[#B8B8CC]">Game:</span>
-                <span className="font-mono text-[#936DFF] text-xs">
-                  {gameId}
-                </span>
-                <button
-                  onClick={copyGameCode}
-                  className="p-1 hover:bg-[#936DFF]/20 rounded transition-colors"
-                  title="Copy Game Code"
-                >
-                  {copied ? (
-                    <Check className="w-4 h-4 text-[#936DFF]" />
-                  ) : (
-                    <Copy className="w-4 h-4 text-[#B8B8CC]" />
-                  )}
-                </button>
+            <div className="flex flex-wrap justify-between items-center gap-4 p-4 border-y-2 border-[#936DFF] bg-[#05010A]/80 backdrop-blur-md relative">
+              <div className="flex items-center gap-4">
+                <div className="flex flex-col">
+                  <span className="font-display text-[10px] uppercase tracking-widest text-[#B8B8CC]">Game ID</span>
+                  <div className="flex items-center gap-2">
+                    <span className="font-mono text-[#936DFF] text-sm">{gameId}</span>
+                    <button
+                      onClick={copyGameCode}
+                      className="text-[#B8B8CC] hover:text-white transition-colors"
+                    >
+                      {copied ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
+                    </button>
+                  </div>
+                </div>
               </div>
-              <div className="flex items-center gap-2 relative z-10">
-                {/* Bet Amount Display */}
+
+              <div className="flex items-center gap-6">
                 {currentBet && (
-                  <span className="px-2 py-1 text-[10px] font-display uppercase tracking-widest bg-[#936DFF]/10 text-[#936DFF] border border-[#936DFF] flex items-center gap-1">
-                    <Coins className="w-3 h-3" />
-                    {currentBet} SOL
-                  </span>
+                  <div className="flex flex-col items-end">
+                    <span className="font-display text-[10px] uppercase tracking-widest text-[#B8B8CC]">Current Bet</span>
+                    <span className="font-display font-bold text-[#936DFF] flex items-center gap-1">
+                      <Coins className="w-3 h-3" />
+                      {currentBet} SOL
+                    </span>
+                  </div>
                 )}
-                {zkDeckCommitment && (
-                  <span className="px-2 py-1 text-[10px] font-display uppercase tracking-widest bg-[#936DFF]/10 text-[#936DFF] border border-[#936DFF]">
-                    ZK Active
+                
+                <div className="h-8 w-px bg-[#936DFF]/30"></div>
+
+                <div className="flex flex-col items-end">
+                  <span className="font-display text-[10px] uppercase tracking-widest text-[#B8B8CC]">Role</span>
+                  <span className={cn(
+                    "font-display font-bold uppercase tracking-widest text-sm",
+                    isDealer ? "text-[#C049FF]" : "text-[#FFFFFF]"
+                  )}>
+                    {isDealer ? "Dealer" : "Player"}
                   </span>
-                )}
-                <span
-                  className={cn(
-                    "px-3 py-1 text-[10px] font-display uppercase tracking-widest border",
-                    isDealer
-                      ? "bg-[#936DFF]/20 text-[#936DFF] border-[#936DFF]"
-                      : "bg-[#FFFFFF]/10 text-[#FFFFFF] border-[#FFFFFF]/20"
-                  )}
-                >
-                  {isDealer ? "Dealer" : "Player"}
-                </span>
+                </div>
               </div>
+
               {txSignature && (
                 <a
                   href={`https://explorer.solana.com/tx/${txSignature}?cluster=devnet`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex items-center gap-1 text-[10px] font-display uppercase tracking-widest text-[#936DFF] hover:text-[#FFFFFF] relative z-10"
+                  className="absolute top-0 right-0 -mt-6 text-[10px] font-display uppercase tracking-widest text-[#936DFF] hover:text-white flex items-center gap-1"
                 >
                   <ExternalLink className="w-3 h-3" />
-                  View TX
+                  View Transaction
                 </a>
               )}
             </div>
 
-            {/* Proof Progress (during game creation) */}
-            <AnimatePresence>
-              {(proofPhase || proofError) && (
-                <ProofProgress phase={proofPhase} error={proofError} />
-              )}
-            </AnimatePresence>
-
-            {/* Turn Indicator */}
-            {!isGameOver && !proofPhase && (
-              <TurnIndicator
-                gameState={gameState}
-                isDealer={isDealer}
-                cardsDealt={cardsDealt}
-                playerJoined={playerJoined}
-              />
-            )}
-
-            {/* Error Display */}
-            {error && (
-              <div className="p-4 rounded-xl bg-red-500/10 border border-red-500/20">
-                <p className="text-red-400 text-sm">{error}</p>
+            {/* --- MAIN GAME TABLE --- */}
+            <div className="relative w-full aspect-[3/4] md:aspect-[16/9] border-2 border-[#936DFF] rounded-[3rem] bg-[#05010A] overflow-hidden flex flex-col justify-between p-8 md:p-12">
+              {/* Table Felt Texture/Gradient */}
+              <div className="absolute inset-0 bg-gradient-to-b from-[#936DFF]/5 via-transparent to-[#936DFF]/5 pointer-events-none"></div>
+              
+              {/* Center Logo Watermark */}
+              <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 opacity-5 pointer-events-none">
+                <h1 className="font-display font-bold text-[15vw] text-[#936DFF] tracking-tighter">UMBRA</h1>
               </div>
-            )}
 
-            {/* Game Code Share (Dealer waiting for player) */}
-            {isDealer && gameState === GAME_STATES.AWAITING_PLAYER && (
-              <div className="p-4 rounded-xl bg-purple-500/10 border border-purple-500/20">
-                <p className="text-sm text-gray-400 mb-2">Share this code with a friend:</p>
-                <div className="flex items-center gap-2">
-                  <code className="flex-1 p-3 bg-black/50 rounded-lg text-xs text-purple-400 font-mono break-all">
-                    {getGameCode()}
-                  </code>
-                  <button
-                    onClick={copyGameCode}
-                    className="p-3 bg-purple-600 hover:bg-purple-500 rounded-lg transition-colors"
-                  >
-                    {copied ? (
-                      <Check className="w-5 h-5" />
-                    ) : (
-                      <Copy className="w-5 h-5" />
-                    )}
-                  </button>
+              {/* DEALER SECTION (TOP) */}
+              <div className="flex flex-col items-center gap-4 relative z-10">
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="font-display font-bold text-sm uppercase tracking-widest text-[#B8B8CC]">Dealer</span>
+                  {gameData?.dealer && (
+                    <span className="font-mono text-[10px] text-[#936DFF] opacity-60">
+                      {gameData.dealer.slice(0, 4)}...{gameData.dealer.slice(-4)}
+                    </span>
+                  )}
+                </div>
+                
+                <div className="flex gap-4 justify-center min-h-[140px] items-center perspective-1000">
+                  {dealerCards.length === 0 ? (
+                    <>
+                      <CardSlot />
+                      <CardSlot />
+                    </>
+                  ) : (
+                    dealerCards.map((_, index) =>
+                      dealerRevealed[index] !== undefined ? (
+                        <PlayingCard
+                          key={index}
+                          value={dealerRevealed[index] % 13}
+                          suit={SUITS[Math.floor(dealerRevealed[index] / 13)]}
+                          delay={index * 0.2}
+                        />
+                      ) : (
+                        <HiddenCard key={index} delay={index * 0.2} />
+                      )
+                    )
+                  )}
+                </div>
+                
+                {dealerRevealed.length > 0 && (
+                  <AnimatedValue value={calculateHandValue(dealerRevealed)} isPlayer={false} />
+                )}
+              </div>
+
+              {/* CENTER AREA (Turn Indicator, Result, Messages) */}
+              <div className="flex-1 flex flex-col items-center justify-center gap-6 relative z-10 my-4">
+                <AnimatePresence>
+                  {(proofPhase || proofError) && (
+                    <ProofProgress phase={proofPhase} error={proofError} />
+                  )}
+                </AnimatePresence>
+
+                {!isGameOver && !proofPhase && (
+                  <TurnIndicator
+                    gameState={gameState}
+                    isDealer={isDealer}
+                    cardsDealt={cardsDealt}
+                    playerJoined={playerJoined}
+                  />
+                )}
+
+                <AnimatePresence>
+                  {isGameOver && (
+                    <div className="flex justify-center">
+                      {renderGameResult()}
+                    </div>
+                  )}
+                </AnimatePresence>
+
+                {error && (
+                  <div className="px-4 py-2 bg-red-500/10 border border-red-500/20 rounded-lg">
+                    <p className="text-red-400 text-xs font-mono text-center">{error}</p>
+                  </div>
+                )}
+
+                {isDealer && gameState === GAME_STATES.AWAITING_PLAYER && (
+                  <div className="flex flex-col items-center gap-2 bg-[#936DFF]/10 border border-[#936DFF]/30 p-4 rounded-xl backdrop-blur-sm">
+                    <p className="font-display text-[10px] uppercase tracking-widest text-[#B8B8CC]">Share Code</p>
+                    <div className="flex items-center gap-2">
+                      <code className="font-mono text-[#936DFF] text-sm">{getGameCode()}</code>
+                      <button onClick={copyGameCode} className="text-white hover:text-[#936DFF]">
+                        {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* PLAYER SECTION (BOTTOM) */}
+              <div className="flex flex-col items-center gap-4 relative z-10">
+                {playerRevealed.length > 0 && (
+                  <AnimatedValue value={calculateHandValue(playerRevealed)} isPlayer={true} />
+                )}
+
+                <div className="flex gap-4 justify-center min-h-[140px] items-center perspective-1000">
+                  {playerCards.length === 0 ? (
+                    <>
+                      <CardSlot />
+                      <CardSlot />
+                    </>
+                  ) : (
+                    playerCards.map((_, index) =>
+                      playerRevealed[index] !== undefined ? (
+                        <PlayingCard
+                          key={index}
+                          value={playerRevealed[index] % 13}
+                          suit={SUITS[Math.floor(playerRevealed[index] / 13)]}
+                          delay={index * 0.2}
+                        />
+                      ) : !isDealer ? (
+                        <PendingCard key={index} delay={index * 0.2} />
+                      ) : (
+                        <HiddenCard key={index} delay={index * 0.2} />
+                      )
+                    )
+                  )}
+                </div>
+
+                <div className="flex items-center gap-2 mt-2">
+                  <span className="font-display font-bold text-sm uppercase tracking-widest text-[#FFFFFF]">You</span>
+                  {gameData?.player && (
+                    <span className="font-mono text-[10px] text-[#B8B8CC] opacity-60">
+                      {gameData.player.slice(0, 4)}...{gameData.player.slice(-4)}
+                    </span>
+                  )}
                 </div>
               </div>
-            )}
-
-            {/* Dealer Section */}
-            <div className="flex flex-col items-center gap-4 p-6 border border-[#936DFF]/30 bg-[#05010A] relative">
-              <div className="absolute top-0 left-0 px-2 py-1 bg-[#936DFF] text-[#05010A] font-display text-[10px] uppercase tracking-widest font-bold">
-                Dealer
-              </div>
-              <h2 className="font-display font-bold text-lg uppercase tracking-widest text-[#FFFFFF] mt-2">
-                Dealer's Hand
-                {gameData?.dealer && (
-                  <span className="text-[10px] ml-2 text-[#B8B8CC] font-mono tracking-normal opacity-60">
-                    ({gameData.dealer.slice(0, 4)}...{gameData.dealer.slice(-4)})
-                  </span>
-                )}
-              </h2>
-              <div className="flex gap-3 flex-wrap justify-center min-h-[140px] items-center">
-                {dealerCards.length === 0 ? (
-                  <>
-                    <CardSlot />
-                    <CardSlot />
-                  </>
-                ) : (
-                  dealerCards.map((_, index) =>
-                    dealerRevealed[index] !== undefined ? (
-                      <PlayingCard
-                        key={index}
-                        value={dealerRevealed[index] % 13}
-                        suit={SUITS[Math.floor(dealerRevealed[index] / 13)]}
-                        delay={index * 0.2}
-                      />
-                    ) : (
-                      <HiddenCard key={index} delay={index * 0.2} />
-                    )
-                  )
-                )}
-              </div>
-              {dealerRevealed.length > 0 && (
-                <AnimatedValue value={calculateHandValue(dealerRevealed)} isPlayer={false} />
-              )}
-            </div>
-
-            {/* Game Result */}
-            <AnimatePresence>
-              {isGameOver && (
-                <div className="flex justify-center py-4">
-                  {renderGameResult()}
-                </div>
-              )}
-            </AnimatePresence>
-
-            {/* Player Section */}
-            <div className="flex flex-col items-center gap-4 p-6 border border-[#936DFF]/30 bg-[#05010A] relative">
-              <div className="absolute top-0 right-0 px-2 py-1 bg-[#FFFFFF] text-[#05010A] font-display text-[10px] uppercase tracking-widest font-bold">
-                You
-              </div>
-              <h2 className="font-display font-bold text-lg uppercase tracking-widest text-[#FFFFFF] mt-2">
-                Player's Hand
-                {gameData?.player && (
-                  <span className="text-[10px] ml-2 text-[#B8B8CC] font-mono tracking-normal opacity-60">
-                    ({gameData.player.slice(0, 4)}...{gameData.player.slice(-4)})
-                  </span>
-                )}
-              </h2>
-              <div className="flex gap-3 flex-wrap justify-center min-h-[140px] items-center">
-                {playerCards.length === 0 ? (
-                  <>
-                    <CardSlot />
-                    <CardSlot />
-                  </>
-                ) : (
-                  playerCards.map((_, index) =>
-                    playerRevealed[index] !== undefined ? (
-                      <PlayingCard
-                        key={index}
-                        value={playerRevealed[index] % 13}
-                        suit={SUITS[Math.floor(playerRevealed[index] / 13)]}
-                        delay={index * 0.2}
-                      />
-                    ) : !isDealer ? (
-                      <PendingCard key={index} delay={index * 0.2} />
-                    ) : (
-                      <HiddenCard key={index} delay={index * 0.2} />
-                    )
-                  )
-                )}
-              </div>
-              {playerRevealed.length > 0 && (
-                <AnimatedValue value={calculateHandValue(playerRevealed)} isPlayer={true} />
-              )}
             </div>
 
             {/* Action Buttons */}
-            <div className="flex flex-wrap justify-center gap-4 mt-4">
+            <div className="flex flex-wrap justify-center gap-4 mt-4 relative z-20">
               {/* Dealer: Verify Shuffle (retry, only if proof data available) */}
               {isDealer && gameState === GAME_STATES.CREATED && shuffleProofData && (
                 <button
                   onClick={handleVerifyShuffle}
                   disabled={loading}
-                  className="group relative px-6 py-3 border-2 border-[#936DFF] overflow-hidden"
+                  className="group relative px-6 py-3 border-2 border-[#936DFF] bg-[#05010A] overflow-hidden hover:border-white transition-colors"
                 >
                   <span className="relative z-10 flex items-center gap-2 font-display font-bold text-sm uppercase tracking-widest text-[#FFFFFF] group-hover:text-[#05010A] transition-colors duration-300">
                     {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Shield className="w-5 h-5" />}
@@ -1784,10 +1876,10 @@ export default function GamePage() {
                 <button
                   onClick={handleDealCards}
                   disabled={loading}
-                  className="group relative px-6 py-3 border-2 border-[#936DFF] overflow-hidden"
+                  className="group relative px-8 py-4 border-2 border-[#936DFF] bg-[#05010A] overflow-hidden hover:border-white transition-colors"
                 >
-                  <span className="relative z-10 flex items-center gap-2 font-display font-bold text-sm uppercase tracking-widest text-[#FFFFFF] group-hover:text-[#05010A] transition-colors duration-300">
-                    {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Play className="w-5 h-5" />}
+                  <span className="relative z-10 flex items-center gap-2 font-display font-bold text-lg uppercase tracking-widest text-[#FFFFFF] group-hover:text-[#05010A] transition-colors duration-300">
+                    {loading ? <Loader2 className="w-6 h-6 animate-spin" /> : <Play className="w-6 h-6" />}
                     Deal Cards
                   </span>
                   <div className="absolute inset-0 bg-[#936DFF] transform -translate-x-full group-hover:translate-x-0 transition-transform duration-300 ease-in-out"></div>
@@ -1800,13 +1892,13 @@ export default function GamePage() {
                   <button
                     onClick={handleHit}
                     disabled={loading}
-                    className="group relative px-6 py-3 border-2 border-[#936DFF] overflow-hidden"
+                    className="group relative px-8 py-4 border-2 border-[#936DFF] bg-[#05010A] overflow-hidden hover:border-white transition-colors"
                   >
-                    <span className="relative z-10 flex items-center gap-2 font-display font-bold text-sm uppercase tracking-widest text-[#FFFFFF] group-hover:text-[#05010A] transition-colors duration-300">
+                    <span className="relative z-10 flex items-center gap-2 font-display font-bold text-lg uppercase tracking-widest text-[#FFFFFF] group-hover:text-[#05010A] transition-colors duration-300">
                       {loading ? (
-                        <Loader2 className="w-5 h-5 animate-spin" />
+                        <Loader2 className="w-6 h-6 animate-spin" />
                       ) : (
-                        <Hand className="w-5 h-5" />
+                        <Hand className="w-6 h-6" />
                       )}
                       Hit
                     </span>
@@ -1815,13 +1907,13 @@ export default function GamePage() {
                   <button
                     onClick={handleStand}
                     disabled={loading}
-                    className="group relative px-6 py-3 border-2 border-[#FFFFFF] overflow-hidden"
+                    className="group relative px-8 py-4 border-2 border-[#FFFFFF] bg-[#05010A] overflow-hidden hover:border-[#936DFF] transition-colors"
                   >
-                    <span className="relative z-10 flex items-center gap-2 font-display font-bold text-sm uppercase tracking-widest text-[#FFFFFF] group-hover:text-[#05010A] transition-colors duration-300">
+                    <span className="relative z-10 flex items-center gap-2 font-display font-bold text-lg uppercase tracking-widest text-[#FFFFFF] group-hover:text-[#05010A] transition-colors duration-300">
                       {loading ? (
-                        <Loader2 className="w-5 h-5 animate-spin" />
+                        <Loader2 className="w-6 h-6 animate-spin" />
                       ) : (
-                        <Square className="w-5 h-5" />
+                        <Square className="w-6 h-6" />
                       )}
                       Stand
                     </span>
@@ -1830,13 +1922,13 @@ export default function GamePage() {
                   <button
                     onClick={handleDouble}
                     disabled={loading || playerCards.length > 2}
-                    className="group relative px-6 py-3 border-2 border-[#936DFF] overflow-hidden"
+                    className="group relative px-8 py-4 border-2 border-[#936DFF] bg-[#05010A] overflow-hidden hover:border-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    <span className="relative z-10 flex items-center gap-2 font-display font-bold text-sm uppercase tracking-widest text-[#FFFFFF] group-hover:text-[#05010A] transition-colors duration-300">
+                    <span className="relative z-10 flex items-center gap-2 font-display font-bold text-lg uppercase tracking-widest text-[#FFFFFF] group-hover:text-[#05010A] transition-colors duration-300">
                       {loading ? (
-                        <Loader2 className="w-5 h-5 animate-spin" />
+                        <Loader2 className="w-6 h-6 animate-spin" />
                       ) : (
-                        <CopyPlus className="w-5 h-5" />
+                        <CopyPlus className="w-6 h-6" />
                       )}
                       Double
                     </span>
@@ -1850,10 +1942,10 @@ export default function GamePage() {
                 <button
                   onClick={handleDealerPlayTurn}
                   disabled={loading}
-                  className="group relative px-6 py-3 border-2 border-[#936DFF] overflow-hidden"
+                  className="group relative px-8 py-4 border-2 border-[#936DFF] bg-[#05010A] overflow-hidden hover:border-white transition-colors"
                 >
-                  <span className="relative z-10 flex items-center gap-2 font-display font-bold text-sm uppercase tracking-widest text-[#FFFFFF] group-hover:text-[#05010A] transition-colors duration-300">
-                    {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Zap className="w-5 h-5" />}
+                  <span className="relative z-10 flex items-center gap-2 font-display font-bold text-lg uppercase tracking-widest text-[#FFFFFF] group-hover:text-[#05010A] transition-colors duration-300">
+                    {loading ? <Loader2 className="w-6 h-6 animate-spin" /> : <Zap className="w-6 h-6" />}
                     Play Dealer Turn
                   </span>
                   <div className="absolute inset-0 bg-[#936DFF] transform -translate-x-full group-hover:translate-x-0 transition-transform duration-300 ease-in-out"></div>
@@ -1878,36 +1970,35 @@ export default function GamePage() {
                       onClick={handlePayout}
                       disabled={loading}
                       className={cn(
-                        "flex items-center gap-2 px-6 py-3 rounded-xl",
-                        "bg-gradient-to-r from-green-600 to-emerald-600",
-                        "hover:from-green-500 hover:to-emerald-500",
-                        "transition-colors duration-300",
-                        "disabled:opacity-50"
+                        "flex items-center gap-2 px-8 py-4 border-2 border-[#22c55e] bg-[#05010A] overflow-hidden group relative"
                       )}
                     >
-                      {loading ? (
-                        <Loader2 className="w-5 h-5 animate-spin" />
-                      ) : (
-                        <Gift className="w-5 h-5" />
-                      )}
-                      Claim {(gameState === GAME_STATES.PLAYER_WON || gameState === GAME_STATES.DEALER_WON) ? currentBet * 2 : currentBet} SOL
+                      <span className="relative z-10 flex items-center gap-2 font-display font-bold text-lg uppercase tracking-widest text-[#22c55e] group-hover:text-[#05010A] transition-colors duration-300">
+                        {loading ? (
+                          <Loader2 className="w-6 h-6 animate-spin" />
+                        ) : (
+                          <Gift className="w-6 h-6" />
+                        )}
+                        Claim {(gameState === GAME_STATES.PLAYER_WON || gameState === GAME_STATES.DEALER_WON) ? currentBet * 2 : currentBet} SOL
+                      </span>
+                      <div className="absolute inset-0 bg-[#22c55e] transform -translate-x-full group-hover:translate-x-0 transition-transform duration-300 ease-in-out"></div>
                     </motion.button>
                   )}
 
                   {/* Show payout success */}
                   {payoutProcessed && currentBet && (
-                    <div className="flex items-center gap-2 px-6 py-3 border border-[#936DFF] bg-[#936DFF]/10 text-[#936DFF] font-display text-sm uppercase tracking-widest">
-                      <Check className="w-5 h-5" />
+                    <div className="flex items-center gap-2 px-8 py-4 border border-[#936DFF] bg-[#936DFF]/10 text-[#936DFF] font-display text-sm uppercase tracking-widest">
+                      <Check className="w-6 h-6" />
                       Payout Claimed!
                     </div>
                   )}
 
                   <button
                     onClick={handleNewGame}
-                    className="group relative px-6 py-3 border-2 border-[#FFFFFF] overflow-hidden"
+                    className="group relative px-8 py-4 border-2 border-[#FFFFFF] bg-[#05010A] overflow-hidden hover:border-[#936DFF] transition-colors"
                   >
-                    <span className="relative z-10 flex items-center gap-2 font-display font-bold text-sm uppercase tracking-widest text-[#FFFFFF] group-hover:text-[#05010A] transition-colors duration-300">
-                      <RefreshCw className="w-5 h-5" />
+                    <span className="relative z-10 flex items-center gap-2 font-display font-bold text-lg uppercase tracking-widest text-[#FFFFFF] group-hover:text-[#05010A] transition-colors duration-300">
+                      <RefreshCw className="w-6 h-6" />
                       New Game
                     </span>
                     <div className="absolute inset-0 bg-[#FFFFFF] transform -translate-x-full group-hover:translate-x-0 transition-transform duration-300 ease-in-out"></div>
@@ -1918,11 +2009,11 @@ export default function GamePage() {
 
             {/* Debug Panel */}
             {gameData && (
-              <details className="mt-8 p-4 rounded-xl bg-white/5 border border-white/10">
-                <summary className="cursor-pointer text-gray-400 text-sm">
+              <details className="mt-12 p-4 rounded-xl bg-white/5 border border-white/10 max-w-2xl mx-auto">
+                <summary className="cursor-pointer text-[#B8B8CC] text-xs font-display uppercase tracking-widest hover:text-white transition-colors">
                   Debug: Game Account Data
                 </summary>
-                <pre className="mt-4 text-xs text-gray-500 overflow-auto">
+                <pre className="mt-4 text-[10px] text-[#936DFF] font-mono overflow-auto bg-black/50 p-4 rounded-lg">
                   {JSON.stringify(gameData, null, 2)}
                 </pre>
               </details>
