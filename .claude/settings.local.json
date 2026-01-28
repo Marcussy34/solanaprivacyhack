@@ -84,7 +84,11 @@
       "Bash(pip3 install:*)",
       "Skill(confident-executor)",
       "Bash(git push:*)",
-      "Bash(npm ls:*)"
+      "Bash(npm ls:*)",
+      "Bash(git rev-parse:*)",
+      "Bash(npm run sync-circuits:*)",
+      "Bash(grep:*)",
+      "Bash(echo:*)"
     ]
   },
   "outputStyle": "Explanatory"
