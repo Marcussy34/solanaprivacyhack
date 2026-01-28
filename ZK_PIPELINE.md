@@ -207,7 +207,55 @@ See [Section 5: Rebuilding Artifacts](#5-rebuilding-artifacts-github-workflow) f
 
 ---
 
-### 4.2 Error: "Proof verification failed on-chain"
+### 4.2 Error: "InvalidVerifier" or "Invalid verifier program ID"
+
+**Root Cause:** The Anchor program has hardcoded verifier IDs that don't match the deployed verifiers.
+
+**This happens when:**
+1. You deployed new verifiers (new `.so` files from workflow)
+2. But the Anchor program (`zk-card-arena`) still has the OLD verifier IDs
+
+**Diagnosis:**
+```bash
+# Check verifier IDs in Anchor program
+grep "declare_id!" programs/zk-card-arena/src/lib.rs | head -4
+
+# Check your deployed verifier addresses
+solana address -k solana-verifiers/shuffle_proof_verifier-keypair.json
+solana address -k solana-verifiers/deal_proof_verifier-keypair.json
+solana address -k solana-verifiers/reveal_proof_verifier-keypair.json
+```
+
+**Fix:**
+1. Update verifier IDs in `programs/zk-card-arena/src/lib.rs`:
+   ```rust
+   mod shuffle_verifier {
+       use super::*;
+       declare_id!("<NEW_SHUFFLE_VERIFIER_ID>");
+   }
+   mod deal_verifier {
+       use super::*;
+       declare_id!("<NEW_DEAL_VERIFIER_ID>");
+   }
+   mod reveal_verifier {
+       use super::*;
+       declare_id!("<NEW_REVEAL_VERIFIER_ID>");
+   }
+   ```
+2. Update `hooks/useGameProgram.js` with the same IDs
+3. Update `CLAUDE.md` deployed programs table
+4. Rebuild and redeploy the Anchor program:
+   ```bash
+   anchor build
+   solana program deploy target/deploy/zk_card_arena.so \
+     --program-id 8Da8a3Q9GLYuxYLXPtxKiAedZZbx5DUQCuG8TPY1dLnx
+   ```
+
+> ⚠️ **Important:** When you deploy new verifiers, you MUST also update and redeploy the main Anchor program.
+
+---
+
+### 4.3 Error: "Proof verification failed on-chain"
 
 **Root Cause:** The verifier program on Solana doesn't match the proving key used.
 
@@ -218,17 +266,27 @@ ls -la solana-verifiers/target/*.vk
 ```
 
 **Fix:**
-1. Trigger GitHub workflow with **"Deploy to devnet"** checkbox enabled
-2. After workflow completes, note the new program IDs from the workflow summary
-3. Update program IDs in:
-   - `CLAUDE.md` (Deployed Programs table)
-   - `hooks/useGameProgram.js` (IDL program addresses)
-
-> ⚠️ `sunspot deploy` cannot run locally - use the GitHub workflow.
+1. Deploy new verifiers using keypairs from repo (for consistent IDs)
+2. Or trigger GitHub workflow with **"Deploy to devnet"** checkbox enabled
 
 ---
 
-### 4.3 Error: "Circuit X not found" in browser
+### 4.4 Error: "account data too small for instruction"
+
+**Root Cause:** Program binary grew larger than allocated on-chain space.
+
+**Fix:**
+```bash
+# Extend the program account (add 50KB)
+solana program extend <PROGRAM_ID> 50000
+
+# Then deploy
+solana program deploy target/deploy/zk_card_arena.so --program-id <PROGRAM_ID>
+```
+
+---
+
+### 4.5 Error: "Circuit X not found" in browser
 
 **Root Cause:** `public/*.json` is missing or corrupted.
 
@@ -245,7 +303,7 @@ npm run sync-circuits
 
 ---
 
-### 4.4 Error: "Constraint count mismatch"
+### 4.6 Error: "Constraint count mismatch"
 
 **Root Cause:** Using incompatible versions of Noir compiler or Poseidon library.
 
@@ -488,10 +546,13 @@ solanaprivacyhack/
 │       ├── *.pk                     # Proving keys (from workflow)
 │       └── *.vk                     # Verifying keys (from workflow)
 │
+├── programs/zk-card-arena/src/
+│   └── lib.rs                       # ⚠️ Anchor program (has hardcoded verifier IDs!)
+│
 ├── hooks/
 │   ├── useZK.js                     # NoirJS witness generation
 │   ├── useZKGame.js                 # Combined ZK + game state
-│   └── useGameProgram.js            # Anchor program interactions
+│   └── useGameProgram.js            # ⚠️ Verifier IDs must match lib.rs!
 │
 ├── scripts/
 │   └── sync-circuits.mjs            # Copies target/*.json → public/
@@ -517,18 +578,33 @@ When encountering ZK-related errors:
    └── YES → Missing public/*.json
        └── Run: npm run sync-circuits (works locally)
 
-3. Is the error "Proof verification failed on-chain"?
-   └── YES → Verifier mismatch
-       └── TRIGGER GITHUB WORKFLOW with "Deploy to devnet" checked
+3. Is the error "InvalidVerifier" or "Invalid verifier program ID"?
+   └── YES → Anchor program has OLD verifier IDs
+       └── Update verifier IDs in THREE places:
+           1. programs/zk-card-arena/src/lib.rs (declare_id! macros)
+           2. hooks/useGameProgram.js (VERIFIER_PROGRAM_ID constants)
+           3. CLAUDE.md (Deployed Programs table)
+       └── Then rebuild and redeploy Anchor program:
+           anchor build && solana program deploy target/deploy/zk_card_arena.so
 
-4. Is the error about constraint counts?
+4. Is the error "Proof verification failed on-chain"?
+   └── YES → Verifier program doesn't match proving key
+       └── Deploy new verifiers using keypairs from repo
+
+5. Is the error "account data too small"?
+   └── YES → Program binary grew larger
+       └── Run: solana program extend <PROGRAM_ID> 50000
+       └── Then retry deploy
+
+6. Is the error about constraint counts?
    └── YES → Version mismatch
        └── Check nargo --version and Poseidon version in Nargo.toml
 
-5. Need to rebuild Sunspot artifacts (.ccs, .pk, .vk)?
+7. Need to rebuild Sunspot artifacts (.ccs, .pk, .vk)?
    └── YES → TRIGGER GITHUB WORKFLOW
        └── Download artifacts after completion
-       └── Copy to solana-verifiers/target/
+       └── Copy .ccs to circuits/target/
+       └── Copy .pk/.vk to solana-verifiers/target/
 ```
 
 ### Critical Reminder for AI Agents
@@ -539,7 +615,10 @@ These commands will fail due to toolchain version mismatches. Always direct the 
 1. Push circuit changes to `main` branch, OR
 2. Manually trigger the GitHub workflow at Actions → "Build Sunspot Verifiers"
 
+**When deploying new verifiers, ALWAYS update the Anchor program too!**
+The verifier IDs are hardcoded in `programs/zk-card-arena/src/lib.rs` for security.
+
 ---
 
-*Last updated: January 2026*
+*Last updated: January 28, 2026*
 *For ZK Card Arena - Solana Privacy Hackathon*
