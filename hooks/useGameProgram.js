@@ -34,10 +34,10 @@ function fieldTo32Bytes(fieldHex) {
   return bytes;
 }
 
-// Sunspot Groth16 verifier program IDs (deployed Jan 23 2026, match solana-verifiers/target/*.pk keys)
-const SHUFFLE_VERIFIER_PROGRAM_ID = new PublicKey("2JWc376XNQPb9U9uB3mCQ18jEB7T6YNNZGSUVEiTDSe5");
-const DEAL_VERIFIER_PROGRAM_ID = new PublicKey("5HfaKytyH4xVqm5neRppStKaGb98zLj3swHz6RwRjh4B");
-const REVEAL_VERIFIER_PROGRAM_ID = new PublicKey("3DqP6VN9ummyE1Hjk31VpmW3DR64eRX8r4vG522bBTNV");
+// Sunspot Groth16 verifier program IDs (deployed Jan 28 2026 for 13-card deck)
+const SHUFFLE_VERIFIER_PROGRAM_ID = new PublicKey("F5W3HDqnZaqCUaGkFFypSxzWA3XBCnBK6yyGymk81ViJ");
+const DEAL_VERIFIER_PROGRAM_ID = new PublicKey("5zPYh2Fvt34mLHQuCjUmBEwRSzAkzwzLcYSrrRmzdtPz");
+const REVEAL_VERIFIER_PROGRAM_ID = new PublicKey("9sag96gkAhSZCFQweJVw9AocMvMXzS9B2yi1oruF81oH");
 
 // IDL imported directly (smaller than full IDL, just what we need)
 const IDL = {

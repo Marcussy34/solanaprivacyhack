@@ -135,30 +135,57 @@ jobs:
         run: |
           export PATH="$HOME/sunspot/go:$PATH"
           cd $GITHUB_WORKSPACE/circuits
-          
+
+          # Check if we have existing keypairs in the repo (for consistent program IDs)
+          VERIFIERS_DIR="$GITHUB_WORKSPACE/solana-verifiers"
+
           # Build shuffle verifier
           echo "Building shuffle_proof verifier..."
           sunspot deploy target/shuffle_proof.vk
-          # Sunspot outputs to target/<circuit_name>.so, rename to *_verifier.so
           mv target/shuffle_proof.so shuffle_proof_verifier.so
-          mv target/shuffle_proof-keypair.json shuffle_proof_verifier-keypair.json
-          
+          # Use existing keypair if available, otherwise use generated one
+          if [ -f "$VERIFIERS_DIR/shuffle_proof_verifier-keypair.json" ]; then
+            echo "Using existing shuffle keypair from repo"
+            cp "$VERIFIERS_DIR/shuffle_proof_verifier-keypair.json" shuffle_proof_verifier-keypair.json
+          else
+            echo "Using newly generated shuffle keypair"
+            mv target/shuffle_proof-keypair.json shuffle_proof_verifier-keypair.json
+          fi
+
           # Build deal verifier
           echo "Building deal_proof verifier..."
           sunspot deploy target/deal_proof.vk
           mv target/deal_proof.so deal_proof_verifier.so
-          mv target/deal_proof-keypair.json deal_proof_verifier-keypair.json
-          
+          if [ -f "$VERIFIERS_DIR/deal_proof_verifier-keypair.json" ]; then
+            echo "Using existing deal keypair from repo"
+            cp "$VERIFIERS_DIR/deal_proof_verifier-keypair.json" deal_proof_verifier-keypair.json
+          else
+            echo "Using newly generated deal keypair"
+            mv target/deal_proof-keypair.json deal_proof_verifier-keypair.json
+          fi
+
           # Build reveal verifier
           echo "Building reveal_proof verifier..."
           sunspot deploy target/reveal_proof.vk
           mv target/reveal_proof.so reveal_proof_verifier.so
-          mv target/reveal_proof-keypair.json reveal_proof_verifier-keypair.json
-          
+          if [ -f "$VERIFIERS_DIR/reveal_proof_verifier-keypair.json" ]; then
+            echo "Using existing reveal keypair from repo"
+            cp "$VERIFIERS_DIR/reveal_proof_verifier-keypair.json" reveal_proof_verifier-keypair.json
+          else
+            echo "Using newly generated reveal keypair"
+            mv target/reveal_proof-keypair.json reveal_proof_verifier-keypair.json
+          fi
+
           # List generated verifiers
           echo "Generated verifier files:"
           ls -lh *_verifier.so
           ls -lh *_verifier-keypair.json
+
+          # Show program IDs
+          echo "Program IDs:"
+          solana address -k shuffle_proof_verifier-keypair.json
+          solana address -k deal_proof_verifier-keypair.json
+          solana address -k reveal_proof_verifier-keypair.json
 
       - name: Upload Verifier Artifacts
         uses: actions/upload-artifact@v4
@@ -169,6 +196,7 @@ jobs:
             circuits/*_verifier-keypair.json
             circuits/target/*.vk
             circuits/target/*.pk
+            circuits/target/*.ccs
           retention-days: 30
 
       - name: Deploy to Solana Devnet (Optional)

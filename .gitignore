@@ -46,8 +46,10 @@ nul
 !/target/idl/
 /target/deploy/*.so
 
-# Anchor keypairs (NEVER commit private keys)
+# Anchor keypairs (NEVER commit wallet/deployer private keys)
 *-keypair.json
+# Exception: verifier program keypairs are safe to commit (just program addresses)
+!solana-verifiers/*-keypair.json
 
 # Claude local files
 .claude/agents/
@@ -66,9 +68,9 @@ public_inputs
 Verifier.toml
 Prover.toml
 
-# Solana verifier build artifacts (large binary files)
+# Solana verifier build artifacts (large binary files - download from workflow)
 solana-verifiers/*.so
-solana-verifiers/*-keypair.json
+# Note: keypairs are tracked (see exception above) for consistent program IDs
 solana-verifiers/target/*.pk
 solana-verifiers/target/*.vk
 solana-verifiers/target/*.json

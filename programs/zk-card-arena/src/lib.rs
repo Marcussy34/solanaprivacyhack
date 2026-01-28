@@ -4,20 +4,20 @@ use anchor_lang::solana_program::program::invoke;
 
 declare_id!("22BfrTbAzVmwENnyfzk6rFtPaNvCmaATbeWaJKKoqkK4");
 
-/// Sunspot Groth16 verifier program IDs (deployed Jan 28 2026, match circuits/target/*.pk keys)
+/// Sunspot Groth16 verifier program IDs (deployed Jan 28 2026 for 13-card deck)
 mod shuffle_verifier {
     use super::*;
-    declare_id!("2JWc376XNQPb9U9uB3mCQ18jEB7T6YNNZGSUVEiTDSe5");
+    declare_id!("F5W3HDqnZaqCUaGkFFypSxzWA3XBCnBK6yyGymk81ViJ");
 }
 
 mod deal_verifier {
     use super::*;
-    declare_id!("5HfaKytyH4xVqm5neRppStKaGb98zLj3swHz6RwRjh4B");
+    declare_id!("5zPYh2Fvt34mLHQuCjUmBEwRSzAkzwzLcYSrrRmzdtPz");
 }
 
 mod reveal_verifier {
     use super::*;
-    declare_id!("3DqP6VN9ummyE1Hjk31VpmW3DR64eRX8r4vG522bBTNV");
+    declare_id!("9sag96gkAhSZCFQweJVw9AocMvMXzS9B2yi1oruF81oH");
 }
 
 #[program]
