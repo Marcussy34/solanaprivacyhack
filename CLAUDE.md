@@ -95,6 +95,10 @@ Frontend (Browser)           Backend/CLI               Solana (On-chain)
 | Smart Contracts | Anchor 0.31.1 |
 | Blockchain | Solana devnet |
 
+## ZK Pipeline Documentation
+
+> **See [ZK_PIPELINE.md](./ZK_PIPELINE.md) for comprehensive documentation** on the ZK proof pipeline, including artifact dependencies, common errors (like witness size mismatches), and rebuild procedures.
+
 ## Critical Constraints
 
 ### Pinned Dependencies
