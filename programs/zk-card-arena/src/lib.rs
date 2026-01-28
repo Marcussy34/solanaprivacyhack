@@ -7,17 +7,17 @@ declare_id!("8Da8a3Q9GLYuxYLXPtxKiAedZZbx5DUQCuG8TPY1dLnx");
 /// Sunspot Groth16 verifier program IDs (deployed Jan 23 2026, match solana-verifiers/target/*.pk keys)
 mod shuffle_verifier {
     use super::*;
-    declare_id!("BUQqPUUzMUh3AYGj3G8besXgHkuJHUBrAAYAXmgZxxr4");
+    declare_id!("32c6utZGS8K5cwqR4vGmAZo5u2Tcy4wQgbFqfMdcwN93");
 }
 
 mod deal_verifier {
     use super::*;
-    declare_id!("8pPU6qbcnq3bGnMmo9NXchS3GnNMvHuFozgm6XqcAzrq");
+    declare_id!("Fkh5E9gTnFaoWwn799p5B9p9KkQWob8y6ryUUrLJ71Vg");
 }
 
 mod reveal_verifier {
     use super::*;
-    declare_id!("4PvFgvbeSVCGkVW1sSR2aNksBcU2a4DQjhYvP55bQCY8");
+    declare_id!("GoMihxYDN1igngbgAYesUa3PBVSVSyYRAQ6xbsrjuMYM");
 }
 
 #[program]

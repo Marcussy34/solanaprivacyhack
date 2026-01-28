@@ -6,9 +6,9 @@ skip-lint = false
 
 [programs.devnet]
 zk_card_arena = "8Da8a3Q9GLYuxYLXPtxKiAedZZbx5DUQCuG8TPY1dLnx"
-shuffle_verifier = "BUQqPUUzMUh3AYGj3G8besXgHkuJHUBrAAYAXmgZxxr4"
-deal_verifier = "8pPU6qbcnq3bGnMmo9NXchS3GnNMvHuFozgm6XqcAzrq"
-reveal_verifier = "4PvFgvbeSVCGkVW1sSR2aNksBcU2a4DQjhYvP55bQCY8"
+shuffle_verifier = "32c6utZGS8K5cwqR4vGmAZo5u2Tcy4wQgbFqfMdcwN93"
+deal_verifier = "Fkh5E9gTnFaoWwn799p5B9p9KkQWob8y6ryUUrLJ71Vg"
+reveal_verifier = "GoMihxYDN1igngbgAYesUa3PBVSVSyYRAQ6xbsrjuMYM"
 
 [registry]
 url = "https://api.apr.dev"
