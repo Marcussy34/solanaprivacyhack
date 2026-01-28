@@ -56,11 +56,18 @@ nul
 .claude/settings.local.json
 
 # Noir/Barretenberg artifacts
-/circuits/target/
-/circuits/*/target/
+# Ignore circuits/target/ EXCEPT critical deployment files
+/circuits/target/*
+# Keep: compiled circuits, keys, and keypairs for deployment consistency
+!/circuits/target/*.json
+!/circuits/target/*.ccs
+!/circuits/target/*.pk
+!/circuits/target/*.vk
+!/circuits/target/*-keypair.json
+
+# Ignore temporary proof/witness files
 *.proof
 *.witness
-*.gz
 proof
 vk
 vk_hash
@@ -68,11 +75,10 @@ public_inputs
 Verifier.toml
 Prover.toml
 
-# Solana verifier build artifacts (large binary files - download from workflow)
+# Solana verifier build artifacts
 solana-verifiers/*.so
-# Note: keypairs are tracked (see exception above) for consistent program IDs
-solana-verifiers/target/*.pk
-solana-verifiers/target/*.vk
-solana-verifiers/target/*.json
-solana-verifiers/target/*.ccs
-solana-verifiers/target/*.gz
+# Keep target/ deployment files for team sharing
+solana-verifiers/target/*
+!/solana-verifiers/target/*.pk
+!/solana-verifiers/target/*.vk
+!/solana-verifiers/target/*-keypair.json
