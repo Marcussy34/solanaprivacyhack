@@ -110,6 +110,7 @@ function PaymentProgress({ status }) {
  * @param {number} minAmount - Minimum for custom input (default: 0.1)
  * @param {number} maxAmount - Maximum for custom input (default: 10.0)
  * @param {string} defaultPaymentMode - 'test' | 'shadowwire' (default: 'test')
+ * @param {string} dealerAddress - Dealer's wallet address to receive payment (defaults to HOUSE_WALLET)
  */
 export function BetSelector({
   onBetPlaced,
@@ -119,6 +120,7 @@ export function BetSelector({
   minAmount = 0.1,
   maxAmount = 10.0,
   defaultPaymentMode = "test",
+  dealerAddress = null,
 }) {
   const {
     connected,
@@ -246,9 +248,11 @@ export function BetSelector({
           simulated: true,
         };
       } else {
-        // SHADOWWIRE MODE: Real private payment via ShadowPay
+        // SHADOWWIRE MODE: Real private payment via ShadowWire
+        // Payment goes directly to dealer's wallet (not a privacy pool)
         const resourceUrl = `${window.location.origin}/game?bet=${Date.now()}`;
-        result = await pay(HOUSE_WALLET, betAmount, resourceUrl);
+        const recipient = dealerAddress || HOUSE_WALLET;
+        result = await pay(recipient, betAmount, resourceUrl);
       }
 
       // Notify parent component with bet details including payment mode
