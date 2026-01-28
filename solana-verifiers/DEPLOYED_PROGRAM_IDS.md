@@ -8,35 +8,44 @@
 
 | Verifier | Program ID |
 |----------|------------|
-| **Shuffle Proof** | `6sju9HLJTFfESLn49wAR2hqiC6mnu3MrP2K9WDbkjCL2` |
-| **Deal Proof** | `Epoxbrv1Pc2XeYR2xsKsqm3Gy1j2MbkBx4yHfkg8yuSC` |
-| **Reveal Proof** | `HrETBH5nTa3DTVjBFWMdytLtuX9GsFwiAGkkyQAXnMt9` |
+| **Shuffle Proof** | `F5W3HDqnZaqCUaGkFFypSxzWA3XBCnBK6yyGymk81ViJ` |
+| **Deal Proof** | `5zPYh2Fvt34mLHQuCjUmBEwRSzAkzwzLcYSrrRmzdtPz` |
+| **Reveal Proof** | `9sag96gkAhSZCFQweJVw9AocMvMXzS9B2yi1oruF81oH` |
 
 ## Rust Constants (for Anchor Program)
 
 ```rust
-use solana_program::pubkey;
+mod shuffle_verifier {
+    use super::*;
+    declare_id!("F5W3HDqnZaqCUaGkFFypSxzWA3XBCnBK6yyGymk81ViJ");
+}
 
-pub const SHUFFLE_VERIFIER_PROGRAM_ID: Pubkey = pubkey!("6sju9HLJTFfESLn49wAR2hqiC6mnu3MrP2K9WDbkjCL2");
-pub const DEAL_VERIFIER_PROGRAM_ID: Pubkey = pubkey!("Epoxbrv1Pc2XeYR2xsKsqm3Gy1j2MbkBx4yHfkg8yuSC");
-pub const REVEAL_VERIFIER_PROGRAM_ID: Pubkey = pubkey!("HrETBH5nTa3DTVjBFWMdytLtuX9GsFwiAGkkyQAXnMt9");
+mod deal_verifier {
+    use super::*;
+    declare_id!("5zPYh2Fvt34mLHQuCjUmBEwRSzAkzwzLcYSrrRmzdtPz");
+}
+
+mod reveal_verifier {
+    use super::*;
+    declare_id!("9sag96gkAhSZCFQweJVw9AocMvMXzS9B2yi1oruF81oH");
+}
 ```
 
 ## JavaScript/TypeScript Constants (for Frontend)
 
 ```typescript
 export const VERIFIER_PROGRAM_IDS = {
-  shuffle: '6sju9HLJTFfESLn49wAR2hqiC6mnu3MrP2K9WDbkjCL2',
-  deal: 'Epoxbrv1Pc2XeYR2xsKsqm3Gy1j2MbkBx4yHfkg8yuSC',
-  reveal: 'HrETBH5nTa3DTVjBFWMdytLtuX9GsFwiAGkkyQAXnMt9',
+  shuffle: 'F5W3HDqnZaqCUaGkFFypSxzWA3XBCnBK6yyGymk81ViJ',
+  deal: '5zPYh2Fvt34mLHQuCjUmBEwRSzAkzwzLcYSrrRmzdtPz',
+  reveal: '9sag96gkAhSZCFQweJVw9AocMvMXzS9B2yi1oruF81oH',
 } as const;
 ```
 
 ## Solana Explorer Links
 
-- [Shuffle Verifier](https://explorer.solana.com/address/6sju9HLJTFfESLn49wAR2hqiC6mnu3MrP2K9WDbkjCL2?cluster=devnet)
-- [Deal Verifier](https://explorer.solana.com/address/Epoxbrv1Pc2XeYR2xsKsqm3Gy1j2MbkBx4yHfkg8yuSC?cluster=devnet)
-- [Reveal Verifier](https://explorer.solana.com/address/HrETBH5nTa3DTVjBFWMdytLtuX9GsFwiAGkkyQAXnMt9?cluster=devnet)
+- [Shuffle Verifier](https://explorer.solana.com/address/F5W3HDqnZaqCUaGkFFypSxzWA3XBCnBK6yyGymk81ViJ?cluster=devnet)
+- [Deal Verifier](https://explorer.solana.com/address/5zPYh2Fvt34mLHQuCjUmBEwRSzAkzwzLcYSrrRmzdtPz?cluster=devnet)
+- [Reveal Verifier](https://explorer.solana.com/address/9sag96gkAhSZCFQweJVw9AocMvMXzS9B2yi1oruF81oH?cluster=devnet)
 
 ## Deployment Cost
 
