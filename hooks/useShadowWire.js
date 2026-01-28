@@ -1,7 +1,7 @@
 /**
- * useShadowPay - ShadowWire Privacy Payment Hook
+ * useShadowWire - ShadowWire Privacy Payment Hook
  *
- * Integrates ShadowWire for private betting deposits in ZK Card Arena.
+ * Integrates ShadowWire SDK (@radr/shadowwire) for private betting deposits in ZK Card Arena.
  * Demo mode: ShadowWire deposits, direct Solana payouts (saves costs).
  *
  * Flow:
@@ -43,7 +43,7 @@ let HOUSE_WALLET;
 try {
   HOUSE_WALLET = new PublicKey(HOUSE_WALLET_ADDRESS);
 } catch {
-  console.error('[ShadowPay] Invalid HOUSE_WALLET_ADDRESS, using fallback');
+  console.error('[ShadowWire] Invalid HOUSE_WALLET_ADDRESS, using fallback');
   HOUSE_WALLET = new PublicKey('BzfKZnxJwsbP5BWy7tb5KFYNuHKcUXDecEX7b2h4eE14');
 }
 
@@ -121,7 +121,7 @@ async function getShadowWireClient() {
 // MAIN HOOK
 // =============================================================================
 
-export function useShadowPay() {
+export function useShadowWire() {
   const { connection } = useConnection();
   const { publicKey, sendTransaction, signTransaction, signMessage, wallet, connected } = useWallet();
 
@@ -149,9 +149,9 @@ export function useShadowPay() {
       setIsClientReady(true);
       setUsingShadowWire(!!client);
       if (client) {
-        console.log('[ShadowPay] Privacy payments enabled via ShadowWire');
+        console.log('[ShadowWire] Privacy payments enabled');
       } else {
-        console.log('[ShadowPay] Using direct Solana transfers (fallback mode)');
+        console.log('[ShadowWire] Using direct Solana transfers (fallback mode)');
       }
     });
   }, []);
@@ -167,10 +167,10 @@ export function useShadowPay() {
       const balance = await connection.getBalance(publicKey);
       const solBalance = balance / LAMPORTS_PER_SOL;
       setEscrowBalance(solBalance);
-      console.log('[ShadowPay] Wallet balance:', solBalance.toFixed(4), 'SOL');
+      console.log('[ShadowWire] Wallet balance:', solBalance.toFixed(4), 'SOL');
       return solBalance;
     } catch (err) {
-      console.error('[ShadowPay] getBalance error:', err);
+      console.error('[ShadowWire] getBalance error:', err);
       return 0;
     }
   }, [publicKey, connection]);
@@ -187,7 +187,7 @@ export function useShadowPay() {
     setError(null);
 
     try {
-      console.log('[ShadowPay] Depositing', amount, 'SOL to house wallet');
+      console.log('[ShadowWire] Depositing', amount, 'SOL to house wallet');
       const result = await pay(HOUSE_WALLET.toString(), amount, 'deposit');
       setStatus(PaymentStatus.COMPLETE);
       return result.txSignature;
@@ -206,7 +206,7 @@ export function useShadowPay() {
   const pay = useCallback(async (recipientAddress, amount, resourceUrl = '') => {
     if (!publicKey) throw new Error('Wallet not connected');
 
-    console.log(`[ShadowPay] Initiating payment: ${amount} SOL to ${recipientAddress}`);
+    console.log(`[ShadowWire] Initiating payment: ${amount} SOL to ${recipientAddress}`);
 
     setStatus(PaymentStatus.CHECKING_BALANCE);
     setError(null);
@@ -229,7 +229,7 @@ export function useShadowPay() {
       // DEMO MODE: Skip deposit if sender === recipient (same wallet)
       // =========================================================================
       if (publicKey.toString() === recipientAddress) {
-        console.log('[ShadowPay] Demo mode: Sender is house wallet, simulating deposit');
+        console.log('[ShadowWire] Demo mode: Sender is house wallet, simulating deposit');
         const simulatedResult = {
           txSignature: 'demo-self-deposit-' + Date.now(),
           paymentId: 'demo-self-deposit-' + Date.now(),
@@ -247,7 +247,6 @@ export function useShadowPay() {
       }
 
       // =========================================================================
-      // =========================================================================
       // SHADOWWIRE PRIVACY TRANSFER (with safe fallback)
       // =========================================================================
       // Strategy: Try ShadowWire ONLY if pool already has balance (no new deposits)
@@ -264,41 +263,127 @@ export function useShadowPay() {
           try {
             console.log('[ShadowWire] Attempting private transfer...');
 
-            // Create wallet wrapper for ShadowWire
-            const walletForShadowWire = {
-              publicKey: publicKey,
+            // Create wallet wrapper for ShadowWire transfer (SDK expects { signMessage } only)
+            const walletForTransfer = {
               signMessage: async (message) => {
-                console.log('[ShadowWire] Requesting message signature...');
+                console.log('[ShadowWire] Requesting message signature for transfer auth...');
                 return await signMessage(message);
-              },
-              signTransaction: async (tx) => {
-                console.log('[ShadowWire] Requesting transaction signature...');
-                return await signTransaction(tx);
               },
             };
 
-            // Check existing pool balance (DON'T deposit - just use what's there)
+            // Check existing pool balance
             const poolBalance = await client.getBalance(publicKey.toString(), 'SOL');
-            const availableSOL = (poolBalance?.available || 0) / LAMPORTS_PER_SOL;
+            let availableSOL = (poolBalance?.available || 0) / LAMPORTS_PER_SOL;
             console.log('[ShadowWire] Existing pool balance:', availableSOL.toFixed(4), 'SOL');
 
-            // Only try ShadowWire if pool has enough balance already
-            if (availableSOL >= amount) {
-              console.log('[ShadowWire] Pool has sufficient balance, attempting transfer...');
-              shadowWireAttempted = true;
+            // If pool balance is insufficient, deposit first
+            if (availableSOL < amount) {
+              console.log('[ShadowWire] Pool balance insufficient, depositing first...');
+              setStatus(PaymentStatus.DEPOSITING);
 
+              try {
+                // Deposit the required amount to the ShadowWire pool
+                const depositAmountLamports = Math.round(amount * LAMPORTS_PER_SOL);
+                console.log('[ShadowWire] Depositing', amount, 'SOL to privacy pool...');
+
+                // Step 1: Request deposit - returns unsigned transaction
+                const depositResult = await client.deposit({
+                  wallet: publicKey.toString(), // Must be string address, not object!
+                  amount: depositAmountLamports,
+                });
+
+                console.log('[ShadowWire] Deposit response:', JSON.stringify(depositResult));
+
+                if (depositResult.unsigned_tx_base64) {
+                  // Step 2: Deserialize the unsigned transaction
+                  const txBuffer = Buffer.from(depositResult.unsigned_tx_base64, 'base64');
+                  const depositTx = Transaction.from(txBuffer);
+
+                  // Step 3: Sign the transaction
+                  console.log('[ShadowWire] Signing deposit transaction...');
+                  depositTx.feePayer = publicKey;
+                  const { blockhash } = await connection.getLatestBlockhash();
+                  depositTx.recentBlockhash = blockhash;
+
+                  const signedTx = await signTransaction(depositTx);
+
+                  // Step 4: Send the signed transaction to the network
+                  console.log('[ShadowWire] Sending deposit transaction...');
+                  const depositSig = await connection.sendRawTransaction(signedTx.serialize());
+                  await connection.confirmTransaction(depositSig, 'confirmed');
+
+                  console.log('[ShadowWire] Deposit confirmed:', depositSig);
+                  availableSOL = amount; // Now we have enough
+                } else if (depositResult.success) {
+                  // Some API versions might not require manual signing
+                  console.log('[ShadowWire] Deposit successful (server-side)!');
+                  availableSOL = amount;
+                } else {
+                  console.warn('[ShadowWire] Deposit failed:', depositResult.error || 'No unsigned_tx returned');
+                  console.warn('[ShadowWire] Falling back to direct transfer');
+                }
+              } catch (depositErr) {
+                console.warn('[ShadowWire] Deposit error:', depositErr.message);
+                console.warn('[ShadowWire] Falling back to direct transfer');
+              }
+            }
+
+            // =========================================================================
+            // STEP-BY-STEP: Wait for VERIFIED available balance before transfer
+            // Don't trust assumed values - only proceed when pool ACTUALLY has funds
+            // =========================================================================
+            const MAX_BALANCE_RETRIES = 15; // Max 15 attempts
+            const BALANCE_CHECK_INTERVAL = 2000; // 2 seconds between checks
+            let verifiedSOL = 0;
+            let balanceVerified = false;
+
+            console.log('[ShadowWire] Step 1: Waiting for pool balance to be available...');
+            console.log('[ShadowWire] Required:', amount, 'SOL | Max wait:', (MAX_BALANCE_RETRIES * BALANCE_CHECK_INTERVAL / 1000), 'seconds');
+
+            for (let attempt = 1; attempt <= MAX_BALANCE_RETRIES; attempt++) {
+              // Check ACTUAL available balance from ShadowWire API
+              const balanceCheck = await client.getBalance(publicKey.toString(), 'SOL');
+              verifiedSOL = (balanceCheck?.available || 0) / LAMPORTS_PER_SOL;
+              const depositedSOL = (balanceCheck?.deposited || 0) / LAMPORTS_PER_SOL;
+
+              console.log(`[ShadowWire] Attempt ${attempt}/${MAX_BALANCE_RETRIES}: available=${verifiedSOL.toFixed(4)} SOL, deposited=${depositedSOL.toFixed(4)} SOL, need=${amount} SOL`);
+
+              if (verifiedSOL >= amount) {
+                console.log('[ShadowWire] ✅ Pool balance VERIFIED sufficient!');
+                balanceVerified = true;
+                break;
+              }
+
+              if (attempt < MAX_BALANCE_RETRIES) {
+                console.log(`[ShadowWire] Balance not yet available, waiting ${BALANCE_CHECK_INTERVAL/1000}s...`);
+                await new Promise(resolve => setTimeout(resolve, BALANCE_CHECK_INTERVAL));
+              }
+            }
+
+            // Only proceed to transfer if balance is VERIFIED
+            if (balanceVerified && verifiedSOL >= amount) {
+              console.log('[ShadowWire] Step 2: Balance verified, proceeding with private transfer...');
+              shadowWireAttempted = true;
               setStatus(PaymentStatus.GENERATING_PROOF);
 
-              const payment = await client.transfer({
+              console.log('[ShadowWire] Calling transfer with params:', {
                 sender: publicKey.toString(),
                 recipient: recipientAddress,
                 amount: amount,
                 token: 'SOL',
-                type: 'external',
-                wallet: walletForShadowWire,
+                type: 'internal', // Full privacy mode (amount hidden)
               });
 
-              console.log('[ShadowWire] Transfer response:', JSON.stringify(payment));
+              const payment = await client.transfer({
+                sender: publicKey.toString(),
+                recipient: recipientAddress,
+                amount: amount, // SDK expects decimal SOL, not lamports
+                token: 'SOL',
+                type: 'internal', // Use 'internal' for full privacy (amount hidden with ZK proofs)
+                wallet: walletForTransfer, // SDK expects { signMessage } only
+              });
+
+              console.log('[ShadowWire] Transfer response:', JSON.stringify(payment, null, 2));
 
               if (payment.success) {
                 // SUCCESS! Use ShadowWire signature
@@ -308,18 +393,32 @@ export function useShadowPay() {
                 if (rawSig.includes(' ')) rawSig = rawSig.split(' ')[0];
                 txSignature = rawSig || 'shadowwire-' + Date.now();
 
-                console.log('[ShadowWire] Private transfer SUCCESS!');
+                console.log('[ShadowWire] ✅ Private transfer SUCCESS!');
+                console.log('[ShadowWire] Signature:', txSignature);
                 setStatus(PaymentStatus.SETTLING);
               } else {
-                // Transfer failed - will fallback to direct
-                console.warn('[ShadowWire] Transfer returned success:false, falling back to direct transfer');
-                console.warn('[ShadowWire] No funds lost - pool balance unchanged');
+                // Transfer failed - log error details
+                console.error('[ShadowWire] ❌ Transfer FAILED!');
+                console.error('[ShadowWire] Error message:', payment.error || payment.message || 'No error message');
+                console.error('[ShadowWire] Error code:', payment.code || payment.error_code || 'No error code');
+                console.error('[ShadowWire] Full response:', JSON.stringify(payment, null, 2));
+
+                // Check for specific error conditions
+                if (payment.error?.includes('insufficient') || payment.message?.includes('balance')) {
+                  console.error('[ShadowWire] Likely cause: Pool balance not yet reflected');
+                }
+                if (payment.error?.includes('auth') || payment.message?.includes('sign')) {
+                  console.error('[ShadowWire] Likely cause: Authentication/signing issue');
+                }
+
+                console.warn('[ShadowWire] Falling back to direct transfer');
                 txSignature = null;
               }
             } else {
-              // Not enough in pool - skip ShadowWire entirely (don't deposit)
-              console.log('[ShadowWire] Pool balance insufficient, skipping to direct transfer');
-              console.log('[ShadowWire] (Not depositing to avoid funds getting stuck)');
+              // Balance verification timed out - funds deposited but not yet available
+              console.warn('[ShadowWire] ⏱️ Balance verification timed out after', MAX_BALANCE_RETRIES, 'attempts');
+              console.warn('[ShadowWire] Deposited funds may take longer to become available');
+              console.warn('[ShadowWire] Falling back to direct transfer (your deposit is safe in the pool)');
             }
 
           } catch (shadowErr) {
@@ -338,7 +437,7 @@ export function useShadowPay() {
       // =========================================================================
       if (!txSignature) {
         setStatus(PaymentStatus.SETTLING);
-        console.log('[ShadowPay] Using direct Solana transfer');
+        console.log('[ShadowWire] Using direct Solana transfer');
         paymentMethod = 'direct';
 
         const transaction = new Transaction().add(
@@ -364,7 +463,7 @@ export function useShadowPay() {
           lastValidBlockHeight,
         }, 'confirmed');
 
-        console.log('[ShadowPay] Direct transfer confirmed:', txSignature);
+        console.log('[ShadowWire] Direct transfer confirmed:', txSignature);
       }
 
       // =========================================================================
@@ -384,11 +483,11 @@ export function useShadowPay() {
       setStatus(PaymentStatus.COMPLETE);
       await getBalance(); // Refresh balance
 
-      console.log(`[ShadowPay] Payment complete via ${paymentMethod}:`, txSignature);
+      console.log(`[ShadowWire] Payment complete via ${paymentMethod}:`, txSignature);
       return paymentResult;
 
     } catch (err) {
-      console.error('[ShadowPay] Payment error:', err);
+      console.error('[ShadowWire] Payment error:', err);
       setStatus(PaymentStatus.ERROR);
       setError(err.message);
       throw err;
@@ -402,8 +501,8 @@ export function useShadowPay() {
   const requestPayout = useCallback(async (amount) => {
     if (!publicKey) throw new Error('Wallet not connected');
 
-    console.log(`[ShadowPay] Requesting payout: ${amount} SOL to ${publicKey.toString()}`);
-    console.log('[ShadowPay] Note: Demo uses direct transfer. Production would use ShadowWire.');
+    console.log(`[ShadowWire] Requesting payout: ${amount} SOL to ${publicKey.toString()}`);
+    console.log('[ShadowWire] Note: Demo uses direct transfer. Production would use ShadowWire.');
 
     setStatus(PaymentStatus.SETTLING);
     setError(null);
@@ -424,7 +523,7 @@ export function useShadowPay() {
       if (!response.ok) {
         // If API returns error but has simulated flag, allow for demo
         if (result.simulated) {
-          console.log('[ShadowPay] Payout simulated (house wallet not configured)');
+          console.log('[ShadowWire] Payout simulated (house wallet not configured)');
           setStatus(PaymentStatus.COMPLETE);
           return {
             txSignature: 'demo-payout-' + Date.now(),
@@ -436,18 +535,18 @@ export function useShadowPay() {
         throw new Error(result.error || 'Payout request failed');
       }
 
-      console.log('[ShadowPay] Payout successful:', result);
+      console.log('[ShadowWire] Payout successful:', result);
       setStatus(PaymentStatus.COMPLETE);
       await getBalance(); // Refresh balance
 
       return result;
 
     } catch (err) {
-      console.error('[ShadowPay] Payout error:', err);
+      console.error('[ShadowWire] Payout error:', err);
 
       // For demo purposes, simulate success if API not available
       if (err.message.includes('fetch') || err.message.includes('network')) {
-        console.log('[ShadowPay] Payout API unavailable, simulating success for demo');
+        console.log('[ShadowWire] Payout API unavailable, simulating success for demo');
         setStatus(PaymentStatus.COMPLETE);
         return {
           txSignature: 'demo-payout-simulated-' + Date.now(),
@@ -463,6 +562,110 @@ export function useShadowPay() {
   }, [publicKey, getBalance]);
 
   // ===========================================================================
+  // DEPOSIT TO POOL (Direct deposit to ShadowWire privacy pool)
+  // ===========================================================================
+
+  const depositToPool = useCallback(async (amountSol) => {
+    if (!publicKey) {
+      throw new Error('Wallet not connected');
+    }
+
+    if (!IS_MAINNET) {
+      throw new Error('ShadowWire only works on mainnet-beta. Current network: ' + SOLANA_NETWORK);
+    }
+
+    setStatus(PaymentStatus.DEPOSITING);
+    setError(null);
+
+    try {
+      const client = await getShadowWireClient();
+      if (!client) {
+        throw new Error('ShadowWire SDK not available. Install with: npm install @radr/shadowwire');
+      }
+
+      // Convert SOL to lamports
+      const amountLamports = Math.round(amountSol * LAMPORTS_PER_SOL);
+
+      console.log('[ShadowWire] Depositing', amountSol, 'SOL to privacy pool...');
+      console.log('[ShadowWire] Amount in lamports:', amountLamports);
+
+      // Step 1: Request deposit - returns unsigned transaction
+      const depositResult = await client.deposit({
+        wallet: publicKey.toString(), // Must be string address, not object!
+        amount: amountLamports,
+      });
+
+      console.log('[ShadowWire] Deposit response:', JSON.stringify(depositResult));
+
+      if (depositResult.unsigned_tx_base64) {
+        // Step 2: Deserialize the unsigned transaction
+        const txBuffer = Buffer.from(depositResult.unsigned_tx_base64, 'base64');
+        const depositTx = Transaction.from(txBuffer);
+
+        // Step 3: Sign the transaction
+        if (!signTransaction) {
+          throw new Error('Wallet does not support signTransaction');
+        }
+
+        console.log('[ShadowWire] Signing deposit transaction...');
+        depositTx.feePayer = publicKey;
+        const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash();
+        depositTx.recentBlockhash = blockhash;
+
+        const signedTx = await signTransaction(depositTx);
+
+        // Step 4: Send the signed transaction to the network
+        console.log('[ShadowWire] Sending deposit transaction...');
+        const depositSig = await connection.sendRawTransaction(signedTx.serialize());
+
+        // Confirm transaction
+        await connection.confirmTransaction({
+          signature: depositSig,
+          blockhash,
+          lastValidBlockHeight,
+        }, 'confirmed');
+
+        console.log('[ShadowWire] ✅ Deposit confirmed:', depositSig);
+
+        setStatus(PaymentStatus.COMPLETE);
+        await getBalance(); // Refresh wallet balance
+
+        return {
+          success: true,
+          signature: depositSig,
+          amount: amountSol,
+          method: 'shadowwire',
+        };
+
+      } else if (depositResult.success) {
+        // Some API versions might not require manual signing
+        console.log('[ShadowWire] ✅ Deposit successful (server-side)!');
+        setStatus(PaymentStatus.COMPLETE);
+        await getBalance();
+
+        return {
+          success: true,
+          signature: depositResult.tx_signature || 'shadowwire-deposit-' + Date.now(),
+          amount: amountSol,
+          method: 'shadowwire',
+        };
+
+      } else {
+        throw new Error(depositResult.error || 'Deposit failed - no unsigned_tx returned');
+      }
+
+    } catch (err) {
+      console.error('[ShadowWire] Deposit to pool failed:', err);
+      setError(err.message);
+      setStatus(PaymentStatus.ERROR);
+      return {
+        success: false,
+        error: err.message,
+      };
+    }
+  }, [publicKey, connection, signTransaction, getBalance]);
+
+  // ===========================================================================
   // GET POOL BALANCE (ShadowWire escrow pool)
   // ===========================================================================
 
@@ -472,16 +675,16 @@ export function useShadowPay() {
     try {
       const client = await getShadowWireClient();
       if (!client) {
-        console.log('[ShadowPay] ShadowWire not available, pool balance = 0');
+        console.log('[ShadowWire] SDK not available, pool balance = 0');
         return 0;
       }
 
       const poolBalance = await client.getBalance(publicKey.toString(), 'SOL');
       const availableSOL = (poolBalance?.available || 0) / LAMPORTS_PER_SOL;
-      console.log('[ShadowPay] Pool balance:', availableSOL.toFixed(4), 'SOL');
+      console.log('[ShadowWire] Pool balance:', availableSOL.toFixed(4), 'SOL');
       return availableSOL;
     } catch (err) {
-      console.error('[ShadowPay] getPoolBalance error:', err);
+      console.error('[ShadowWire] getPoolBalance error:', err);
       return 0;
     }
   }, [publicKey]);
@@ -611,6 +814,7 @@ export function useShadowPay() {
     // Actions
     getBalance,
     getPoolBalance,
+    depositToPool,
     withdrawFromPool,
     deposit,
     pay,
@@ -623,4 +827,4 @@ export function useShadowPay() {
   };
 }
 
-export default useShadowPay;
+export default useShadowWire;

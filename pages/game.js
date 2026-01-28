@@ -9,7 +9,7 @@ import { BetSelector } from "../components/BetSelector";
 import { BlurFade } from "../components/ui/blur-fade";
 import { useGameProgram } from "../hooks/useGameProgram";
 import { useZKGame } from "../hooks/useZKGame";
-import { useShadowPay } from "../hooks/useShadowPay";
+import { useShadowWire } from "../hooks/useShadowWire";
 import { cn } from "../lib/utils";
 import { ArrowLeft, LogoStack } from "../components/arena/Icons";
 import { useTransition } from "../components/ui/PageTransition";
@@ -264,7 +264,7 @@ export default function GamePage() {
   } = useZKGame();
 
   // ShadowPay for private betting
-  const { requestPayout, escrowBalance, getBalance: refreshEscrowBalance } = useShadowPay();
+  const { requestPayout, escrowBalance, getBalance: refreshEscrowBalance } = useShadowWire();
 
   // Proof generation progress
   const [proofPhase, setProofPhase] = useState(null);

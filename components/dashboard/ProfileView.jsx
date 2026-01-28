@@ -4,7 +4,7 @@ import { LAMPORTS_PER_SOL } from '@solana/web3.js';
 import { Wallet, History, Trophy, TrendingUp, Plus, ArrowUpRight, Copy, Check, RefreshCw } from 'lucide-react';
 import { DepositModal } from './DepositModal';
 import { WithdrawModal } from './WithdrawModal';
-import { useShadowPay } from '../../hooks/useShadowPay';
+import { useShadowWire } from '../../hooks/useShadowWire';
 
 export const ProfileView = () => {
   const { connection } = useConnection();
@@ -12,8 +12,18 @@ export const ProfileView = () => {
   const [balance, setBalance] = useState(0);
   const [transactions, setTransactions] = useState([]);
 
-  // ShadowWire integration for pool withdrawal
-  const { withdrawFromPool, getPoolBalance, usingShadowWire } = useShadowPay();
+  // ShadowWire integration for pool deposit/withdrawal
+  const {
+    withdrawFromPool,
+    depositToPool,
+    getPoolBalance,
+    usingShadowWire,
+    IS_MAINNET,
+    isLoading: isShadowPayLoading,
+    status: shadowPayStatus,
+    error: shadowPayError,
+    clearError: clearShadowPayError,
+  } = useShadowWire();
   const [poolBalance, setPoolBalance] = useState(0);
   const [isLoadingPoolBalance, setIsLoadingPoolBalance] = useState(false);
 
@@ -81,10 +91,19 @@ export const ProfileView = () => {
 
   return (
     <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-      <DepositModal 
-        isOpen={isDepositModalOpen} 
-        onClose={() => setIsDepositModalOpen(false)} 
+      <DepositModal
+        isOpen={isDepositModalOpen}
+        onClose={() => setIsDepositModalOpen(false)}
         publicKey={publicKey}
+        onDeposit={depositToPool}
+        isMainnet={IS_MAINNET}
+        isLoading={isShadowPayLoading}
+        error={shadowPayError}
+        onClearError={clearShadowPayError}
+        onRefreshBalance={() => {
+          fetchPoolBalance();
+          connection.getBalance(publicKey).then(bal => setBalance(bal / LAMPORTS_PER_SOL));
+        }}
       />
       
       <WithdrawModal

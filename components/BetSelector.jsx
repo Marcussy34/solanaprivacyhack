@@ -18,7 +18,7 @@
 
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { useShadowPay, PaymentStatus } from "../hooks/useShadowPay";
+import { useShadowWire, PaymentStatus } from "../hooks/useShadowWire";
 import { cn } from "../lib/utils";
 import {
   Loader2,
@@ -135,7 +135,7 @@ export function BetSelector({
     SHADOWWIRE_ENABLED,
     usingShadowWire,
     IS_MAINNET,
-  } = useShadowPay();
+  } = useShadowWire();
 
   // Payment mode state: 'test' skips payment, 'shadowwire' uses real privacy payments
   const [paymentMode, setPaymentMode] = useState(defaultPaymentMode);

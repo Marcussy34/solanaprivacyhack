@@ -79,7 +79,7 @@ Frontend (Browser)           Backend/CLI               Solana (On-chain)
 
 | Program | Address |
 |---------|---------|
-| ZK Card Arena | `8Da8a3Q9GLYuxYLXPtxKiAedZZbx5DUQCuG8TPY1dLnx` |
+| ZK Card Arena | `22BfrTbAzVmwENnyfzk6rFtPaNvCmaATbeWaJKKoqkK4` |
 | Shuffle Verifier (Sunspot) | `6sju9HLJTFfESLn49wAR2hqiC6mnu3MrP2K9WDbkjCL2` |
 | Deal Verifier (Sunspot) | `Epoxbrv1Pc2XeYR2xsKsqm3Gy1j2MbkBx4yHfkg8yuSC` |
 | Reveal Verifier (Sunspot) | `HrETBH5nTa3DTVjBFWMdytLtuX9GsFwiAGkkyQAXnMt9` |
