@@ -169,6 +169,7 @@ jobs:
             circuits/*_verifier-keypair.json
             circuits/target/*.vk
             circuits/target/*.pk
+            circuits/target/*.ccs
           retention-days: 30
 
       - name: Deploy to Solana Devnet (Optional)
