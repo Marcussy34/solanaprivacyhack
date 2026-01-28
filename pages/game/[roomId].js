@@ -37,7 +37,8 @@ import {
 import { useGameRoom } from '../../hooks/useGameRoom';
 import { useZKGame } from '../../hooks/useZKGame';
 import { useGameProgram } from '../../hooks/useGameProgram';
-import { useShadowPay } from '../../hooks/useShadowPay';
+import { useShadowWire } from '../../hooks/useShadowWire';
+import { useSessionKey } from '../../hooks/useSessionKey';
 
 // Components
 import { BetModal } from '../../components/BetModal';
@@ -232,20 +233,49 @@ export default function GameRoom() {
 
   // On-chain program
   const {
+    program,
     createGame,
     verifyShuffle,
+    verifyShuffleWithSession, // Dealer auto-sign
     joinGame,
     dealInitialHand,
+    dealInitialHandWithSession, // Dealer auto-sign
     playerAction,
+    playerActionWithSession, // Session key auto-sign (no wallet popup!)
     dealerPlayTurn,
     dealerPlayTurnSequential,
+    dealerPlayTurnWithSession, // Dealer auto-sign (batched - may hit tx size limit)
+    dealerPlayTurnSequentialWithSession, // Dealer auto-sign (sequential - preferred)
+    revealCardWithSession, // Single card reveal with auto-sign
     fetchGame,
     revealCard,
-    connected: programConnected
+    getGamePda,
+    getDealerSessionPda,
+    connected: programConnected,
+    devnetConnection, // For session key funding (game runs on devnet!)
   } = useGameProgram();
 
   // ShadowPay for betting
-  const { pay, requestPayout, status: paymentStatus } = useShadowPay();
+  const { pay, requestPayout, status: paymentStatus } = useShadowWire();
+
+  // Session key for auto-signing (no wallet popups for hit/stand!)
+  // Pass devnetConnection so session funding goes to devnet (not mainnet!)
+  const {
+    // Player session (for hit/stand)
+    sessionKeypair,
+    sessionPDA,
+    isSessionValid,
+    createSession,
+    endSession,
+    isCreating: isCreatingSession,
+    // Dealer session (for shuffle/deal/reveal)
+    dealerSessionKeypair,
+    dealerSessionPDA,
+    isDealerSessionValid,
+    createDealerSession,
+    endDealerSession,
+    isCreatingDealerSession,
+  } = useSessionKey(program, devnetConnection);
 
   // Local state
   const [gameState, setGameState] = useState(GAME_STATES.LOADING);
@@ -614,16 +644,43 @@ export default function GameRoom() {
       const { tx: createTx } = await createGame(newGameId, zkResult.deckCommitment);
       console.log('[GameRoom] Game created:', createTx);
 
-      // Step 3: Verify shuffle proof on-chain
+      // Step 3: Create dealer session for auto-signing (no wallet popups!)
+      setProofPhase('Setting up dealer auto-sign...');
+      const gamePda = getGamePda(newGameId, publicKey.toBase58());
+      let dealerSession = null;
+      try {
+        dealerSession = await createDealerSession(gamePda);
+        console.log('[GameRoom] ✅ Dealer session created - dealer actions will auto-sign!');
+      } catch (sessionErr) {
+        // Session creation failed - game still works, just needs manual signing
+        console.warn('[GameRoom] Dealer session creation failed, will use manual signing:', sessionErr.message);
+      }
+
+      // Step 4: Verify shuffle proof on-chain (uses dealer session if valid)
       setProofPhase('Verifying shuffle proof...');
-      const { tx: verifyTx } = await verifyShuffle(
-        newGameId,
-        zkResult.proof,
-        zkResult.publicInputs
-      );
+      let verifyTx;
+      if (dealerSession?.keypair && dealerSession?.sessionPda) {
+        console.log('[GameRoom] Using dealer session for shuffle verification - no wallet popup!');
+        const result = await verifyShuffleWithSession(
+          newGameId,
+          zkResult.proof,
+          zkResult.publicInputs,
+          dealerSession.keypair,
+          dealerSession.sessionPda
+        );
+        verifyTx = result.tx;
+      } else {
+        // Fallback to wallet signing
+        const result = await verifyShuffle(
+          newGameId,
+          zkResult.proof,
+          zkResult.publicInputs
+        );
+        verifyTx = result.tx;
+      }
       console.log('[GameRoom] Shuffle verified:', verifyTx);
 
-      // Step 4: Save session for refresh recovery
+      // Step 5: Save session for refresh recovery
       setGameId(newGameId);
       const sessionData = {
         gameId: newGameId,
@@ -688,16 +745,32 @@ export default function GameRoom() {
 
       console.log('[GameRoom] Initial card values:', initialValues);
 
-      // Submit to chain
+      // Submit to chain (uses dealer session if valid for auto-sign)
       setProofPhase('Submitting to chain...');
-      await dealInitialHand(
-        gameId,
-        null,  // dealerPubkey - use default (wallet.publicKey)
-        commitments,
-        initialValues,
-        dealProof.proof,
-        dealProof.publicInputs
-      );
+      if (isDealerSessionValid && dealerSessionKeypair && dealerSessionPDA) {
+        console.log('[GameRoom] Using dealer session for dealing - no wallet popup!');
+        // Note: dealInitialHandWithSession does NOT take dealerPubkey (uses session keypair)
+        await dealInitialHandWithSession(
+          gameId,
+          commitments,          // cardCommitments
+          initialValues,        // initialCardValues
+          dealProof.proof,      // proof
+          dealProof.publicInputs, // publicInputs
+          dealerSessionKeypair,
+          dealerSessionPDA
+        );
+      } else {
+        // Fallback to wallet signing
+        console.log('[GameRoom] Using wallet for dealing');
+        await dealInitialHand(
+          gameId,
+          null,  // dealerPubkey - use default (wallet.publicKey)
+          commitments,
+          initialValues,
+          dealProof.proof,
+          dealProof.publicInputs
+        );
+      }
 
       // Update session
       const sessionData = {
@@ -763,6 +836,18 @@ export default function GameRoom() {
       // Set local gameId for state tracking
       setGameId(derivedGameId);
 
+      // Create session key for auto-signing (no wallet popups for hit/stand!)
+      try {
+        setProofPhase('Setting up auto-sign...');
+        const gamePda = getGamePda(derivedGameId, dealerPubkey);
+        await createSession(gamePda);
+        console.log('[GameRoom] ✅ Session created - game actions will auto-sign!');
+      } catch (sessionErr) {
+        // Session creation failed - game still works, just needs manual signing
+        console.warn('[GameRoom] Session creation failed, will use manual signing:', sessionErr.message);
+      }
+      setProofPhase(null);
+
       // Save bet info for dealer (also save to localStorage for same-browser fallback)
       savePlayerBet({
         amount,
@@ -783,7 +868,7 @@ export default function GameRoom() {
     }
   };
 
-  // Player hit
+  // Player hit (uses session key if available for auto-signing!)
   const handleHit = async () => {
     if (isDealer || !gameId || !gameData) return;
 
@@ -796,7 +881,15 @@ export default function GameRoom() {
 
     setIsProcessing(true);
     try {
-      await playerAction(gameId, 'hit', dealerPubkeyToUse);
+      // Use session key if available (no wallet popup!)
+      if (isSessionValid && sessionKeypair && sessionPDA) {
+        console.log('[GameRoom] Using session key for HIT - no wallet popup!');
+        await playerActionWithSession(gameId, 'hit', dealerPubkeyToUse, sessionKeypair, sessionPDA);
+      } else {
+        // Fallback to wallet signing
+        console.log('[GameRoom] Using wallet for HIT');
+        await playerAction(gameId, 'hit', dealerPubkeyToUse);
+      }
       const data = await fetchGame(gameId, dealerPubkeyToUse);
       setGameData(data);
     } catch (err) {
@@ -807,7 +900,7 @@ export default function GameRoom() {
     }
   };
 
-  // Player stand
+  // Player stand (uses session key if available for auto-signing!)
   const handleStand = async () => {
     if (isDealer || !gameId || !gameData) return;
 
@@ -820,7 +913,15 @@ export default function GameRoom() {
 
     setIsProcessing(true);
     try {
-      await playerAction(gameId, 'stand', dealerPubkeyToUse);
+      // Use session key if available (no wallet popup!)
+      if (isSessionValid && sessionKeypair && sessionPDA) {
+        console.log('[GameRoom] Using session key for STAND - no wallet popup!');
+        await playerActionWithSession(gameId, 'stand', dealerPubkeyToUse, sessionKeypair, sessionPDA);
+      } else {
+        // Fallback to wallet signing
+        console.log('[GameRoom] Using wallet for STAND');
+        await playerAction(gameId, 'stand', dealerPubkeyToUse);
+      }
       setGameState(GAME_STATES.DEALER_TURN);
       const data = await fetchGame(gameId, dealerPubkeyToUse);
       setGameData(data);
@@ -929,16 +1030,32 @@ export default function GameRoom() {
         publicInputsList.push(revealResult.publicInputs);
       }
 
-      // Submit dealer turn to chain (sequentially to avoid tx size limits)
+      // Submit dealer turn to chain (uses dealer session if valid for auto-sign)
+      // NOTE: Using SEQUENTIAL version to avoid transaction size limits with large proofs
       setProofPhase('Submitting dealer turn to chain...');
-      await dealerPlayTurnSequential(
-        gameId,
-        publicKey.toBase58(),
-        cardValues,
-        proofs,
-        publicInputsList,
-        (progress) => setProofPhase(`Revealing card ${progress.current}/${progress.total}...`)
-      );
+      if (isDealerSessionValid && dealerSessionKeypair && dealerSessionPDA) {
+        console.log('[GameRoom] Using dealer session for dealer turn (sequential) - no wallet popup!');
+        await dealerPlayTurnSequentialWithSession(
+          gameId,
+          cardValues,
+          proofs,
+          publicInputsList,
+          dealerSessionKeypair,
+          dealerSessionPDA,
+          (progress) => setProofPhase(`Revealing card ${progress.current}/${progress.total}...`)
+        );
+      } else {
+        // Fallback to sequential wallet signing
+        console.log('[GameRoom] Using wallet for dealer turn (sequential)');
+        await dealerPlayTurnSequential(
+          gameId,
+          publicKey.toBase58(),
+          cardValues,
+          proofs,
+          publicInputsList,
+          (progress) => setProofPhase(`Revealing card ${progress.current}/${progress.total}...`)
+        );
+      }
 
       // Fetch final game state
       const finalData = await fetchGame(gameId, publicKey.toBase58());
@@ -1074,6 +1191,26 @@ export default function GameRoom() {
     return () => clearTimeout(timeoutId);
   }, [isDealer, gameState, gameData?.winner, gameData?.player, gameData?.betAmount, payoutSent, currentBet, betFromUrl, handlePayout]);
 
+  // Clean up player session when game ends
+  useEffect(() => {
+    if (isDealer) return;
+    if (gameState !== GAME_STATES.GAME_OVER) return;
+    if (!isSessionValid) return;
+
+    console.log('[GameRoom] Game over - cleaning up player session');
+    endSession();
+  }, [isDealer, gameState, isSessionValid, endSession]);
+
+  // Clean up dealer session when game ends
+  useEffect(() => {
+    if (!isDealer) return;
+    if (gameState !== GAME_STATES.GAME_OVER) return;
+    if (!isDealerSessionValid) return;
+
+    console.log('[GameRoom] Game over - cleaning up dealer session');
+    endDealerSession();
+  }, [isDealer, gameState, isDealerSessionValid, endDealerSession]);
+
   // =========================================================================
   // RENDER
   // =========================================================================
@@ -1147,6 +1284,30 @@ export default function GameRoom() {
             <Coins className="w-4 h-4 text-[#936DFF]" />
             <span className="text-[#B8B8CC] text-xs font-display uppercase tracking-widest">Bet:</span>
             <span className="text-white font-mono text-sm">{currentBet} SOL</span>
+          </div>
+        )}
+        {/* Session Key Status - shows if auto-sign is active (Player) */}
+        {!isDealer && gameState !== GAME_STATES.LOADING && gameState !== GAME_STATES.WAITING_FOR_BET && (
+          <div className="flex items-center gap-2">
+            <div className={cn(
+              "w-2 h-2 rounded-full",
+              isSessionValid ? "bg-green-500 animate-pulse" : "bg-yellow-500"
+            )} />
+            <span className="text-[#B8B8CC] text-xs font-display uppercase tracking-widest">
+              {isSessionValid ? 'Auto-Sign' : 'Manual'}
+            </span>
+          </div>
+        )}
+        {/* Session Key Status - shows if auto-sign is active (Dealer) */}
+        {isDealer && gameState !== GAME_STATES.LOADING && (
+          <div className="flex items-center gap-2">
+            <div className={cn(
+              "w-2 h-2 rounded-full",
+              isDealerSessionValid ? "bg-green-500 animate-pulse" : "bg-yellow-500"
+            )} />
+            <span className="text-[#B8B8CC] text-xs font-display uppercase tracking-widest">
+              {isDealerSessionValid ? 'Auto-Sign' : 'Manual'}
+            </span>
           </div>
         )}
       </div>
@@ -1342,21 +1503,25 @@ export default function GameRoom() {
                   <div className="flex flex-col items-center gap-3 relative z-10 w-full px-4">
                     <span className="font-display font-bold text-sm uppercase tracking-widest text-[#B8B8CC]">Dealer</span>
                   <div className="flex flex-wrap gap-2 md:gap-3 justify-center min-h-[100px] sm:min-h-[120px] md:min-h-[140px] items-center w-full">
-                    {!gameData?.dealerCards?.length ? (
+                    {!gameData?.dealerCards?.length && !gameData?.dealerRevealed?.length ? (
                       <><CardSlot /><CardSlot /></>
                     ) : (
-                      gameData.dealerCards.map((_, index) =>
-                        gameData.dealerRevealed?.[index] !== undefined ? (
-                          <PlayingCard
-                            key={index}
-                            value={gameData.dealerRevealed[index] % 13}
-                            suit={SUITS[Math.floor(gameData.dealerRevealed[index] / 13)]}
-                            delay={index * 0.2}
-                          />
-                        ) : (
-                          <HiddenCard key={index} delay={index * 0.2} />
+                      // Show all dealer cards: use max of committed cards vs revealed cards
+                      // (dealer hits add to revealed but not to committed cards array)
+                      Array(Math.max(gameData?.dealerCards?.length || 0, gameData?.dealerRevealed?.length || 0))
+                        .fill(null)
+                        .map((_, index) =>
+                          gameData.dealerRevealed?.[index] !== undefined ? (
+                            <PlayingCard
+                              key={index}
+                              value={gameData.dealerRevealed[index] % 13}
+                              suit={SUITS[Math.floor(gameData.dealerRevealed[index] / 13)]}
+                              delay={index * 0.2}
+                            />
+                          ) : (
+                            <HiddenCard key={index} delay={index * 0.2} />
+                          )
                         )
-                      )
                     )}
                   </div>
                   {gameData?.dealerRevealed?.length > 0 && (
@@ -1474,21 +1639,25 @@ export default function GameRoom() {
                   <div className="flex flex-col items-center gap-3 relative z-10 w-full px-4">
                     <span className="font-display font-bold text-sm uppercase tracking-widest text-[#C049FF]">Dealer&apos;s Turn</span>
                   <div className="flex flex-wrap gap-2 md:gap-3 justify-center min-h-[100px] sm:min-h-[120px] md:min-h-[140px] items-center w-full">
-                    {!gameData?.dealerCards?.length ? (
+                    {!gameData?.dealerCards?.length && !gameData?.dealerRevealed?.length ? (
                       <><CardSlot /><CardSlot /></>
                     ) : (
-                      gameData.dealerCards.map((_, index) =>
-                        gameData.dealerRevealed?.[index] !== undefined ? (
-                          <PlayingCard
-                            key={index}
-                            value={gameData.dealerRevealed[index] % 13}
-                            suit={SUITS[Math.floor(gameData.dealerRevealed[index] / 13)]}
-                            delay={index * 0.2}
-                          />
-                        ) : (
-                          <HiddenCard key={index} delay={index * 0.2} />
+                      // Show all dealer cards: use max of committed cards vs revealed cards
+                      // (dealer hits add to revealed but not to committed cards array)
+                      Array(Math.max(gameData?.dealerCards?.length || 0, gameData?.dealerRevealed?.length || 0))
+                        .fill(null)
+                        .map((_, index) =>
+                          gameData.dealerRevealed?.[index] !== undefined ? (
+                            <PlayingCard
+                              key={index}
+                              value={gameData.dealerRevealed[index] % 13}
+                              suit={SUITS[Math.floor(gameData.dealerRevealed[index] / 13)]}
+                              delay={index * 0.2}
+                            />
+                          ) : (
+                            <HiddenCard key={index} delay={index * 0.2} />
+                          )
                         )
-                      )
                     )}
                   </div>
                   {gameData?.dealerRevealed?.length > 0 && (

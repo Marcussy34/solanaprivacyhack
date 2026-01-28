@@ -2,7 +2,7 @@ use anchor_lang::prelude::*;
 use anchor_lang::solana_program::instruction::Instruction;
 use anchor_lang::solana_program::program::invoke;
 
-declare_id!("8Da8a3Q9GLYuxYLXPtxKiAedZZbx5DUQCuG8TPY1dLnx");
+declare_id!("22BfrTbAzVmwENnyfzk6rFtPaNvCmaATbeWaJKKoqkK4");
 
 /// Sunspot Groth16 verifier program IDs (deployed Jan 28 2026 for 13-card deck)
 mod shuffle_verifier {
@@ -161,6 +161,372 @@ pub mod zk_card_arena {
             }
         }
 
+        Ok(())
+    }
+
+    /// Creates a session key that allows auto-signing game actions
+    /// Player signs this ONCE, then the session keypair can sign subsequent hit/stand/double actions
+    /// This dramatically improves UX by removing wallet popups for each game action
+    pub fn create_session(
+        ctx: Context<CreateSession>,
+        session_key: Pubkey,
+        valid_until: i64,
+    ) -> Result<()> {
+        let session = &mut ctx.accounts.session;
+        session.authority = ctx.accounts.player.key();
+        session.session_key = session_key;
+        session.game = ctx.accounts.game.key();
+        session.valid_until = valid_until;
+        session.bump = *ctx.bumps.get("session").unwrap();
+
+        msg!("Session created: authority={}, session_key={}, expires={}",
+            session.authority, session.session_key, session.valid_until);
+        Ok(())
+    }
+
+    /// Creates a DEALER session key that allows auto-signing dealer actions
+    /// Dealer signs this ONCE, then the session keypair can sign shuffle/deal/reveal actions
+    pub fn create_dealer_session(
+        ctx: Context<CreateDealerSession>,
+        session_key: Pubkey,
+        valid_until: i64,
+    ) -> Result<()> {
+        let session = &mut ctx.accounts.session;
+        session.authority = ctx.accounts.dealer.key();
+        session.session_key = session_key;
+        session.game = ctx.accounts.game.key();
+        session.valid_until = valid_until;
+        session.bump = *ctx.bumps.get("session").unwrap();
+
+        msg!("Dealer session created: authority={}, session_key={}, expires={}",
+            session.authority, session.session_key, session.valid_until);
+        Ok(())
+    }
+
+    /// Player action using session key - NO WALLET SIGNATURE NEEDED!
+    /// The session keypair signs instead of requiring manual wallet approval
+    pub fn player_action_with_session(
+        ctx: Context<PlayerActionWithSession>,
+        action: PlayerActionType,
+    ) -> Result<()> {
+        let clock = Clock::get()?;
+        let session = &ctx.accounts.session;
+
+        // Validate session not expired
+        require!(
+            clock.unix_timestamp < session.valid_until,
+            GameError::SessionExpired
+        );
+
+        let game = &mut ctx.accounts.game;
+
+        require!(
+            game.state == GameState::Playing,
+            GameError::InvalidState
+        );
+
+        match action {
+            PlayerActionType::Hit => {
+                require!(
+                    (game.deck_position as usize) < game.committed_cards.len(),
+                    GameError::NoMoreCards
+                );
+                let card = game.committed_cards[game.deck_position as usize];
+                game.player_cards.push(card);
+                game.deck_position += 1;
+                msg!("Player HIT via session key - card dealt as commitment");
+            }
+            PlayerActionType::Stand => {
+                msg!("Player STANDS via session key");
+                game.state = GameState::DealerTurn;
+            }
+            PlayerActionType::Double => {
+                require!(
+                    (game.deck_position as usize) < game.committed_cards.len(),
+                    GameError::NoMoreCards
+                );
+                let card = game.committed_cards[game.deck_position as usize];
+                game.player_cards.push(card);
+                game.deck_position += 1;
+                msg!("Player DOUBLE via session key - card dealt as commitment");
+                game.state = GameState::DealerTurn;
+            }
+        }
+
+        Ok(())
+    }
+
+    // =========================================================================
+    // SESSION-BASED DEALER ACTIONS - No wallet signature required!
+    // =========================================================================
+
+    /// Verifies shuffle proof using dealer session key - NO WALLET POPUP!
+    pub fn verify_shuffle_with_session(
+        ctx: Context<VerifyShuffleWithSession>,
+        proof: Vec<u8>,
+        public_inputs: Vec<u8>,
+    ) -> Result<()> {
+        let clock = Clock::get()?;
+        let session = &ctx.accounts.session;
+
+        // Validate session not expired
+        require!(
+            clock.unix_timestamp < session.valid_until,
+            GameError::SessionExpired
+        );
+
+        let game = &mut ctx.accounts.game;
+
+        require!(
+            game.state == GameState::Created,
+            GameError::InvalidState
+        );
+
+        // Sunspot verifier instruction data: proof || public_inputs
+        let mut instruction_data = Vec::with_capacity(proof.len() + public_inputs.len());
+        instruction_data.extend_from_slice(&proof);
+        instruction_data.extend_from_slice(&public_inputs);
+
+        let verify_ix = Instruction {
+            program_id: shuffle_verifier::ID,
+            accounts: vec![],
+            data: instruction_data,
+        };
+
+        invoke(
+            &verify_ix,
+            &[ctx.accounts.shuffle_verifier_program.to_account_info()],
+        )?;
+
+        game.shuffle_verified = true;
+        game.state = GameState::AwaitingPlayer;
+
+        msg!("Shuffle verified via dealer session for game {}", game.game_id);
+        Ok(())
+    }
+
+    /// Deal initial hand using dealer session key - NO WALLET POPUP!
+    pub fn deal_initial_hand_with_session(
+        ctx: Context<DealInitialHandWithSession>,
+        card_commitments: Vec<[u8; 32]>,
+        initial_card_values: Vec<u8>,
+        proof: Vec<u8>,
+        public_inputs: Vec<u8>,
+    ) -> Result<()> {
+        let clock = Clock::get()?;
+        let session = &ctx.accounts.session;
+
+        require!(
+            clock.unix_timestamp < session.valid_until,
+            GameError::SessionExpired
+        );
+
+        let game = &mut ctx.accounts.game;
+
+        require!(
+            game.state == GameState::Playing,
+            GameError::InvalidState
+        );
+        require!(
+            game.player_cards.is_empty() && game.dealer_cards.is_empty(),
+            GameError::InvalidState
+        );
+        require!(card_commitments.len() >= 10, GameError::InvalidCard);
+        require!(initial_card_values.len() >= 3, GameError::InvalidCard);
+
+        // Verify deal proof via CPI
+        let mut instruction_data = Vec::with_capacity(proof.len() + public_inputs.len());
+        instruction_data.extend_from_slice(&proof);
+        instruction_data.extend_from_slice(&public_inputs);
+
+        let verify_ix = Instruction {
+            program_id: deal_verifier::ID,
+            accounts: vec![],
+            data: instruction_data,
+        };
+
+        invoke(
+            &verify_ix,
+            &[ctx.accounts.deal_verifier_program.to_account_info()],
+        )?;
+
+        // Store committed cards
+        game.committed_cards = card_commitments.clone();
+
+        // Deal first 4 cards as commitments
+        game.player_cards.push(card_commitments[0]);
+        game.player_cards.push(card_commitments[1]);
+        game.dealer_cards.push(card_commitments[2]);
+        game.dealer_cards.push(card_commitments[3]);
+
+        // Auto-reveal player's cards + dealer's upcard
+        game.player_revealed = vec![initial_card_values[0], initial_card_values[1]];
+        game.dealer_revealed = vec![initial_card_values[2]];
+
+        game.deck_position = 4;
+
+        msg!("Initial hand dealt via dealer session for game {}", game.game_id);
+        Ok(())
+    }
+
+    /// Dealer plays turn using session key - NO WALLET POPUP!
+    pub fn dealer_play_turn_with_session(
+        ctx: Context<DealerPlayTurnWithSession>,
+        dealer_card_values: Vec<u8>,
+        proofs: Vec<Vec<u8>>,
+        public_inputs_list: Vec<Vec<u8>>,
+    ) -> Result<()> {
+        let clock = Clock::get()?;
+        let session = &ctx.accounts.session;
+
+        require!(
+            clock.unix_timestamp < session.valid_until,
+            GameError::SessionExpired
+        );
+
+        let game = &mut ctx.accounts.game;
+
+        require!(
+            game.state == GameState::DealerTurn,
+            GameError::InvalidState
+        );
+        require!(
+            dealer_card_values.len() == proofs.len() && proofs.len() == public_inputs_list.len(),
+            GameError::InvalidProof
+        );
+
+        // Verify each card reveal proof
+        for i in 0..dealer_card_values.len() {
+            let card_value = dealer_card_values[i];
+            require!(card_value < 13, GameError::InvalidCard);
+
+            let mut instruction_data = Vec::with_capacity(proofs[i].len() + public_inputs_list[i].len());
+            instruction_data.extend_from_slice(&proofs[i]);
+            instruction_data.extend_from_slice(&public_inputs_list[i]);
+
+            let verify_ix = Instruction {
+                program_id: reveal_verifier::ID,
+                accounts: vec![],
+                data: instruction_data,
+            };
+
+            invoke(
+                &verify_ix,
+                &[ctx.accounts.reveal_verifier_program.to_account_info()],
+            )?;
+        }
+
+        // Reveal dealer's hole card and any hit cards
+        for card_value in dealer_card_values.iter() {
+            game.dealer_revealed.push(*card_value);
+        }
+
+        // Calculate totals and determine winner
+        let player_total = calculate_hand_value(&game.player_revealed);
+        let dealer_total = calculate_hand_value(&game.dealer_revealed);
+
+        if player_total > 21 {
+            game.state = GameState::DealerWon;
+        } else if dealer_total > 21 {
+            game.state = GameState::PlayerWon;
+        } else if dealer_total > player_total {
+            game.state = GameState::DealerWon;
+        } else if player_total > dealer_total {
+            game.state = GameState::PlayerWon;
+        } else {
+            game.state = GameState::Push;
+        }
+
+        msg!("Dealer turn completed via session: player={}, dealer={}",
+            player_total, dealer_total);
+        Ok(())
+    }
+
+    /// Reveal a single card using dealer session key - NO WALLET POPUP!
+    /// Used for sequential reveals when batched transaction is too large
+    /// is_final_reveal: when true, determines winner after this reveal
+    pub fn reveal_card_with_session(
+        ctx: Context<RevealCardWithSession>,
+        card_index: u8,
+        card_value: u8,
+        is_player_card: bool,
+        is_final_reveal: bool,
+        proof: Vec<u8>,
+        public_inputs: Vec<u8>,
+    ) -> Result<()> {
+        let clock = Clock::get()?;
+        let session = &ctx.accounts.session;
+
+        require!(
+            clock.unix_timestamp < session.valid_until,
+            GameError::SessionExpired
+        );
+
+        let game = &mut ctx.accounts.game;
+
+        // Session must be for the dealer of this game
+        require!(
+            session.authority == game.dealer,
+            GameError::Unauthorized
+        );
+
+        require!(card_value < 13, GameError::InvalidCard);
+        require!(
+            ctx.accounts.reveal_verifier_program.key() == reveal_verifier::ID,
+            GameError::InvalidVerifier
+        );
+
+        // CPI to reveal verifier - proves card_value matches the card commitment
+        let mut instruction_data = Vec::with_capacity(proof.len() + public_inputs.len());
+        instruction_data.extend_from_slice(&proof);
+        instruction_data.extend_from_slice(&public_inputs);
+
+        let verify_ix = Instruction {
+            program_id: reveal_verifier::ID,
+            accounts: vec![],
+            data: instruction_data,
+        };
+
+        invoke(
+            &verify_ix,
+            &[ctx.accounts.reveal_verifier_program.to_account_info()],
+        )?;
+
+        // Add revealed card to appropriate array
+        if is_player_card {
+            game.player_revealed.push(card_value);
+
+            // Check for player bust
+            let player_total = calculate_hand_value(&game.player_revealed);
+            if player_total > 21 {
+                game.state = GameState::DealerWon;
+                msg!("Player busted with {} - dealer wins!", player_total);
+            }
+        } else {
+            game.dealer_revealed.push(card_value);
+
+            // If this is the final reveal, determine winner
+            if is_final_reveal {
+                let player_total = calculate_hand_value(&game.player_revealed);
+                let dealer_total = calculate_hand_value(&game.dealer_revealed);
+
+                if player_total > 21 {
+                    game.state = GameState::DealerWon;
+                } else if dealer_total > 21 {
+                    game.state = GameState::PlayerWon;
+                } else if dealer_total > player_total {
+                    game.state = GameState::DealerWon;
+                } else if player_total > dealer_total {
+                    game.state = GameState::PlayerWon;
+                } else {
+                    game.state = GameState::Push;
+                }
+                msg!("Game complete via session: player={}, dealer={}", player_total, dealer_total);
+            }
+        }
+
+        msg!("Card revealed via session: index={}, value={}, is_player={}, final={}",
+            card_index, card_value, is_player_card, is_final_reveal);
         Ok(())
     }
 
@@ -609,6 +975,149 @@ pub struct PlayerAction<'info> {
     pub player: Signer<'info>,
 }
 
+/// Context for creating a session key that allows auto-signing game actions
+/// Player signs ONCE to create session, then session key signs subsequent actions
+#[derive(Accounts)]
+#[instruction(session_key: Pubkey)]
+pub struct CreateSession<'info> {
+    #[account(
+        init,
+        payer = player,
+        space = 8 + GameSession::INIT_SPACE,
+        seeds = [b"session", game.key().as_ref(), player.key().as_ref()],
+        bump
+    )]
+    pub session: Account<'info, GameSession>,
+
+    #[account(
+        constraint = game.player == Some(player.key()) @ GameError::Unauthorized
+    )]
+    pub game: Account<'info, Game>,
+
+    #[account(mut)]
+    pub player: Signer<'info>,
+
+    pub system_program: Program<'info, System>,
+}
+
+/// Context for player action using session key (no wallet signature needed!)
+/// The session keypair signs instead of the player's main wallet
+#[derive(Accounts)]
+pub struct PlayerActionWithSession<'info> {
+    #[account(
+        mut,
+        constraint = game.player == Some(session.authority) @ GameError::Unauthorized
+    )]
+    pub game: Account<'info, Game>,
+
+    #[account(
+        seeds = [b"session", game.key().as_ref(), session.authority.as_ref()],
+        bump = session.bump,
+        constraint = session.session_key == signer.key() @ GameError::InvalidSession
+    )]
+    pub session: Account<'info, GameSession>,
+
+    /// The session keypair signs this transaction (NOT the player's wallet!)
+    pub signer: Signer<'info>,
+}
+
+// ============================================================================
+// DEALER SESSION CONTEXTS - Auto-sign for dealer actions
+// ============================================================================
+
+/// Context for creating a DEALER session key
+#[derive(Accounts)]
+#[instruction(session_key: Pubkey)]
+pub struct CreateDealerSession<'info> {
+    #[account(
+        init,
+        payer = dealer,
+        space = 8 + DealerSession::INIT_SPACE,
+        seeds = [b"dealer_session", game.key().as_ref(), dealer.key().as_ref()],
+        bump
+    )]
+    pub session: Account<'info, DealerSession>,
+
+    #[account(
+        constraint = game.dealer == dealer.key() @ GameError::Unauthorized
+    )]
+    pub game: Account<'info, Game>,
+
+    #[account(mut)]
+    pub dealer: Signer<'info>,
+
+    pub system_program: Program<'info, System>,
+}
+
+/// Context for verify_shuffle with dealer session key
+#[derive(Accounts)]
+pub struct VerifyShuffleWithSession<'info> {
+    #[account(
+        mut,
+        constraint = game.dealer == session.authority @ GameError::Unauthorized
+    )]
+    pub game: Account<'info, Game>,
+
+    #[account(
+        seeds = [b"dealer_session", game.key().as_ref(), session.authority.as_ref()],
+        bump = session.bump,
+        constraint = session.session_key == signer.key() @ GameError::InvalidSession
+    )]
+    pub session: Account<'info, DealerSession>,
+
+    /// The session keypair signs (NOT the dealer's wallet!)
+    pub signer: Signer<'info>,
+
+    /// CHECK: Sunspot Groth16 shuffle verifier program.
+    pub shuffle_verifier_program: AccountInfo<'info>,
+}
+
+/// Context for deal_initial_hand with dealer session key
+#[derive(Accounts)]
+pub struct DealInitialHandWithSession<'info> {
+    #[account(
+        mut,
+        constraint = game.dealer == session.authority @ GameError::Unauthorized
+    )]
+    pub game: Account<'info, Game>,
+
+    #[account(
+        seeds = [b"dealer_session", game.key().as_ref(), session.authority.as_ref()],
+        bump = session.bump,
+        constraint = session.session_key == signer.key() @ GameError::InvalidSession
+    )]
+    pub session: Account<'info, DealerSession>,
+
+    /// The session keypair signs (NOT the dealer's wallet!)
+    pub signer: Signer<'info>,
+
+    /// CHECK: Sunspot Groth16 deal verifier program.
+    pub deal_verifier_program: AccountInfo<'info>,
+}
+
+/// Context for dealer_play_turn with dealer session key
+#[derive(Accounts)]
+pub struct DealerPlayTurnWithSession<'info> {
+    #[account(
+        mut,
+        constraint = game.dealer == session.authority @ GameError::Unauthorized
+    )]
+    pub game: Account<'info, Game>,
+
+    #[account(
+        seeds = [b"dealer_session", game.key().as_ref(), session.authority.as_ref()],
+        bump = session.bump,
+        constraint = session.session_key == signer.key() @ GameError::InvalidSession
+    )]
+    pub session: Account<'info, DealerSession>,
+
+    /// The session keypair signs (NOT the dealer's wallet!)
+    pub signer: Signer<'info>,
+
+    /// CHECK: Sunspot Groth16 reveal verifier program.
+    pub reveal_verifier_program: AccountInfo<'info>,
+}
+
 /// Context for legacy deal_card (no deal verification needed)
 #[derive(Accounts)]
 pub struct DealCard<'info> {
@@ -664,6 +1173,30 @@ pub struct RevealCard<'info> {
     pub game: Account<'info, Game>,
 
     pub dealer: Signer<'info>,
+
+    /// CHECK: Sunspot Groth16 reveal verifier program.
+    /// Validated in instruction handler against reveal_verifier::ID.
+    pub reveal_verifier_program: AccountInfo<'info>,
+}
+
+/// Context for reveal_card_with_session - single card reveal using dealer session
+#[derive(Accounts)]
+pub struct RevealCardWithSession<'info> {
+    #[account(
+        mut,
+        constraint = game.dealer == session.authority @ GameError::Unauthorized
+    )]
+    pub game: Account<'info, Game>,
+
+    #[account(
+        seeds = [b"dealer_session", game.key().as_ref(), session.authority.as_ref()],
+        bump = session.bump,
+        constraint = session.session_key == signer.key() @ GameError::InvalidSession
+    )]
+    pub session: Account<'info, DealerSession>,
+
+    /// The session keypair signs (NOT the dealer's wallet!)
+    pub signer: Signer<'info>,
 
     /// CHECK: Sunspot Groth16 reveal verifier program.
     /// Validated in instruction handler against reveal_verifier::ID.
@@ -763,6 +1296,42 @@ pub enum PlayerActionType {
     Double,
 }
 
+/// Session key account for auto-signing game actions (PLAYER)
+/// Allows players to authorize an ephemeral keypair that can sign transactions
+/// without requiring wallet approval for each action (better UX)
+#[account]
+#[derive(InitSpace)]
+pub struct GameSession {
+    /// The player's main wallet that authorized this session
+    pub authority: Pubkey,
+    /// The session keypair public key (signs transactions instead of wallet)
+    pub session_key: Pubkey,
+    /// Game PDA this session is valid for
+    pub game: Pubkey,
+    /// Expiration timestamp (Unix timestamp)
+    pub valid_until: i64,
+    /// PDA bump
+    pub bump: u8,
+}
+
+/// Session key account for auto-signing dealer actions (DEALER)
+/// Allows dealers to authorize an ephemeral keypair for shuffle/deal/reveal
+/// without requiring wallet approval for each action
+#[account]
+#[derive(InitSpace)]
+pub struct DealerSession {
+    /// The dealer's main wallet that authorized this session
+    pub authority: Pubkey,
+    /// The session keypair public key (signs transactions instead of wallet)
+    pub session_key: Pubkey,
+    /// Game PDA this session is valid for
+    pub game: Pubkey,
+    /// Expiration timestamp (Unix timestamp)
+    pub valid_until: i64,
+    /// PDA bump
+    pub bump: u8,
+}
+
 // ============================================================================
 // ERRORS
 // ============================================================================
@@ -795,4 +1364,10 @@ pub enum GameError {
 
     #[msg("No more cards available in committed deck")]
     NoMoreCards,
+
+    #[msg("Session has expired")]
+    SessionExpired,
+
+    #[msg("Invalid session key")]
+    InvalidSession,
 }

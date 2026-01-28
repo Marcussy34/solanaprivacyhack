@@ -9,7 +9,7 @@ const DEVNET_RPC = process.env.NEXT_PUBLIC_DEVNET_RPC_ENDPOINT || "https://api.d
 const devnetConnection = new Connection(DEVNET_RPC, "confirmed");
 
 // Program ID from deployed contract (deployed by FBbtn... wallet on Jan 25)
-const PROGRAM_ID = new PublicKey("8Da8a3Q9GLYuxYLXPtxKiAedZZbx5DUQCuG8TPY1dLnx");
+const PROGRAM_ID = new PublicKey("22BfrTbAzVmwENnyfzk6rFtPaNvCmaATbeWaJKKoqkK4");
 
 /**
  * Convert a field hex string to a 32-byte array for Anchor/Borsh serialization.
@@ -88,6 +88,31 @@ const IDL = {
         { name: "action", type: { defined: "PlayerActionType" } },
       ],
     },
+    // Session key instructions for auto-signing (no wallet popups!)
+    {
+      name: "createSession",
+      accounts: [
+        { name: "session", isMut: true, isSigner: false },
+        { name: "game", isMut: false, isSigner: false },
+        { name: "player", isMut: true, isSigner: true },
+        { name: "systemProgram", isMut: false, isSigner: false },
+      ],
+      args: [
+        { name: "sessionKey", type: "publicKey" },
+        { name: "validUntil", type: "i64" },
+      ],
+    },
+    {
+      name: "playerActionWithSession",
+      accounts: [
+        { name: "game", isMut: true, isSigner: false },
+        { name: "session", isMut: false, isSigner: false },
+        { name: "signer", isMut: false, isSigner: true },
+      ],
+      args: [
+        { name: "action", type: { defined: "PlayerActionType" } },
+      ],
+    },
     {
       name: "dealInitialHand",
       accounts: [
@@ -145,6 +170,81 @@ const IDL = {
         { name: "publicInputsList", type: { vec: "bytes" } },
       ],
     },
+    // ========================================================================
+    // DEALER SESSION INSTRUCTIONS - Auto-sign for dealer actions
+    // ========================================================================
+    {
+      name: "createDealerSession",
+      accounts: [
+        { name: "session", isMut: true, isSigner: false },
+        { name: "game", isMut: false, isSigner: false },
+        { name: "dealer", isMut: true, isSigner: true },
+        { name: "systemProgram", isMut: false, isSigner: false },
+      ],
+      args: [
+        { name: "sessionKey", type: "publicKey" },
+        { name: "validUntil", type: "i64" },
+      ],
+    },
+    {
+      name: "verifyShuffleWithSession",
+      accounts: [
+        { name: "game", isMut: true, isSigner: false },
+        { name: "session", isMut: false, isSigner: false },
+        { name: "signer", isMut: false, isSigner: true },
+        { name: "shuffleVerifierProgram", isMut: false, isSigner: false },
+      ],
+      args: [
+        { name: "proof", type: "bytes" },
+        { name: "publicInputs", type: "bytes" },
+      ],
+    },
+    {
+      name: "dealInitialHandWithSession",
+      accounts: [
+        { name: "game", isMut: true, isSigner: false },
+        { name: "session", isMut: false, isSigner: false },
+        { name: "signer", isMut: false, isSigner: true },
+        { name: "dealVerifierProgram", isMut: false, isSigner: false },
+      ],
+      args: [
+        { name: "cardCommitments", type: { vec: { array: ["u8", 32] } } },
+        { name: "initialCardValues", type: { vec: "u8" } },
+        { name: "proof", type: "bytes" },
+        { name: "publicInputs", type: "bytes" },
+      ],
+    },
+    {
+      name: "dealerPlayTurnWithSession",
+      accounts: [
+        { name: "game", isMut: true, isSigner: false },
+        { name: "session", isMut: false, isSigner: false },
+        { name: "signer", isMut: false, isSigner: true },
+        { name: "revealVerifierProgram", isMut: false, isSigner: false },
+      ],
+      args: [
+        { name: "dealerCardValues", type: { vec: "u8" } },
+        { name: "proofs", type: { vec: "bytes" } },
+        { name: "publicInputsList", type: { vec: "bytes" } },
+      ],
+    },
+    {
+      name: "revealCardWithSession",
+      accounts: [
+        { name: "game", isMut: true, isSigner: false },
+        { name: "session", isMut: false, isSigner: false },
+        { name: "signer", isMut: false, isSigner: true },
+        { name: "revealVerifierProgram", isMut: false, isSigner: false },
+      ],
+      args: [
+        { name: "cardIndex", type: "u8" },
+        { name: "cardValue", type: "u8" },
+        { name: "isPlayerCard", type: "bool" },
+        { name: "isFinalReveal", type: "bool" },
+        { name: "proof", type: "bytes" },
+        { name: "publicInputs", type: "bytes" },
+      ],
+    },
   ],
   accounts: [
     {
@@ -167,6 +267,32 @@ const IDL = {
           { name: "bump", type: "u8" },
           { name: "pendingHit", type: "bool" },
           { name: "committedCards", type: { vec: { array: ["u8", 32] } } },
+        ],
+      },
+    },
+    {
+      name: "GameSession",
+      type: {
+        kind: "struct",
+        fields: [
+          { name: "authority", type: "publicKey" },
+          { name: "sessionKey", type: "publicKey" },
+          { name: "game", type: "publicKey" },
+          { name: "validUntil", type: "i64" },
+          { name: "bump", type: "u8" },
+        ],
+      },
+    },
+    {
+      name: "DealerSession",
+      type: {
+        kind: "struct",
+        fields: [
+          { name: "authority", type: "publicKey" },
+          { name: "sessionKey", type: "publicKey" },
+          { name: "game", type: "publicKey" },
+          { name: "validUntil", type: "i64" },
+          { name: "bump", type: "u8" },
         ],
       },
     },
@@ -207,6 +333,8 @@ const IDL = {
     { code: 6006, name: "InvalidCard", msg: "Invalid card value" },
     { code: 6007, name: "Timeout", msg: "Game has timed out" },
     { code: 6008, name: "NoMoreCards", msg: "No more cards available in committed deck" },
+    { code: 6009, name: "SessionExpired", msg: "Session has expired" },
+    { code: 6010, name: "InvalidSession", msg: "Invalid session key" },
   ],
 };
 
@@ -222,6 +350,14 @@ function parseGameState(state) {
   if (state.push) return "push";
   if (state.abandoned) return "abandoned";
   return "unknown";
+}
+
+// Helper: Derive winner from game state (for UI display)
+function deriveWinner(state) {
+  if (state.playerWon) return "player";
+  if (state.dealerWon) return "dealer";
+  if (state.push) return "push";
+  return null;
 }
 
 export function useGameProgram() {
@@ -245,12 +381,35 @@ export function useGameProgram() {
 
   // Derive game PDA from dealer pubkey and game ID
   // Seeds: ["game", dealer_pubkey, game_id_le_bytes]
+  // Note: dealerPubkey can be either a PublicKey object or a base58 string
   const getGamePda = useCallback((gameId, dealerPubkey) => {
+    // Convert string to PublicKey if needed (URL params come as strings)
+    const dealer = dealerPubkey instanceof PublicKey
+      ? dealerPubkey
+      : new PublicKey(dealerPubkey);
+
     const [pda] = PublicKey.findProgramAddressSync(
       [
         Buffer.from("game"),
-        dealerPubkey.toBuffer(),
+        dealer.toBuffer(),
         new BN(gameId).toArrayLike(Buffer, "le", 8),
+      ],
+      PROGRAM_ID
+    );
+    return pda;
+  }, []);
+
+  // Derive dealer session PDA (for auto-signing dealer actions)
+  const getDealerSessionPda = useCallback((gamePda, dealerPubkey) => {
+    const dealer = dealerPubkey instanceof PublicKey
+      ? dealerPubkey
+      : new PublicKey(dealerPubkey);
+
+    const [pda] = PublicKey.findProgramAddressSync(
+      [
+        Buffer.from("dealer_session"),
+        gamePda.toBuffer(),
+        dealer.toBuffer(),
       ],
       PROGRAM_ID
     );
@@ -451,6 +610,80 @@ export function useGameProgram() {
       return { tx };
     },
     [program, wallet.publicKey, getGamePda]
+  );
+
+  /**
+   * Player action using session key - NO WALLET POPUP!
+   * The session keypair signs instead of the main wallet
+   *
+   * @param {string} gameId - The game ID
+   * @param {string} action - 'hit', 'stand', or 'double'
+   * @param {string} dealerPubkey - Dealer's public key
+   * @param {Keypair} sessionKeypair - The session keypair from useSessionKey
+   * @param {PublicKey} sessionPDA - The session PDA from useSessionKey
+   */
+  const playerActionWithSession = useCallback(
+    async (gameId, action, dealerPubkey, sessionKeypair, sessionPDA) => {
+      if (!program) {
+        throw new Error("Program not initialized");
+      }
+      if (!sessionKeypair || !sessionPDA) {
+        throw new Error("Session not available - use playerAction instead");
+      }
+      if (!dealerPubkey) {
+        throw new Error("Dealer public key required");
+      }
+
+      const dealer = new PublicKey(dealerPubkey);
+      const gamePda = getGamePda(gameId, dealer);
+
+      // Convert action string to enum
+      let actionEnum;
+      switch (action.toLowerCase()) {
+        case "hit":
+          actionEnum = { hit: {} };
+          break;
+        case "stand":
+          actionEnum = { stand: {} };
+          break;
+        case "double":
+          actionEnum = { double: {} };
+          break;
+        default:
+          throw new Error("Invalid action");
+      }
+
+      console.log('[playerActionWithSession] Using session key - no wallet popup!');
+
+      // Build the instruction
+      const instruction = await program.methods
+        .playerActionWithSession(actionEnum)
+        .accounts({
+          game: gamePda,
+          session: sessionPDA,
+          signer: sessionKeypair.publicKey,
+        })
+        .instruction();
+
+      // Build transaction with session keypair as fee payer
+      const { Transaction } = await import("@solana/web3.js");
+      const transaction = new Transaction().add(instruction);
+      transaction.feePayer = sessionKeypair.publicKey;
+
+      const { blockhash } = await devnetConnection.getLatestBlockhash();
+      transaction.recentBlockhash = blockhash;
+
+      // Sign with session keypair (NO WALLET POPUP!)
+      transaction.sign(sessionKeypair);
+
+      // Send and confirm
+      const txSig = await devnetConnection.sendRawTransaction(transaction.serialize());
+      await devnetConnection.confirmTransaction(txSig, 'confirmed');
+
+      console.log('[playerActionWithSession] TX confirmed:', txSig);
+      return { tx: txSig };
+    },
+    [program, getGamePda]
   );
 
   // Reveal a card with ZK proof verification (dealer action)
@@ -696,6 +929,271 @@ export function useGameProgram() {
     [program, wallet.publicKey, getGamePda]
   );
 
+  // =========================================================================
+  // DEALER SESSION-BASED ACTIONS - No wallet signature needed!
+  // =========================================================================
+
+  /**
+   * Verify shuffle using dealer session key - NO WALLET POPUP!
+   */
+  const verifyShuffleWithSession = useCallback(
+    async (gameId, proof, publicInputs, dealerSessionKeypair, dealerSessionPDA) => {
+      if (!program) {
+        throw new Error("Program not initialized");
+      }
+      if (!dealerSessionKeypair || !dealerSessionPDA) {
+        throw new Error("Dealer session not available - use verifyShuffle instead");
+      }
+
+      const gamePda = getGamePda(gameId, wallet.publicKey);
+
+      const proofBytes = proof instanceof Uint8Array ? proof : new Uint8Array(proof);
+      const proofBuffer = Buffer.from(proofBytes);
+      const publicInputsBytes = publicInputs instanceof Uint8Array ? publicInputs : new Uint8Array(publicInputs);
+      const publicInputsBuffer = Buffer.from(publicInputsBytes);
+
+      console.log('[verifyShuffleWithSession] Using dealer session - no wallet popup!');
+
+      const { Transaction } = await import("@solana/web3.js");
+      const instruction = await program.methods
+        .verifyShuffleWithSession(proofBuffer, publicInputsBuffer)
+        .accounts({
+          game: gamePda,
+          session: dealerSessionPDA,
+          signer: dealerSessionKeypair.publicKey,
+          shuffleVerifierProgram: SHUFFLE_VERIFIER_PROGRAM_ID,
+        })
+        .instruction();
+
+      const transaction = new Transaction().add(
+        ComputeBudgetProgram.setComputeUnitLimit({ units: 600_000 }),
+        instruction
+      );
+
+      transaction.feePayer = dealerSessionKeypair.publicKey;
+      const { blockhash } = await devnetConnection.getLatestBlockhash();
+      transaction.recentBlockhash = blockhash;
+      transaction.sign(dealerSessionKeypair);
+
+      const txSig = await devnetConnection.sendRawTransaction(transaction.serialize());
+      await devnetConnection.confirmTransaction(txSig, 'confirmed');
+
+      console.log('[verifyShuffleWithSession] TX confirmed:', txSig);
+      return { tx: txSig };
+    },
+    [program, wallet.publicKey, getGamePda]
+  );
+
+  /**
+   * Deal initial hand using dealer session key - NO WALLET POPUP!
+   */
+  const dealInitialHandWithSession = useCallback(
+    async (gameId, cardCommitments, initialCardValues, proof, publicInputs, dealerSessionKeypair, dealerSessionPDA) => {
+      if (!program) {
+        throw new Error("Program not initialized");
+      }
+      if (!dealerSessionKeypair || !dealerSessionPDA) {
+        throw new Error("Dealer session not available - use dealInitialHand instead");
+      }
+
+      const gamePda = getGamePda(gameId, wallet.publicKey);
+
+      const commitments = cardCommitments.map(c =>
+        Array.isArray(c) ? c : Array.from(c)
+      );
+      const cardValues = Array.from(initialCardValues);
+
+      const proofBuffer = Buffer.from(proof instanceof Uint8Array ? proof : new Uint8Array(proof));
+      const publicInputsBuffer = Buffer.from(publicInputs instanceof Uint8Array ? publicInputs : new Uint8Array(publicInputs));
+
+      console.log('[dealInitialHandWithSession] Using dealer session - no wallet popup!');
+
+      const { Transaction } = await import("@solana/web3.js");
+      const instruction = await program.methods
+        .dealInitialHandWithSession(commitments, cardValues, proofBuffer, publicInputsBuffer)
+        .accounts({
+          game: gamePda,
+          session: dealerSessionPDA,
+          signer: dealerSessionKeypair.publicKey,
+          dealVerifierProgram: DEAL_VERIFIER_PROGRAM_ID,
+        })
+        .instruction();
+
+      const transaction = new Transaction().add(
+        ComputeBudgetProgram.setComputeUnitLimit({ units: 800_000 }),
+        instruction
+      );
+
+      transaction.feePayer = dealerSessionKeypair.publicKey;
+      const { blockhash } = await devnetConnection.getLatestBlockhash();
+      transaction.recentBlockhash = blockhash;
+      transaction.sign(dealerSessionKeypair);
+
+      const txSig = await devnetConnection.sendRawTransaction(transaction.serialize());
+      await devnetConnection.confirmTransaction(txSig, 'confirmed');
+
+      console.log('[dealInitialHandWithSession] TX confirmed:', txSig);
+      return { tx: txSig };
+    },
+    [program, wallet.publicKey, getGamePda]
+  );
+
+  /**
+   * Dealer play turn using session key - NO WALLET POPUP!
+   */
+  const dealerPlayTurnWithSession = useCallback(
+    async (gameId, dealerCardValues, proofs, publicInputsList, dealerSessionKeypair, dealerSessionPDA) => {
+      if (!program) {
+        throw new Error("Program not initialized");
+      }
+      if (!dealerSessionKeypair || !dealerSessionPDA) {
+        throw new Error("Dealer session not available - use dealerPlayTurn instead");
+      }
+
+      const gamePda = getGamePda(gameId, wallet.publicKey);
+
+      const proofsBuffers = proofs.map(p =>
+        Buffer.from(p instanceof Uint8Array ? p : new Uint8Array(p))
+      );
+      const publicInputsBuffers = publicInputsList.map(pi =>
+        Buffer.from(pi instanceof Uint8Array ? pi : new Uint8Array(pi))
+      );
+
+      console.log('[dealerPlayTurnWithSession] Using dealer session - no wallet popup!');
+
+      const { Transaction } = await import("@solana/web3.js");
+      const instruction = await program.methods
+        .dealerPlayTurnWithSession(dealerCardValues, proofsBuffers, publicInputsBuffers)
+        .accounts({
+          game: gamePda,
+          session: dealerSessionPDA,
+          signer: dealerSessionKeypair.publicKey,
+          revealVerifierProgram: REVEAL_VERIFIER_PROGRAM_ID,
+        })
+        .instruction();
+
+      const transaction = new Transaction().add(
+        ComputeBudgetProgram.setComputeUnitLimit({ units: 1_000_000 }),
+        instruction
+      );
+
+      transaction.feePayer = dealerSessionKeypair.publicKey;
+      const { blockhash } = await devnetConnection.getLatestBlockhash();
+      transaction.recentBlockhash = blockhash;
+      transaction.sign(dealerSessionKeypair);
+
+      const txSig = await devnetConnection.sendRawTransaction(transaction.serialize());
+      await devnetConnection.confirmTransaction(txSig, 'confirmed');
+
+      console.log('[dealerPlayTurnWithSession] TX confirmed:', txSig);
+      return { tx: txSig };
+    },
+    [program, wallet.publicKey, getGamePda]
+  );
+
+  /**
+   * Reveal a single card using dealer session key - NO WALLET POPUP!
+   * Used for sequential reveals when batched transaction is too large
+   * @param isFinalReveal - when true, determines winner after this reveal
+   */
+  const revealCardWithSession = useCallback(
+    async (gameId, cardIndex, cardValue, isPlayerCard, isFinalReveal, proof, publicInputs, dealerSessionKeypair, dealerSessionPDA) => {
+      if (!program) {
+        throw new Error("Program not initialized");
+      }
+      if (!dealerSessionKeypair || !dealerSessionPDA) {
+        throw new Error("Dealer session not available - use revealCard instead");
+      }
+
+      const gamePda = getGamePda(gameId, wallet.publicKey);
+
+      const proofBuffer = Buffer.from(proof instanceof Uint8Array ? proof : new Uint8Array(proof));
+      const publicInputsBuffer = Buffer.from(publicInputs instanceof Uint8Array ? publicInputs : new Uint8Array(publicInputs));
+
+      console.log(`[revealCardWithSession] Using dealer session - no wallet popup! (final=${isFinalReveal})`);
+
+      const { Transaction } = await import("@solana/web3.js");
+      const instruction = await program.methods
+        .revealCardWithSession(cardIndex, cardValue, isPlayerCard, isFinalReveal, proofBuffer, publicInputsBuffer)
+        .accounts({
+          game: gamePda,
+          session: dealerSessionPDA,
+          signer: dealerSessionKeypair.publicKey,
+          revealVerifierProgram: REVEAL_VERIFIER_PROGRAM_ID,
+        })
+        .instruction();
+
+      const transaction = new Transaction().add(
+        ComputeBudgetProgram.setComputeUnitLimit({ units: 600_000 }),
+        instruction
+      );
+
+      transaction.feePayer = dealerSessionKeypair.publicKey;
+      const { blockhash } = await devnetConnection.getLatestBlockhash();
+      transaction.recentBlockhash = blockhash;
+      transaction.sign(dealerSessionKeypair);
+
+      const txSig = await devnetConnection.sendRawTransaction(transaction.serialize());
+      await devnetConnection.confirmTransaction(txSig, 'confirmed');
+
+      console.log('[revealCardWithSession] TX confirmed:', txSig);
+      return { tx: txSig };
+    },
+    [program, wallet.publicKey, getGamePda]
+  );
+
+  /**
+   * Dealer play turn SEQUENTIAL using session key - NO WALLET POPUP!
+   * Reveals cards one at a time to avoid transaction size limits
+   * The last reveal includes winner determination
+   */
+  const dealerPlayTurnSequentialWithSession = useCallback(
+    async (gameId, cardValues, proofs, publicInputsList, dealerSessionKeypair, dealerSessionPDA, onProgress = null) => {
+      if (!program) {
+        throw new Error("Program not initialized");
+      }
+      if (!dealerSessionKeypair || !dealerSessionPDA) {
+        throw new Error("Dealer session not available - use dealerPlayTurnSequential instead");
+      }
+
+      const results = [];
+      const total = cardValues.length;
+
+      for (let i = 0; i < total; i++) {
+        const cardValue = cardValues[i];
+        const proof = proofs[i];
+        const publicInputs = publicInputsList[i];
+
+        // Report progress
+        if (onProgress) {
+          onProgress({ current: i + 1, total });
+        }
+
+        // Check if this is the final reveal
+        const isFinalReveal = (i === total - 1);
+
+        // Reveal this card using session (dealer cards are not player cards)
+        const result = await revealCardWithSession(
+          gameId,
+          i,              // cardIndex
+          cardValue,      // cardValue
+          false,          // isPlayerCard = false (dealer cards)
+          isFinalReveal,  // triggers winner determination on last card
+          proof,
+          publicInputs,
+          dealerSessionKeypair,
+          dealerSessionPDA
+        );
+
+        results.push(result);
+        console.log(`[dealerPlayTurnSequentialWithSession] Revealed card ${i + 1}/${total}${isFinalReveal ? ' (FINAL - determining winner)' : ''}`);
+      }
+
+      return { txs: results.map(r => r.tx) };
+    },
+    [program, revealCardWithSession]
+  );
+
   // Fetch game account data
   // Requires dealer's pubkey to derive PDA
   const fetchGame = useCallback(
@@ -720,6 +1218,7 @@ export function useGameProgram() {
           deckCommitment: Array.from(gameAccount.deckCommitment),
           shuffleVerified: gameAccount.shuffleVerified,
           state: parseGameState(gameAccount.state),
+          winner: deriveWinner(gameAccount.state), // Derived from state for UI
           playerCards: gameAccount.playerCards.map((c) => Array.from(c)),
           dealerCards: gameAccount.dealerCards.map((c) => Array.from(c)),
           playerRevealed: Array.from(gameAccount.playerRevealed),
@@ -765,6 +1264,7 @@ export function useGameProgram() {
               deckCommitment: Array.from(decoded.deckCommitment),
               shuffleVerified: decoded.shuffleVerified,
               state: parseGameState(decoded.state),
+              winner: deriveWinner(decoded.state), // Derived from state for UI
               playerCards: decoded.playerCards.map((c) => Array.from(c)),
               dealerCards: decoded.dealerCards.map((c) => Array.from(c)),
               playerRevealed: Array.from(decoded.playerRevealed),
@@ -803,14 +1303,26 @@ export function useGameProgram() {
     joinGame,
     dealInitialHand,
     playerAction,
+    playerActionWithSession, // Session key auto-sign (no wallet popup!)
     revealCard,
     revealAllCards,
     dealerPlayTurn,
     dealerPlayTurnSequential, // Use when dealerPlayTurn hits tx size limit
 
+    // Dealer session-based actions (no wallet popup!)
+    verifyShuffleWithSession,
+    dealInitialHandWithSession,
+    dealerPlayTurnWithSession,
+    revealCardWithSession,
+    dealerPlayTurnSequentialWithSession,
+
     // Queries
     fetchGame,
     subscribeToGame,
     getGamePda,
+    getDealerSessionPda, // For dealer session PDA derivation
+
+    // Connection (for session key transactions)
+    devnetConnection,
   };
 }

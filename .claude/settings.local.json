@@ -88,7 +88,21 @@
       "Bash(git rev-parse:*)",
       "Bash(npm run sync-circuits:*)",
       "Bash(grep:*)",
-      "Bash(echo:*)"
+      "Bash(echo:*)""Bash(npm ls:*)",
+      "Bash(find:*)",
+      "Bash(grep:*)",
+      "Bash(cargo build:*)",
+      "Bash(cat:*)",
+      "Bash(GNARK_VERIFIER_BIN=\"$HOME/sunspot/gnark-solana/crates/verifier-bin\" sunspot deploy:*)",
+      "Bash(for i in 1 2 3 4 5)",
+      "Bash(do echo \"Attempt $i...\")",
+      "Bash(done)",
+      "WebFetch(domain:www.npmjs.com)",
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "WebFetch(domain:registry.scalar.com)",
+      "WebFetch(domain:solana.com)",
+      "WebFetch(domain:crates.io)",
+      "WebFetch(domain:docs.magicblock.gg)"
     ]
   },
   "outputStyle": "Explanatory"
