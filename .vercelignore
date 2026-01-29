@@ -1,0 +1,21 @@
+# Dependencies - Vercel installs these
+node_modules
+
+# Rust/Solana build artifacts
+target
+*.so
+
+# Test files
+tests
+*.test.ts
+*.spec.ts
+
+# Noir circuits source (keep compiled in public)
+circuits/src
+
+# Development files
+.git
+.DS_Store
+*.pem
+*.log
+
