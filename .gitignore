@@ -82,3 +82,4 @@ solana-verifiers/target/*
 !/solana-verifiers/target/*.pk
 !/solana-verifiers/target/*.vk
 !/solana-verifiers/target/*-keypair.json
+CLAUDE.md
