@@ -6,6 +6,8 @@
 
 Check out the live demo of **Umbra**: 👉 [Click here to try it out](https://zkumbra.vercel.app)
 
+**Backend (Proof Server):** 🔐 [https://solanaprivacyhack-proof-server.onrender.com](https://solanaprivacyhack-proof-server.onrender.com/health)
+
 >This application uses Zero-Knowledge Proofs (Noir) to ensure fairness without revealing the deck, and ShadowWire for private transactions.
 
 ## The ZK Casino Experience 🎲
