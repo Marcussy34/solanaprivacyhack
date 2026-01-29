@@ -22,7 +22,7 @@ ENV NARGO_HOME=/app/.nargo
 ENV PATH="${NARGO_HOME}/bin:${PATH}"
 
 RUN curl -L https://raw.githubusercontent.com/noir-lang/noirup/main/install | bash \
-    && ${NARGO_HOME}/bin/noirup --version 1.0.0-beta.3
+    && ${NARGO_HOME}/bin/noirup --version 1.0.0-beta.18
 
 # Install sunspot (Groth16 prover for Noir)
 # Pin Rust to 1.75.0 - newer versions break wasm-bindgen in sunspot's dependencies
