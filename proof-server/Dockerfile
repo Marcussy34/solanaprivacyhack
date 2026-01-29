@@ -32,7 +32,8 @@ ENV PATH="/root/.cargo/bin:${PATH}"
 RUN cargo install sunspot --locked
 
 # Copy package files first for better caching
-COPY package*.json ./
+# NOTE: Build context is repo root, so paths must include proof-server/
+COPY proof-server/package*.json ./
 
 # Install Node.js dependencies
 RUN npm ci --only=production
@@ -41,11 +42,11 @@ RUN npm ci --only=production
 COPY circuits/ ./circuits/
 
 # Copy proving keys from solana-verifiers
+# NOTE: .ccs files are in circuits/target/, not solana-verifiers/target/
 COPY solana-verifiers/target/*.pk ./solana-verifiers/target/
-COPY solana-verifiers/target/*.ccs ./solana-verifiers/target/ 2>/dev/null || true
 
 # Copy server code
-COPY server.js ./
+COPY proof-server/server.js ./
 
 # Expose port
 ENV PORT=3001
