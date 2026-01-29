@@ -111,7 +111,37 @@ NEXT_PUBLIC_DEVNET_RPC_ENDPOINT=https://api.devnet.solana.com
 # SHADOWWIRE SETTINGS
 NEXT_PUBLIC_SHADOWWIRE_ENABLED=true
 NEXT_PUBLIC_HOUSE_WALLET_ADDRESS=<HOUSE_WALLET_PUBKEY>
+
+# PROOF SERVER (Required for production - Vercel has read-only filesystem)
+# Leave empty for local development (uses /api/prove)
+NEXT_PUBLIC_PROVE_API_URL=https://solanaprivacyhack-proof-server.onrender.com/api/prove
 ```
+
+### Proof Server Deployment
+
+The ZK proof generation requires `nargo` and `sunspot` CLI tools which cannot run on Vercel's serverless functions (read-only filesystem). A separate proof server is deployed on Render.
+
+**Live Proof Server:** `https://solanaprivacyhack-proof-server.onrender.com`
+
+To deploy your own proof server:
+
+1. The `proof-server/` directory contains:
+   - `server.js` - Express API for proof generation
+   - `Dockerfile` - Installs nargo + sunspot (Go binary)
+   - `package.json` - Node.js dependencies
+
+2. Deploy to Render:
+   - Create a new Web Service
+   - Connect to your GitHub repo
+   - Set **Root Directory**: (leave empty)
+   - Set **Dockerfile Path**: `proof-server/Dockerfile`
+   - Set **Environment Variable**: `PORT=3001`
+
+3. Update your Vercel env var:
+   ```bash
+   vercel env add NEXT_PUBLIC_PROVE_API_URL production
+   # Enter: https://your-proof-server.onrender.com/api/prove
+   ```
 
 ### Smart Contract Deployment
 
@@ -859,16 +889,20 @@ umbra/
 ├── programs/               # Anchor smart contracts
 │   └── zk-card-arena/      # Main game logic
 ├── circuits/               # Noir ZK circuits
-│   ├── shuffle/            # Shuffle logic
-│   ├── deal/               # Card commitment logic
-│   └── reveal/             # Card reveal logic
+│   ├── shuffle_proof/      # Shuffle logic
+│   ├── deal_proof/         # Card commitment logic
+│   └── reveal_proof/       # Card reveal logic
+├── proof-server/           # External proof generation server
+│   ├── server.js           # Express API (nargo + sunspot)
+│   ├── Dockerfile          # Docker config for Render
+│   └── package.json        # Node.js dependencies
 ├── pages/                  # Next.js pages
 │   └── game.js             # Main game UI & logic
 ├── components/             # React components
 ├── hooks/                  # Custom hooks (Solana + ZK)
 │   ├── useGameProgram.js   # Anchor interactions
 │   └── useZKGame.js        # ZK proof generation
-└── docs/                   # Documentation
+└── solana-verifiers/       # On-chain verifier programs
 ```
 
 ## Testing Guide 🧪
@@ -892,13 +926,34 @@ umbra/
 
 ## Deployment 🚢
 
-### Frontend (Vercel)
+### 1. Proof Server (Render)
+
+Deploy the proof server first (required for production):
+
 ```bash
-npm run build
-# Deploy to Vercel
+# The proof-server/ directory is already configured
+# Deploy to Render with Docker runtime
+# Set Dockerfile path: proof-server/Dockerfile
+# Set PORT=3001 environment variable
 ```
 
-### Smart Contracts (Solana Devnet)
+**Live:** https://solanaprivacyhack-proof-server.onrender.com
+
+### 2. Frontend (Vercel)
+
+```bash
+# Set environment variable first
+vercel env add NEXT_PUBLIC_PROVE_API_URL production
+# Enter: https://solanaprivacyhack-proof-server.onrender.com/api/prove
+
+# Deploy
+vercel --prod
+```
+
+**Live:** https://zkumbra.vercel.app
+
+### 3. Smart Contracts (Solana Devnet)
+
 ```bash
 anchor build
 anchor deploy --provider.cluster devnet
