@@ -3,12 +3,14 @@
 
 FROM node:20-slim
 
-# Install system dependencies
+# Install system dependencies (including OpenSSL dev libs for sunspot compilation)
 RUN apt-get update && apt-get install -y \
     curl \
     git \
     build-essential \
     ca-certificates \
+    pkg-config \
+    libssl-dev \
     && rm -rf /var/lib/apt/lists/*
 
 # Set working directory
