@@ -100,11 +100,17 @@ npm run dev
 Create a `.env.local` file in the root directory:
 
 ```env
-# Solana RPC
-NEXT_PUBLIC_RPC_URL=https://api.devnet.solana.com
+# SOLANA NETWORK SETTINGS
+# Mainnet - for ShadowWire privacy payments (Using Helius RPC)
+NEXT_PUBLIC_SOLANA_NETWORK=mainnet-beta
+NEXT_PUBLIC_RPC_ENDPOINT=https://mainnet.helius-rpc.com/?api-key=<YOUR_HELIUS_API_KEY>
 
-# Optional: For ShadowWire Integration
-NEXT_PUBLIC_SHADOWWIRE_API=...
+# Devnet - for Game Programs (shuffle/deal/reveal verification)
+NEXT_PUBLIC_DEVNET_RPC_ENDPOINT=https://api.devnet.solana.com
+
+# SHADOWWIRE SETTINGS
+NEXT_PUBLIC_SHADOWWIRE_ENABLED=true
+NEXT_PUBLIC_HOUSE_WALLET_ADDRESS=<HOUSE_WALLET_PUBKEY>
 ```
 
 ### Smart Contract Deployment
