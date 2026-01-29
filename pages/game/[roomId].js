@@ -580,16 +580,33 @@ export default function GameRoom() {
         const revealResult = await generateRevealProof(deckPosition);
         console.log('[GameRoom] Reveal proof generated');
 
-        // Submit to chain
-        await revealCard(
-          gameId,
-          nextRevealIndex,  // Card index in player's hand
-          cardValue,
-          true,  // isPlayerCard
-          revealResult.proof,
-          revealResult.publicInputs,
-          publicKey.toBase58()
-        );
+        // Submit to chain - use dealer session if available (no wallet popup!)
+        if (isDealerSessionValid && dealerSessionKeypair && dealerSessionPDA) {
+          console.log('[GameRoom] Using dealer session for auto-reveal - no wallet popup!');
+          await revealCardWithSession(
+            gameId,
+            nextRevealIndex,  // Card index in player's hand
+            cardValue,
+            true,   // isPlayerCard
+            false,  // isFinalReveal (not final, just revealing player's hit card)
+            revealResult.proof,
+            revealResult.publicInputs,
+            dealerSessionKeypair,
+            dealerSessionPDA
+          );
+        } else {
+          // Fallback to wallet signing
+          console.log('[GameRoom] Using wallet for auto-reveal');
+          await revealCard(
+            gameId,
+            nextRevealIndex,
+            cardValue,
+            true,
+            revealResult.proof,
+            revealResult.publicInputs,
+            publicKey.toBase58()
+          );
+        }
 
         console.log('[GameRoom] Card revealed successfully');
 
@@ -618,6 +635,10 @@ export default function GameRoom() {
     publicKey,
     generateRevealProof,
     revealCard,
+    revealCardWithSession,        // FIX: Added for dealer session auto-sign
+    isDealerSessionValid,         // FIX: Added for dealer session auto-sign
+    dealerSessionKeypair,         // FIX: Added for dealer session auto-sign
+    dealerSessionPDA,             // FIX: Added for dealer session auto-sign
     fetchGame
   ]);
 
