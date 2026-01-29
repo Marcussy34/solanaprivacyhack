@@ -514,6 +514,40 @@ export function useGameProgram() {
     [program, wallet.publicKey, getGamePda]
   );
 
+  /**
+   * Get joinGame instruction for bundling with other transactions
+   * This does NOT execute - returns instruction for manual bundling
+   *
+   * @param {string} gameId - Game ID
+   * @param {string|PublicKey} dealerPubkey - Dealer's public key
+   * @returns {Object} { ix, gamePda }
+   */
+  const joinGameInstruction = useCallback(
+    async (gameId, dealerPubkey) => {
+      if (!program || !wallet.publicKey) {
+        throw new Error("Wallet not connected");
+      }
+
+      if (!dealerPubkey) {
+        throw new Error("Dealer public key required to join game");
+      }
+
+      const dealer = new PublicKey(dealerPubkey);
+      const gamePda = getGamePda(gameId, dealer);
+
+      const ix = await program.methods
+        .joinGame()
+        .accounts({
+          game: gamePda,
+          player: wallet.publicKey,
+        })
+        .instruction();
+
+      return { ix, gamePda };
+    },
+    [program, wallet.publicKey, getGamePda]
+  );
+
   // Deal initial hand + commit cards for future hits (dealer action)
   // Commits 10 cards, deals first 4 (2 player, 2 dealer)
   // Auto-reveals player's 2 cards + dealer's upcard for standard Blackjack UX
@@ -1301,6 +1335,7 @@ export function useGameProgram() {
     createGame,
     verifyShuffle,
     joinGame,
+    joinGameInstruction,  // For bundling with other transactions
     dealInitialHand,
     playerAction,
     playerActionWithSession, // Session key auto-sign (no wallet popup!)

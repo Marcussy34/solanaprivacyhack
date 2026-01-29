@@ -16,6 +16,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/router';
 import Head from 'next/head';
 import { useWallet, useConnection } from '@solana/wallet-adapter-react';
+import { Transaction, SystemProgram } from '@solana/web3.js';
 import { WalletMultiButton } from '@solana/wallet-adapter-react-ui';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -193,7 +194,7 @@ export default function GameRoom() {
   const router = useRouter();
   const { roomId, role: initialRole, dealer: dealerFromUrl, bet: betFromUrl } = router.query;
 
-  const { publicKey, connected, signMessage } = useWallet();
+  const { publicKey, connected, signMessage, signTransaction } = useWallet();
   const { connection } = useConnection();
 
   // Room management
@@ -238,6 +239,7 @@ export default function GameRoom() {
     verifyShuffle,
     verifyShuffleWithSession, // Dealer auto-sign
     joinGame,
+    joinGameInstruction, // For bundling with session creation
     dealInitialHand,
     dealInitialHandWithSession, // Dealer auto-sign
     playerAction,
@@ -266,6 +268,8 @@ export default function GameRoom() {
     sessionPDA,
     isSessionValid,
     createSession,
+    createSessionInstruction, // For bundling with joinGame
+    setSessionState,          // For updating state after bundled tx
     endSession,
     isCreating: isCreatingSession,
     // Dealer session (for shuffle/deal/reveal)
@@ -275,6 +279,8 @@ export default function GameRoom() {
     createDealerSession,
     endDealerSession,
     isCreatingDealerSession,
+    // Constants for bundling
+    SESSION_FUND_LAMPORTS,
   } = useSessionKey(program, devnetConnection);
 
   // Local state
@@ -828,23 +834,68 @@ export default function GameRoom() {
       const derivedGameId = roomCodeToGameId(roomId);
       console.log('[GameRoom] Joining game on-chain with gameId:', derivedGameId);
 
-      // Join game on-chain - this updates the game state so dealer can detect
-      // Pass bet amount so it's stored on-chain for cross-browser access
-      await joinGame(derivedGameId, dealerPubkey, amount);
-      console.log('[GameRoom] Joined game on-chain successfully with bet:', amount, 'SOL');
-
       // Set local gameId for state tracking
       setGameId(derivedGameId);
 
-      // Create session key for auto-signing (no wallet popups for hit/stand!)
+      // Bundle joinGame + createSession + fund into single transaction!
+      // This reduces 3 popups to 1 popup after ShadowWire payment
+      setProofPhase('Setting up game...');
+      const gamePda = getGamePda(derivedGameId, dealerPubkey);
+
       try {
-        setProofPhase('Setting up auto-sign...');
-        const gamePda = getGamePda(derivedGameId, dealerPubkey);
-        await createSession(gamePda);
-        console.log('[GameRoom] ✅ Session created - game actions will auto-sign!');
-      } catch (sessionErr) {
-        // Session creation failed - game still works, just needs manual signing
-        console.warn('[GameRoom] Session creation failed, will use manual signing:', sessionErr.message);
+        // Get all instructions (no popups yet)
+        const { ix: joinIx } = await joinGameInstruction(derivedGameId, dealerPubkey);
+        const { ix: createSessionIx, keypair, sessionPda, validUntil } = await createSessionInstruction(gamePda);
+        const fundIx = SystemProgram.transfer({
+          fromPubkey: publicKey,
+          toPubkey: keypair.publicKey,
+          lamports: SESSION_FUND_LAMPORTS,
+        });
+
+        // Bundle all 3 into single transaction
+        console.log('[GameRoom] Bundling joinGame + createSession + fund into 1 transaction...');
+        console.log('[GameRoom] Fund amount:', SESSION_FUND_LAMPORTS, 'lamports');
+        console.log('[GameRoom] Session keypair pubkey:', keypair.publicKey.toBase58());
+        console.log('[GameRoom] Session PDA:', sessionPda.toBase58());
+        console.log('[GameRoom] Game PDA:', gamePda.toBase58());
+        const bundledTx = new Transaction().add(fundIx, joinIx, createSessionIx);
+
+        const { blockhash, lastValidBlockHeight } = await devnetConnection.getLatestBlockhash();
+        bundledTx.recentBlockhash = blockhash;
+        bundledTx.feePayer = publicKey;
+
+        // Only 1 popup for all 3 operations!
+        const signedTx = await signTransaction(bundledTx);
+        const txSig = await devnetConnection.sendRawTransaction(signedTx.serialize());
+        await devnetConnection.confirmTransaction({
+          signature: txSig,
+          blockhash,
+          lastValidBlockHeight,
+        }, 'confirmed');
+
+        console.log('[GameRoom] ✅ Bundled tx confirmed:', txSig);
+        console.log('[GameRoom] ✅ Joined game + session created in 1 popup!');
+
+        // Update session state so hit/stand can use auto-sign
+        setSessionState(keypair, sessionPda, validUntil);
+        console.log('[GameRoom] ✅ Session state updated - game actions will auto-sign!');
+
+      } catch (bundleErr) {
+        // DEBUG: Log detailed error info to identify why bundled tx fails
+        console.error('[GameRoom] ❌ Bundled transaction FAILED:', bundleErr);
+        console.error('[GameRoom] Error name:', bundleErr.name);
+        console.error('[GameRoom] Error message:', bundleErr.message);
+        console.error('[GameRoom] Error logs:', bundleErr.logs); // Solana program logs
+        console.error('[GameRoom] Full error:', JSON.stringify(bundleErr, Object.getOwnPropertyNames(bundleErr), 2));
+
+        // Fallback to sequential if bundling fails
+        console.log('[GameRoom] ⚠️ Falling back to sequential transactions...');
+        await joinGame(derivedGameId, dealerPubkey, amount);
+        try {
+          await createSession(gamePda);
+        } catch (sessionErr) {
+          console.warn('[GameRoom] Session creation failed, will use manual signing:', sessionErr.message);
+        }
       }
       setProofPhase(null);
 
@@ -1084,6 +1135,10 @@ export default function GameRoom() {
     publicKey,
     generateRevealProof,
     dealerPlayTurnSequential,
+    dealerPlayTurnSequentialWithSession,  // FIX: Added for session auto-sign
+    isDealerSessionValid,                  // FIX: Added for session auto-sign
+    dealerSessionKeypair,                  // FIX: Added for session auto-sign
+    dealerSessionPDA,                      // FIX: Added for session auto-sign
     fetchGame
   ]);
 

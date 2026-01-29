@@ -131,8 +131,8 @@ export function useSessionKey(program, devnetConnection) {
       const validUntil = Math.floor(Date.now() / 1000) + SESSION_DURATION_SECS;
       console.log('[Session] Valid until:', new Date(validUntil * 1000).toISOString());
 
-      // 4. Create session on-chain (THIS is the one signature needed)
-      const tx = await program.methods
+      // 4. Get session instruction (NOT .rpc() - we'll bundle with fund)
+      const createSessionIx = await program.methods
         .createSession(keypair.publicKey, new BN(validUntil))
         .accounts({
           session: sessionPda,
@@ -140,39 +140,35 @@ export function useSessionKey(program, devnetConnection) {
           player: wallet.publicKey,
           systemProgram: SystemProgram.programId,
         })
-        .rpc();
+        .instruction();
 
-      console.log('[Session] Session created on-chain:', tx);
-
-      // 5. Fund session keypair for transaction fees ON DEVNET
+      // 5. Create fund instruction
       // IMPORTANT: Must use devnetConnection because game runs on devnet!
-      // wallet.sendTransaction would use mainnet (wrong network)
-      console.log('[Session] Funding session keypair with', SESSION_FUND_LAMPORTS / LAMPORTS_PER_SOL, 'SOL on DEVNET...');
+      const fundIx = SystemProgram.transfer({
+        fromPubkey: wallet.publicKey,
+        toPubkey: keypair.publicKey,
+        lamports: SESSION_FUND_LAMPORTS,
+      });
 
-      const fundTx = new Transaction().add(
-        SystemProgram.transfer({
-          fromPubkey: wallet.publicKey,
-          toPubkey: keypair.publicKey,
-          lamports: SESSION_FUND_LAMPORTS,
-        })
-      );
+      // 6. Bundle BOTH into single transaction (1 popup instead of 2!)
+      console.log('[Session] Bundling createSession + fund into single transaction...');
+      const bundledTx = new Transaction().add(fundIx, createSessionIx);
 
       // Get blockhash from DEVNET (not mainnet!)
       const { blockhash, lastValidBlockHeight } = await devnetConnection.getLatestBlockhash();
-      fundTx.recentBlockhash = blockhash;
-      fundTx.feePayer = wallet.publicKey;
+      bundledTx.recentBlockhash = blockhash;
+      bundledTx.feePayer = wallet.publicKey;
 
-      // Sign with wallet adapter, then send to DEVNET manually
-      // (wallet.sendTransaction would use the wrong network)
-      const signedFundTx = await wallet.signTransaction(fundTx);
-      const fundSig = await devnetConnection.sendRawTransaction(signedFundTx.serialize());
+      // Only 1 wallet popup for both operations!
+      const signedTx = await wallet.signTransaction(bundledTx);
+      const txSig = await devnetConnection.sendRawTransaction(signedTx.serialize());
       await devnetConnection.confirmTransaction({
-        signature: fundSig,
+        signature: txSig,
         blockhash,
         lastValidBlockHeight,
       }, 'confirmed');
 
-      console.log('[Session] Session keypair funded on DEVNET:', fundSig);
+      console.log('[Session] Session created + funded in 1 tx:', txSig);
 
       // 6. Store session state
       setSessionKeypair(keypair);
@@ -185,8 +181,7 @@ export function useSessionKey(program, devnetConnection) {
         keypair,
         sessionPda,
         validUntil,
-        createTx: tx,
-        fundTx: fundSig,
+        tx: txSig,  // Single bundled transaction
       };
 
     } catch (err) {
@@ -197,6 +192,63 @@ export function useSessionKey(program, devnetConnection) {
       setIsCreating(false);
     }
   }, [wallet, program, devnetConnection]);
+
+  /**
+   * Set session state after a bundled transaction
+   * Call this after successfully submitting a bundled transaction that includes createSession
+   *
+   * @param {Keypair} keypair - Session keypair
+   * @param {PublicKey} sessionPda - Session PDA
+   * @param {number} validUntil - Unix timestamp when session expires
+   */
+  const setSessionState = useCallback((keypair, sessionPda, validUntil) => {
+    console.log('[Session] Setting session state from bundled transaction');
+    setSessionKeypair(keypair);
+    setSessionPDA(sessionPda);
+    setSessionExpiry(validUntil);
+  }, []);
+
+  /**
+   * Get session creation instruction (for bundling with other transactions)
+   * This does NOT execute - returns instruction for manual bundling
+   *
+   * @param {PublicKey} gamePda - The game PDA to create session for
+   * @returns {Object} { ix, keypair, sessionPda, validUntil }
+   */
+  const createSessionInstruction = useCallback(async (gamePda) => {
+    if (!wallet.publicKey || !program) {
+      throw new Error('Wallet or program not ready');
+    }
+
+    // 1. Generate ephemeral keypair
+    const keypair = Keypair.generate();
+
+    // 2. Calculate session PDA
+    const [sessionPda] = PublicKey.findProgramAddressSync(
+      [
+        Buffer.from('session'),
+        gamePda.toBuffer(),
+        wallet.publicKey.toBuffer(),
+      ],
+      PROGRAM_ID
+    );
+
+    // 3. Calculate expiry
+    const validUntil = Math.floor(Date.now() / 1000) + SESSION_DURATION_SECS;
+
+    // 4. Get instruction (not .rpc())
+    const ix = await program.methods
+      .createSession(keypair.publicKey, new BN(validUntil))
+      .accounts({
+        session: sessionPda,
+        game: gamePda,
+        player: wallet.publicKey,
+        systemProgram: SystemProgram.programId,
+      })
+      .instruction();
+
+    return { ix, keypair, sessionPda, validUntil };
+  }, [wallet, program]);
 
   /**
    * Create a new DEALER session for the given game
@@ -239,8 +291,8 @@ export function useSessionKey(program, devnetConnection) {
       const validUntil = Math.floor(Date.now() / 1000) + SESSION_DURATION_SECS;
       console.log('[DealerSession] Valid until:', new Date(validUntil * 1000).toISOString());
 
-      // 4. Create dealer session on-chain
-      const tx = await program.methods
+      // 4. Get dealer session instruction (NOT .rpc() - we'll bundle with fund)
+      const createSessionIx = await program.methods
         .createDealerSession(keypair.publicKey, new BN(validUntil))
         .accounts({
           session: sessionPda,
@@ -248,34 +300,33 @@ export function useSessionKey(program, devnetConnection) {
           dealer: wallet.publicKey,
           systemProgram: SystemProgram.programId,
         })
-        .rpc();
+        .instruction();
 
-      console.log('[DealerSession] Session created on-chain:', tx);
+      // 5. Create fund instruction
+      const fundIx = SystemProgram.transfer({
+        fromPubkey: wallet.publicKey,
+        toPubkey: keypair.publicKey,
+        lamports: SESSION_FUND_LAMPORTS,
+      });
 
-      // 5. Fund session keypair for transaction fees ON DEVNET
-      console.log('[DealerSession] Funding session keypair with', SESSION_FUND_LAMPORTS / LAMPORTS_PER_SOL, 'SOL on DEVNET...');
-
-      const fundTx = new Transaction().add(
-        SystemProgram.transfer({
-          fromPubkey: wallet.publicKey,
-          toPubkey: keypair.publicKey,
-          lamports: SESSION_FUND_LAMPORTS,
-        })
-      );
+      // 6. Bundle BOTH into single transaction (1 popup instead of 2!)
+      console.log('[DealerSession] Bundling createDealerSession + fund into single transaction...');
+      const bundledTx = new Transaction().add(fundIx, createSessionIx);
 
       const { blockhash, lastValidBlockHeight } = await devnetConnection.getLatestBlockhash();
-      fundTx.recentBlockhash = blockhash;
-      fundTx.feePayer = wallet.publicKey;
+      bundledTx.recentBlockhash = blockhash;
+      bundledTx.feePayer = wallet.publicKey;
 
-      const signedFundTx = await wallet.signTransaction(fundTx);
-      const fundSig = await devnetConnection.sendRawTransaction(signedFundTx.serialize());
+      // Only 1 wallet popup for both operations!
+      const signedTx = await wallet.signTransaction(bundledTx);
+      const txSig = await devnetConnection.sendRawTransaction(signedTx.serialize());
       await devnetConnection.confirmTransaction({
-        signature: fundSig,
+        signature: txSig,
         blockhash,
         lastValidBlockHeight,
       }, 'confirmed');
 
-      console.log('[DealerSession] Session keypair funded on DEVNET:', fundSig);
+      console.log('[DealerSession] Session created + funded in 1 tx:', txSig);
 
       // 6. Store dealer session state
       setDealerSessionKeypair(keypair);
@@ -288,8 +339,7 @@ export function useSessionKey(program, devnetConnection) {
         keypair,
         sessionPda,
         validUntil,
-        createTx: tx,
-        fundTx: fundSig,
+        tx: txSig,  // Single bundled transaction
       };
 
     } catch (err) {
@@ -417,6 +467,8 @@ export function useSessionKey(program, devnetConnection) {
 
     // Player session actions
     createSession,
+    createSessionInstruction,  // For bundling with other transactions
+    setSessionState,           // For updating state after bundled transaction
     endSession,
     signWithSession,
     getSessionBalance,
@@ -436,6 +488,7 @@ export function useSessionKey(program, devnetConnection) {
 
     // Constants
     SESSION_DURATION_SECS,
+    SESSION_FUND_LAMPORTS,  // For bundling fund transfer
     PROGRAM_ID,
   };
 }
