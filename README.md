@@ -4,7 +4,7 @@
 
 **Decentralized, trustless casino gaming powered by Noir ZK circuits and ShadowWire privacy**
 
-Check out the live demo of **Umbra**: 👉 [Click here to try it out](http://localhost:3000)
+Check out the live demo of **Umbra**: 👉 [Click here to try it out](https://zkumbra.vercel.app)
 
 >This application uses Zero-Knowledge Proofs (Noir) to ensure fairness without revealing the deck, and ShadowWire for private transactions.
 
