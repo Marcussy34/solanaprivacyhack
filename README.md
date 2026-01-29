@@ -6,7 +6,7 @@
 
 Check out the live demo of **Umbra**: 👉 [Click here to try it out](http://localhost:3000)
 
->This application uses Zero-Knowledge Proofs to ensure fairness without revealing the deck, and ShadowWire for private transactions.
+>This application uses Zero-Knowledge Proofs (Noir) to ensure fairness without revealing the deck, and ShadowWire for private transactions.
 
 ## The ZK Casino Experience 🎲
 
