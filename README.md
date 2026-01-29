@@ -804,7 +804,7 @@ gantt
     section Game Setup
     Generate seed & shuffle     :a1, 0, 1
     Compute deck commitment     :a2, after a1, 1
-    Generate shuffle proof      :crit, a3, after a2, 45
+    Generate shuffle proof      :crit, a3, after a2, 1
     Create game tx              :a4, after a3, 2
     Verify shuffle tx           :a5, after a4, 2
 
@@ -812,34 +812,34 @@ gantt
     Join game tx                :b1, after a5, 2
 
     section Initial Deal
-    Compute 10 commitments      :c1, after b1, 5
-    Generate deal proof         :crit, c2, after c1, 45
+    Compute 10 commitments      :c1, after b1, 1
+    Generate deal proof         :crit, c2, after c1, 1
     Deal hand tx                :c3, after c2, 2
 
     section Player Hits (x2)
     Player hit tx               :d1, after c3, 2
-    Generate reveal proof       :crit, d2, after d1, 20
+    Generate reveal proof       :crit, d2, after d1, 1
     Reveal card tx              :d3, after d2, 2
     Player hit tx               :d4, after d3, 2
-    Generate reveal proof       :crit, d5, after d4, 20
+    Generate reveal proof       :crit, d5, after d4, 1
     Reveal card tx              :d6, after d5, 2
 
     section Dealer Turn
-    Reveal hole card proof      :crit, e1, after d6, 20
+    Reveal hole card proof      :crit, e1, after d6, 1
     Dealer play tx              :e2, after e1, 2
-    Reveal hit card proof       :crit, e3, after e2, 20
+    Reveal hit card proof       :crit, e3, after e2, 1
     Dealer play tx              :e4, after e3, 2
     Determine winner            :e5, after e4, 1
 ```
 
 | Stage | Operations | Time |
 |-------|------------|------|
-| **Game Creation** | Shuffle + proof + 2 txs | ~50s |
-| **Player Join** | 1 tx | ~2s |
-| **Initial Deal** | 10 commitments + proof + tx | ~55s |
-| **Per Player Hit** | Reveal proof + tx | ~25s |
-| **Dealer Turn** | 2-4 reveal proofs + txs | ~50-100s |
-| **Total (worst case)** | Full game with multiple hits | **3-5 minutes** |
+| **Game Creation** | Shuffle + proof + 2 txs | ~2s |
+| **Player Join** | 1 tx | ~1s |
+| **Initial Deal** | 10 commitments + proof + tx | ~2s |
+| **Per Player Hit** | Reveal proof + tx | ~1s |
+| **Dealer Turn** | 2-4 reveal proofs + txs | ~3s |
+| **Total (worst case)** | Full game with multiple hits | **< 20 seconds** |
 
 ## Technology Stack 🛠️
 
