@@ -859,6 +859,7 @@ gantt
 - **Framer Motion** - Animations
 - **Lucide React** - Icons
 - **Vercel** - Deployment platform
+- **Helius** - High-performance Solana RPC & Webhooks
 
 ### Zero-Knowledge (ZK)
 - **Noir** - Domain-specific language for ZK circuits
