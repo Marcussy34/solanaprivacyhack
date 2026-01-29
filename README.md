@@ -735,6 +735,8 @@ flowchart TD
 | **Dealer Turn** | 2-4 reveal proofs + txs | ~3s |
 | **Total (worst case)** | Full game with multiple hits | **< 20 seconds** |
 
+> **Note:** These times represent **local execution**. The live Vercel deployment may be **2-3x slower** due to serverless cold starts, network latency between the client/proof-server, and RPC congestion.
+
 ## Technology Stack 🛠️
 
 ### Frontend
