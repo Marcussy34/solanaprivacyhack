@@ -832,7 +832,7 @@ gantt
 ## Smart Contracts 📜
 
 ### Game Logic
-**Program ID:** `8Da8a3Q9GLYuxYLXPtxKiAedZZbx5DUQCuG8TPY1dLnx`
+**Program ID:** `22BfrTbAzVmwENnyfzk6rFtPaNvCmaATbeWaJKKoqkK4`
 
 Handles the entire game lifecycle:
 - `create_game()` - Initialize with deck commitment
@@ -842,9 +842,9 @@ Handles the entire game lifecycle:
 
 ### ZK Verifiers
 Deployed verifier programs for proof validation:
-- **Shuffle Verifier:** `6sju9HLJTFfESLn49wAR2hqiC6mnu3MrP2K9WDbkjCL2`
-- **Deal Verifier:** `Epoxbrv1Pc2XeYR2xsKsqm3Gy1j2MbkBx4yHfkg8yuSC`
-- **Reveal Verifier:** `HrETBH5nTa3DTVjBFWMdytLtuX9GsFwiAGkkyQAXnMt9`
+- **Shuffle Verifier:** `5nFk288FuJQRqJhuNj4ZDkAdEjUYBYUE5g6SHkWPShbY`
+- **Deal Verifier:** `2G5piXcJxMK7qjGkibFrB44GE3wu4ZHt876qYFR4tXtg`
+- **Reveal Verifier:** `Eix22nAxj3WiGrEAxJoPjYMBTt3LMMYQQy79vWR3GDoo`
 
 ## ZK Circuits (The "Magic") 🧙‍♂️
 
