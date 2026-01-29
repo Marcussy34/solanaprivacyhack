@@ -37,7 +37,7 @@ RUN cargo install sunspot --locked
 COPY proof-server/package*.json ./
 
 # Install Node.js dependencies
-RUN npm ci --only=production
+RUN npm ci --omit=dev
 
 # Copy circuits (source files and compiled artifacts)
 COPY circuits/ ./circuits/
