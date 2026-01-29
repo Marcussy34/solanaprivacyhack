@@ -1,0 +1,16 @@
+# Render Blueprint for ZK Proof Server
+# Deploy: Go to https://dashboard.render.com/blueprints and connect this repo
+
+services:
+  - type: web
+    name: solanaprivacyhack-proof-server
+    runtime: docker
+    dockerfilePath: ./proof-server/Dockerfile
+    dockerContext: .
+    region: singapore
+    plan: free
+    branch: main
+    healthCheckPath: /health
+    envVars:
+      - key: PORT
+        value: "3001"
