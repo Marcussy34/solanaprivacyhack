@@ -21,7 +21,11 @@ import { useZK } from './useZK';
 // ============================================================================
 
 const DECK_SIZE = 13;  // Cards 0-12 (simplified deck)
-const PROVE_API_URL = '/api/prove'; // Backend Groth16 proof generation
+
+// Backend Groth16 proof generation URL
+// Uses external proof server in production (Vercel has read-only filesystem)
+// Falls back to local /api/prove for development
+const PROVE_API_URL = process.env.NEXT_PUBLIC_PROVE_API_URL || '/api/prove';
 
 // ============================================================================
 // HELPER FUNCTIONS

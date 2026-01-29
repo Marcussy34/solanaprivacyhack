@@ -1,0 +1,32 @@
+# Dependencies
+node_modules/
+
+# Git
+.git/
+.gitignore
+
+# IDE
+.vscode/
+.idea/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+
+# Local env files
+.env
+.env.local
+.env.*.local
+
+# Build outputs (we need the compiled circuits, but not temp files)
+circuits/target/witness_*.gz
+circuits/target/*.proof
+circuits/target/*.pw
+
+# Documentation
+README.md
+*.md

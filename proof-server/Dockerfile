@@ -1,0 +1,59 @@
+# ZK Proof Server Dockerfile
+# Installs nargo (Noir compiler) and sunspot (Groth16 prover) for proof generation
+
+FROM node:20-slim
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    curl \
+    git \
+    build-essential \
+    ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+# Set working directory
+WORKDIR /app
+
+# Install noirup (Noir version manager) and nargo
+# Using a specific version for reproducibility
+ENV NARGO_HOME=/app/.nargo
+ENV PATH="${NARGO_HOME}/bin:${PATH}"
+
+RUN curl -L https://raw.githubusercontent.com/noir-lang/noirup/main/install | bash \
+    && ${NARGO_HOME}/bin/noirup --version 1.0.0-beta.3
+
+# Install sunspot (Groth16 prover for Noir)
+# Sunspot is typically installed via cargo or from releases
+# For now, we'll try the cargo approach with Rust
+RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+ENV PATH="/root/.cargo/bin:${PATH}"
+
+# Install sunspot from cargo
+RUN cargo install sunspot --locked
+
+# Copy package files first for better caching
+COPY package*.json ./
+
+# Install Node.js dependencies
+RUN npm ci --only=production
+
+# Copy circuits (source files and compiled artifacts)
+COPY circuits/ ./circuits/
+
+# Copy proving keys from solana-verifiers
+COPY solana-verifiers/target/*.pk ./solana-verifiers/target/
+COPY solana-verifiers/target/*.ccs ./solana-verifiers/target/ 2>/dev/null || true
+
+# Copy server code
+COPY server.js ./
+
+# Expose port
+ENV PORT=3001
+EXPOSE 3001
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD curl -f http://localhost:3001/health || exit 1
+
+# Run server
+CMD ["node", "server.js"]
