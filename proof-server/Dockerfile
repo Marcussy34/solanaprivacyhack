@@ -25,9 +25,8 @@ RUN curl -L https://raw.githubusercontent.com/noir-lang/noirup/main/install | ba
     && ${NARGO_HOME}/bin/noirup --version 1.0.0-beta.3
 
 # Install sunspot (Groth16 prover for Noir)
-# Sunspot is typically installed via cargo or from releases
-# For now, we'll try the cargo approach with Rust
-RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+# Pin Rust to 1.75.0 - newer versions break wasm-bindgen in sunspot's dependencies
+RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain 1.75.0
 ENV PATH="/root/.cargo/bin:${PATH}"
 
 # Install sunspot from cargo
