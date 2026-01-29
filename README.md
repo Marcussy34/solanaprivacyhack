@@ -724,42 +724,7 @@ flowchart TD
 
 ### Performance & Timing
 
-```mermaid
-gantt
-    title Complete Game Timeline (Worst Case)
-    dateFormat X
-    axisFormat %s
 
-    section Game Setup
-    Generate seed & shuffle     :a1, 0, 1
-    Compute deck commitment     :a2, after a1, 1
-    Generate shuffle proof      :crit, a3, after a2, 1
-    Create game tx              :a4, after a3, 2
-    Verify shuffle tx           :a5, after a4, 2
-
-    section Player Joins
-    Join game tx                :b1, after a5, 2
-
-    section Initial Deal
-    Compute 10 commitments      :c1, after b1, 1
-    Generate deal proof         :crit, c2, after c1, 1
-    Deal hand tx                :c3, after c2, 2
-
-    section Player Hits (x2)
-    Player hit tx               :d1, after c3, 2
-    Generate reveal proof       :crit, d2, after d1, 1
-    Reveal card tx              :d3, after d2, 2
-    Player hit tx               :d4, after d3, 2
-    Generate reveal proof       :crit, d5, after d4, 1
-    Reveal card tx              :d6, after d5, 2
-
-    section Dealer Turn
-    Reveal hole card proof      :crit, e1, after d6, 1
-    Dealer play tx              :e2, after e1, 2
-    Reveal hit card proof       :crit, e3, after e2, 1
-    Dealer play tx              :e4, after e3, 2
-    Determine winner            :e5, after e4, 1
-```
 
 | Stage | Operations | Time |
 |-------|------------|------|
