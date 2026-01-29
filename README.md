@@ -6,7 +6,7 @@
 
 Check out the live demo of **Umbra**: 👉 [Click here to try it out](http://localhost:3000)
 
-> **🔒 Privacy-First:** This application uses Zero-Knowledge Proofs to ensure fairness without revealing the deck, and ShadowWire for private transactions.
+>This application uses Zero-Knowledge Proofs (Noir) to ensure fairness without revealing the deck, and ShadowWire for private transactions.
 
 ## The ZK Casino Experience 🎲
 
@@ -56,9 +56,11 @@ This exploration led us to build Umbra as a **Solana dApp** that:
 ## Features ✨
 
 ### 1. **Zero-Knowledge Shuffle**
-- The dealer shuffles a 52-card deck locally.
-- A ZK proof (`shuffle_proof`) is generated to prove the deck contains exactly one of each card (0-51).
+- The dealer shuffles a 13-card deck locally.
+- A ZK proof (`shuffle_proof`) is generated to prove the deck contains exactly one of each card (0-12).
 - The proof is verified on-chain before the game starts.
+
+> **Note:** The current implementation uses a **13-card deck (single suit)** to stay within Solana's transaction size limits. Full 52-card support is planned for future optimization.
 
 ### 2. **Trustless Dealing**
 - Cards are dealt as **encrypted commitments** (hashes).
@@ -98,11 +100,17 @@ npm run dev
 Create a `.env.local` file in the root directory:
 
 ```env
-# Solana RPC
-NEXT_PUBLIC_RPC_URL=https://api.devnet.solana.com
+# SOLANA NETWORK SETTINGS
+# Mainnet - for ShadowWire privacy payments (Using Helius RPC)
+NEXT_PUBLIC_SOLANA_NETWORK=mainnet-beta
+NEXT_PUBLIC_RPC_ENDPOINT=https://mainnet.helius-rpc.com/?api-key=<YOUR_HELIUS_API_KEY>
 
-# Optional: For ShadowWire Integration
-NEXT_PUBLIC_SHADOWWIRE_API=...
+# Devnet - for Game Programs (shuffle/deal/reveal verification)
+NEXT_PUBLIC_DEVNET_RPC_ENDPOINT=https://api.devnet.solana.com
+
+# SHADOWWIRE SETTINGS
+NEXT_PUBLIC_SHADOWWIRE_ENABLED=true
+NEXT_PUBLIC_HOUSE_WALLET_ADDRESS=<HOUSE_WALLET_PUBKEY>
 ```
 
 ### Smart Contract Deployment
@@ -116,43 +124,7 @@ anchor deploy
 
 ## System Architecture 🏗️
 
-```
-┌─────────────────┐
-│   User Action   │
-│  "Hit" / "Stand"│
-└────────┬────────┘
-         │
-         ▼
-┌─────────────────────────────┐
-│   Frontend Processing       │
-│  • Generate ZK Proof (WASM) │
-│  • Construct Transaction    │
-└────────┬────────────────────┘
-         │
-         ▼
-┌─────────────────────────────┐
-│   Noir ZK Circuits          │
-│  • Shuffle Proof            │
-│  • Deal Proof               │
-│  • Reveal Proof             │
-└────────┬────────────────────┘
-         │
-         ▼
-┌─────────────────────────────┐
-│   Solana Smart Contracts    │
-│  • Verify Proof (Groth16)   │
-│  • Update Game State        │
-│  • Settle Bets              │
-└────────┬────────────────────┘
-         │
-         ▼
-┌─────────────────────────────┐
-│   Blockchain Confirmation   │
-│  • Wallet Signature         │
-│  • On-Chain Verification    │
-│  • Event Emission           │
-└─────────────────────────────┘
-```
+![System Architecture](public/Architecture_diagram.png)
 
 ## Technical Gameplay Flow 🎮
 
@@ -432,82 +404,7 @@ sequenceDiagram
     end
 ```
 
-### Game State Machine
 
-```mermaid
-stateDiagram-v2
-    [*] --> Created: createGame()
-
-    Created --> AwaitingPlayer: verifyShuffle()
-    note right of Created
-        Dealer has shuffled deck
-        Shuffle proof verified on-chain
-        Deck commitment stored
-    end note
-
-    AwaitingPlayer --> Playing: joinGame()
-    note right of AwaitingPlayer
-        Waiting for player to join
-        Game code can be shared
-    end note
-
-    Playing --> Playing: playerAction(Hit)
-    note right of Playing
-        Player's turn
-        Can Hit, Stand, or Double
-        Dealer auto-reveals hit cards
-    end note
-
-    Playing --> DealerTurn: playerAction(Stand)
-    Playing --> DealerTurn: playerAction(Double)
-    Playing --> DealerWon: Player busts (>21)
-
-    DealerTurn --> DealerTurn: dealerPlayTurn() [total < 17]
-    note right of DealerTurn
-        Dealer reveals hole card
-        Hits until >= 17
-        Sequential proofs required
-    end note
-
-    DealerTurn --> PlayerWon: Dealer busts (>21)
-    DealerTurn --> PlayerWon: Player total > Dealer total
-    DealerTurn --> DealerWon: Dealer total > Player total
-    DealerTurn --> Push: Player total == Dealer total
-
-    PlayerWon --> [*]
-    DealerWon --> [*]
-    Push --> [*]
-```
-
-### Hand Value Calculation
-
-```mermaid
-flowchart TD
-    A[Start with cards] --> B[Sum all card values]
-    B --> C{Card == Ace?}
-    C -->|Yes| D[Count as 11, track ace count]
-    C -->|No| E{Card >= 10?}
-    E -->|Yes| F[Count as 10]
-    E -->|No| G[Count as face value]
-
-    D --> H[Continue to next card]
-    F --> H
-    G --> H
-
-    H --> I{More cards?}
-    I -->|Yes| C
-    I -->|No| J{Total > 21?}
-
-    J -->|Yes| K{Aces counted as 11?}
-    K -->|Yes| L[Demote one ace: total -= 10]
-    L --> J
-    K -->|No| M[BUST!]
-
-    J -->|No| N[Return total]
-
-    style M fill:#ff6b6b
-    style N fill:#51cf66
-```
 
 ## ZK Proof Generation Pipeline 🔐
 
@@ -851,6 +748,7 @@ gantt
 - **Framer Motion** - Animations
 - **Lucide React** - Icons
 - **Vercel** - Deployment platform
+- **Helius** - High-performance Solana RPC & Webhooks
 
 ### Zero-Knowledge (ZK)
 - **Noir** - Domain-specific language for ZK circuits
@@ -870,7 +768,7 @@ gantt
 ## Smart Contracts 📜
 
 ### Game Logic
-**Program ID:** `8Da8a3Q9GLYuxYLXPtxKiAedZZbx5DUQCuG8TPY1dLnx`
+**Program ID:** `22BfrTbAzVmwENnyfzk6rFtPaNvCmaATbeWaJKKoqkK4`
 
 Handles the entire game lifecycle:
 - `create_game()` - Initialize with deck commitment
@@ -880,9 +778,9 @@ Handles the entire game lifecycle:
 
 ### ZK Verifiers
 Deployed verifier programs for proof validation:
-- **Shuffle Verifier:** `6sju9HLJTFfESLn49wAR2hqiC6mnu3MrP2K9WDbkjCL2`
-- **Deal Verifier:** `Epoxbrv1Pc2XeYR2xsKsqm3Gy1j2MbkBx4yHfkg8yuSC`
-- **Reveal Verifier:** `HrETBH5nTa3DTVjBFWMdytLtuX9GsFwiAGkkyQAXnMt9`
+- **Shuffle Verifier:** `5nFk288FuJQRqJhuNj4ZDkAdEjUYBYUE5g6SHkWPShbY`
+- **Deal Verifier:** `2G5piXcJxMK7qjGkibFrB44GE3wu4ZHt876qYFR4tXtg`
+- **Reveal Verifier:** `Eix22nAxj3WiGrEAxJoPjYMBTt3LMMYQQy79vWR3GDoo`
 
 ## ZK Circuits (The "Magic") 🧙‍♂️
 
@@ -890,9 +788,9 @@ ZK Card Arena uses three core circuits to ensure fairness:
 
 ### 1. **Shuffle Proof** (`shuffle_proof`)
 ```rust
-Input: [52 card values, salt]
+Input: [13 card values, salt]
 Output: deck_commitment (Poseidon Hash)
-Proof: "I know a set of 52 cards that contains exactly one of each rank/suit, and this hash represents them."
+Proof: "I know a set of 13 cards that contains exactly one of each rank/suit, and this hash represents them."
 ```
 
 ### 2. **Deal Proof** (`deal_proof`)
