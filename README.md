@@ -57,8 +57,10 @@ This exploration led us to build Umbra as a **Solana dApp** that:
 
 ### 1. **Zero-Knowledge Shuffle**
 - The dealer shuffles a 52-card deck locally.
-- A ZK proof (`shuffle_proof`) is generated to prove the deck contains exactly one of each card (0-51).
+- A ZK proof (`shuffle_proof`) is generated to prove the deck contains exactly one of each card (0-12).
 - The proof is verified on-chain before the game starts.
+
+> **Note:** The current implementation uses a **13-card deck (single suit)** to stay within Solana's transaction size limits. Full 52-card support is planned for future optimization.
 
 ### 2. **Trustless Dealing**
 - Cards are dealt as **encrypted commitments** (hashes).
