@@ -751,7 +751,7 @@ flowchart TD
         S3[✅ No missing cards]
         S4[✅ Commitment binds to specific order]
         S5[✅ Order remains hidden]
-        S6[❌ Does NOT prove randomness]
+
     end
 
     subgraph Deal["deal_proof Guarantees"]
@@ -776,7 +776,7 @@ flowchart TD
         P4[⚡ 5-8x cheaper than SHA256 in ZK]
     end
 
-    style S6 fill:#ff6b6b
+
     style S1 fill:#51cf66
     style S2 fill:#51cf66
     style S3 fill:#51cf66
