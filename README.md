@@ -56,7 +56,7 @@ This exploration led us to build Umbra as a **Solana dApp** that:
 ## Features ✨
 
 ### 1. **Zero-Knowledge Shuffle**
-- The dealer shuffles a 52-card deck locally.
+- The dealer shuffles a 13-card deck locally.
 - A ZK proof (`shuffle_proof`) is generated to prove the deck contains exactly one of each card (0-12).
 - The proof is verified on-chain before the game starts.
 
@@ -927,9 +927,9 @@ ZK Card Arena uses three core circuits to ensure fairness:
 
 ### 1. **Shuffle Proof** (`shuffle_proof`)
 ```rust
-Input: [52 card values, salt]
+Input: [13 card values, salt]
 Output: deck_commitment (Poseidon Hash)
-Proof: "I know a set of 52 cards that contains exactly one of each rank/suit, and this hash represents them."
+Proof: "I know a set of 13 cards that contains exactly one of each rank/suit, and this hash represents them."
 ```
 
 ### 2. **Deal Proof** (`deal_proof`)
