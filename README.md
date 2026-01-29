@@ -124,71 +124,7 @@ anchor deploy
 
 ## System Architecture 🏗️
 
-```mermaid
-graph TD
-    subgraph Client["🖥️ Client (Browser)"]
-        style Client fill:#1e293b,stroke:#334155,color:#fff
-        UI[("React UI")]
-        subgraph ZK_Engine["🔐 ZK Engine (WASM)"]
-            style ZK_Engine fill:#0f172a,stroke:#475569,color:#cbd5e1
-            Noir[("NoirJS")]
-            SW_SDK[("ShadowWire SDK")]
-        end
-        Wallet[("Phantom/Backpack")]
-    end
-
-    subgraph Infra["☁️ Infrastructure"]
-        style Infra fill:#1e293b,stroke:#334155,color:#fff
-        RPC[("⚡ Helius RPC")]
-    end
-
-    subgraph Solana["⛓️ Solana Blockchain"]
-        style Solana fill:#0f172a,stroke:#6366f1,color:#fff
-        
-        subgraph Game_Logic["🎮 Game Logic (Anchor)"]
-            style Game_Logic fill:#1e1b4b,stroke:#4f46e5,color:#c7d2fe
-            Main_Prog[("zk-card-arena")]
-            State[("Game State PDA")]
-        end
-        
-        subgraph Verifiers["✅ ZK Verifiers (Sunspot)"]
-            style Verifiers fill:#064e3b,stroke:#10b981,color:#d1fae5
-            SV[("Shuffle Verifier")]
-            DV[("Deal Verifier")]
-            RV[("Reveal Verifier")]
-        end
-
-        subgraph Privacy["🕵️ Privacy Layer"]
-            style Privacy fill:#312e81,stroke:#6366f1,color:#e0e7ff
-            SW_Prog[("ShadowWire Program")]
-            Pool[("Privacy Pool")]
-        end
-    end
-
-    %% Flows
-    UI -->|1. User Action| Noir
-    UI -->|1. Place Bet| SW_SDK
-    
-    Noir -->|2. Generate Proof| Wallet
-    SW_SDK -->|2. Generate Shielded Tx| Wallet
-    
-    Wallet -->|3. Signed Tx| RPC
-    RPC -->|4. Send Tx| Main_Prog
-    RPC -->|4. Send Tx| SW_Prog
-
-    Main_Prog -->|5. Verify Proof| SV
-    Main_Prog -->|5. Verify Proof| DV
-    Main_Prog -->|5. Verify Proof| RV
-    
-    Main_Prog -->|6. Update| State
-    SW_Prog -->|6. Update| Pool
-
-    %% Styling
-    style UI fill:#3b82f6,stroke:#2563eb,color:#fff
-    style Wallet fill:#a855f7,stroke:#9333ea,color:#fff
-    style RPC fill:#f59e0b,stroke:#d97706,color:#fff
-    style Main_Prog fill:#ef4444,stroke:#dc2626,color:#fff
-```
+![System Architecture](public/Architecture_diagram.png)
 
 ## Technical Gameplay Flow 🎮
 
