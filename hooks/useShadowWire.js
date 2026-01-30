@@ -28,7 +28,7 @@ import { Buffer } from 'buffer';
 // CONFIGURATION
 // =============================================================================
 
-const SHADOWWIRE_ENABLED = process.env.NEXT_PUBLIC_SHADOWWIRE_ENABLED === 'true';
+const SHADOWWIRE_ENABLED = process.env.NEXT_PUBLIC_SHADOWWIRE_ENABLED === 'true' || true;
 
 // ShadowWire only supports mainnet-beta (not devnet/testnet)
 const SOLANA_NETWORK = process.env.NEXT_PUBLIC_SOLANA_NETWORK || 'devnet';
