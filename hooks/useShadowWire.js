@@ -448,15 +448,15 @@ export function useShadowWire() {
           })
         );
 
-        // Get recent blockhash
-        const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash();
-        transaction.recentBlockhash = blockhash;
+        // Don't set blockhash manually - wallet adapter sets it right before signing
+        // This avoids blockhash expiry during the wallet popup delay
         transaction.feePayer = publicKey;
 
-        // Send via wallet adapter
+        // Send via wallet adapter (handles blockhash internally)
         txSignature = await sendTransaction(transaction, connection);
 
-        // Confirm transaction
+        // Get FRESH blockhash for confirmation polling (tx already sent to network)
+        const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash();
         await connection.confirmTransaction({
           signature: txSignature,
           blockhash,
