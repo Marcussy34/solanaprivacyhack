@@ -266,6 +266,14 @@ export function useShadowWire() {
 
       let shadowWireAttempted = false;
 
+      // DEBUG: Log right before the gate check (visible during payment)
+      console.log('[ShadowWire] Gate check:', {
+        SHADOWWIRE_ENABLED,
+        IS_MAINNET,
+        SOLANA_NETWORK,
+        gate: SHADOWWIRE_ENABLED && IS_MAINNET,
+      });
+
       if (SHADOWWIRE_ENABLED && IS_MAINNET) {
         const client = await getShadowWireClient();
 
