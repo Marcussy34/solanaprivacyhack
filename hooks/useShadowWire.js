@@ -35,6 +35,16 @@ const SOLANA_NETWORK = process.env.NEXT_PUBLIC_SOLANA_NETWORK || 'devnet';
 const IS_MAINNET = SOLANA_NETWORK === 'mainnet-beta' || SOLANA_NETWORK === 'mainnet';
 const SHADOWWIRE_AVAILABLE = SHADOWWIRE_ENABLED && IS_MAINNET;
 
+// Debug: Log config at module load to verify build-time env var injection
+console.log('[ShadowWire] Build config:', {
+  SHADOWWIRE_ENABLED,
+  SOLANA_NETWORK,
+  IS_MAINNET,
+  SHADOWWIRE_AVAILABLE,
+  raw_enabled: process.env.NEXT_PUBLIC_SHADOWWIRE_ENABLED,
+  raw_network: process.env.NEXT_PUBLIC_SOLANA_NETWORK,
+});
+
 // House wallet receives all bets - configured via env
 const HOUSE_WALLET_ADDRESS = process.env.NEXT_PUBLIC_HOUSE_WALLET_ADDRESS
   || 'BzfKZnxJwsbP5BWy7tb5KFYNuHKcUXDecEX7b2h4eE14';
